@@ -1,0 +1,13 @@
+/.git
+/.github
+/assets
+/node_modules
+/vendor
+/.distignore
+/.gitignore
+composer.json
+composer.lock
+phpcs.xml.dist
+build-zip.sh
+CHANGELOG.md
+README.md

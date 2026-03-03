@@ -1,0 +1,184 @@
+/* AEO Content AI Studio - Admin Styles */
+
+.aeo-settings h1 {
+    margin-bottom: 1em;
+}
+
+.aeo-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 24px;
+    font-weight: 500;
+}
+
+.aeo-status-bar.aeo-connected {
+    background: #e6f4ea;
+    border: 1px solid #34a853;
+    color: #137333;
+}
+
+.aeo-status-bar.aeo-disconnected {
+    background: #fce8e6;
+    border: 1px solid #ea4335;
+    color: #a50e0e;
+}
+
+.aeo-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.aeo-connected .aeo-status-dot {
+    background: #34a853;
+}
+
+.aeo-disconnected .aeo-status-dot {
+    background: #ea4335;
+}
+
+.aeo-version {
+    margin-left: auto;
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.aeo-features-table td label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.aeo-features-table input[type="checkbox"] {
+    margin-top: 2px;
+}
+
+.aeo-status-table {
+    max-width: 600px;
+}
+
+.aeo-status-table td:first-child {
+    width: 200px;
+}
+
+/* ─── Activity Log ───────────────────────────────────── */
+
+.aeo-log-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.aeo-stat-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 24px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    min-width: 120px;
+}
+
+.aeo-stat-number {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1d2327;
+    line-height: 1.2;
+}
+
+.aeo-stat-number.aeo-stat-success {
+    color: #34a853;
+}
+
+.aeo-stat-number.aeo-stat-time {
+    font-size: 16px;
+}
+
+.aeo-stat-label {
+    font-size: 12px;
+    color: #646970;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.aeo-log-filters {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.aeo-log-filters select,
+.aeo-log-filters input[type="date"] {
+    max-width: 180px;
+}
+
+.aeo-log-table {
+    margin-top: 0;
+}
+
+.aeo-log-command {
+    background: #f0f0f1;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.aeo-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.aeo-badge-success {
+    background: #e6f4ea;
+    color: #137333;
+}
+
+.aeo-badge-error {
+    background: #fce8e6;
+    color: #a50e0e;
+}
+
+.aeo-log-details {
+    display: inline-block;
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    background: #f6f7f7;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.aeo-log-muted {
+    color: #a7aaad;
+}
+
+.aeo-log-pagination {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-top: 16px;
+}
+
+.aeo-log-empty {
+    padding: 40px;
+    text-align: center;
+    background: #f6f7f7;
+    border-radius: 6px;
+    color: #646970;
+}

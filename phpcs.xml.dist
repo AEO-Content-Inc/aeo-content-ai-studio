@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<ruleset name="AEO Content Studio">
+    <description>WordPress coding standards for AEO Content Studio plugin.</description>
+
+    <!-- What to scan -->
+    <file>.</file>
+    <exclude-pattern>/vendor/</exclude-pattern>
+    <exclude-pattern>/assets/</exclude-pattern>
+    <exclude-pattern>/languages/</exclude-pattern>
+    <exclude-pattern>/node_modules/</exclude-pattern>
+
+    <!-- How to scan -->
+    <arg value="sp"/>
+    <arg name="basepath" value="."/>
+    <arg name="colors"/>
+    <arg name="extensions" value="php"/>
+    <arg name="parallel" value="8"/>
+
+    <!-- Rules -->
+    <rule ref="WordPress-Extra">
+        <!-- Allow short array syntax -->
+        <exclude name="Generic.Arrays.DisallowShortArraySyntax"/>
+    </rule>
+
+    <rule ref="WordPress.WP.I18n">
+        <properties>
+            <property name="text_domain" type="array">
+                <element value="aeo-content-studio"/>
+            </property>
+        </properties>
+    </rule>
+
+    <!-- Minimum supported versions -->
+    <config name="minimum_supported_wp_version" value="6.0"/>
+    <config name="testVersion" value="7.4-"/>
+
+    <!-- PHP compatibility -->
+    <rule ref="PHPCompatibilityWP"/>
+</ruleset>

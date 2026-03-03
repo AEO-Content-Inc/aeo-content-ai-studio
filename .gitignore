@@ -1,0 +1,16 @@
+# Dependencies
+/vendor/
+composer.lock
+
+# Build artifacts
+*.zip
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
