@@ -258,11 +258,16 @@ class AEO_Activity_Log {
      * Handle CSV export from admin.
      */
     public static function handle_csv_export() {
+        // Bail early if this is not a CSV export request.
+        if ( empty( $_GET['aeo_export_logs'] ) ) {
+            return;
+        }
+
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_die( esc_html__( 'Unauthorized', 'aeo-content-ai-studio' ) );
         }
 
-        if ( empty( $_GET['aeo_export_logs'] ) || ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'aeo_export_logs' ) ) {
+        if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'aeo_export_logs' ) ) {
             return;
         }
 
