@@ -16,17 +16,29 @@ class AEO_Settings {
     }
 
     public function add_menu() {
-        add_options_page(
+        add_menu_page(
             __( 'AEO Content AI Studio', 'aeo-content-ai-studio' ),
             __( 'AEO Content', 'aeo-content-ai-studio' ),
+            'manage_options',
+            'aeo-content-ai-studio',
+            array( $this, 'render_page' ),
+            AEO_PLUGIN_URL . 'admin/images/icon.png',
+            30
+        );
+
+        add_submenu_page(
+            'aeo-content-ai-studio',
+            __( 'AEO Content AI Studio', 'aeo-content-ai-studio' ),
+            __( 'Settings', 'aeo-content-ai-studio' ),
             'manage_options',
             'aeo-content-ai-studio',
             array( $this, 'render_page' )
         );
 
-        add_options_page(
+        add_submenu_page(
+            'aeo-content-ai-studio',
             __( 'AEO Activity Log', 'aeo-content-ai-studio' ),
-            __( 'AEO Activity Log', 'aeo-content-ai-studio' ),
+            __( 'Activity Log', 'aeo-content-ai-studio' ),
             'manage_options',
             'aeo-activity-log',
             array( $this, 'render_activity_log' )
@@ -36,17 +48,62 @@ class AEO_Settings {
     public function register_settings() {
         register_setting( 'aeo_settings', 'aeo_site_token', array(
             'type'              => 'string',
-            'sanitize_callback' => 'sanitize_text_field',
-        ) );
-        register_setting( 'aeo_settings', 'aeo_platform_url', array(
-            'type'              => 'string',
-            'default'           => 'https://www.aeocontent.ai',
-            'sanitize_callback' => 'esc_url_raw',
+            'sanitize_callback' => array( $this, 'sanitize_and_register_api_key' ),
         ) );
         register_setting( 'aeo_settings', 'aeo_enabled_features', array(
             'type'              => 'array',
             'sanitize_callback' => array( $this, 'sanitize_features' ),
         ) );
+    }
+
+    /**
+     * Sanitize API key and attempt registration with the platform.
+     */
+    public function sanitize_and_register_api_key( $input ) {
+        $api_key = sanitize_text_field( $input );
+
+        if ( empty( $api_key ) ) {
+            delete_option( 'aeo_connection_verified' );
+            return '';
+        }
+
+        $response = wp_remote_post(
+            trailingslashit( AEO_PLATFORM_URL ) . 'api/v1/plugin/register',
+            array(
+                'body'    => wp_json_encode( array( 'site_url' => get_site_url() ) ),
+                'headers' => array(
+                    'Content-Type' => 'application/json',
+                    'x-api-key'   => $api_key,
+                ),
+                'timeout' => 15,
+            )
+        );
+
+        if ( is_wp_error( $response ) ) {
+            delete_option( 'aeo_connection_verified' );
+            add_settings_error( 'aeo_site_token', 'aeo_register_failed',
+                __( 'Could not connect to AEO Content platform. Please try again later.', 'aeo-content-ai-studio' ),
+                'error'
+            );
+            return $api_key;
+        }
+
+        $status = wp_remote_retrieve_response_code( $response );
+        $body   = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( 200 === $status && ! empty( $body['ok'] ) ) {
+            update_option( 'aeo_connection_verified', true );
+            add_settings_error( 'aeo_site_token', 'aeo_register_success',
+                __( 'Successfully connected to AEO Content platform.', 'aeo-content-ai-studio' ),
+                'success'
+            );
+        } else {
+            delete_option( 'aeo_connection_verified' );
+            $message = ! empty( $body['error'] ) ? $body['error'] : __( 'Registration failed.', 'aeo-content-ai-studio' );
+            add_settings_error( 'aeo_site_token', 'aeo_register_failed', $message, 'error' );
+        }
+
+        return $api_key;
     }
 
     public function sanitize_features( $input ) {
@@ -59,8 +116,8 @@ class AEO_Settings {
 
     public function enqueue_styles( $hook ) {
         $aeo_pages = array(
-            'settings_page_aeo-content-ai-studio',
-            'settings_page_aeo-activity-log',
+            'toplevel_page_aeo-content-ai-studio',
+            'aeo-content_page_aeo-activity-log',
         );
         if ( ! in_array( $hook, $aeo_pages, true ) ) {
             return;

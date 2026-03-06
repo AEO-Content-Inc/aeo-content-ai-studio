@@ -11,7 +11,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 // Remove plugin options.
 $options = array(
     'aeo_site_token',
-    'aeo_platform_url',
+    'aeo_connection_verified',
     'aeo_enabled_features',
     'aeo_llms_txt_content',
     'aeo_ai_txt_content',
@@ -29,16 +29,10 @@ foreach ( $options as $option ) {
 }
 
 // Remove per-post meta.
-global $wpdb;
-$wpdb->query(
-    $wpdb->prepare(
-        "DELETE FROM {$wpdb->postmeta} WHERE meta_key IN (%s, %s, %s, %s)",
-        '_aeo_faq_schema',
-        '_aeo_author_schema',
-        '_aeo_speakable',
-        '_aeo_canonical_url'
-    )
-);
+delete_post_meta_by_key( '_aeo_faq_schema' );
+delete_post_meta_by_key( '_aeo_author_schema' );
+delete_post_meta_by_key( '_aeo_speakable' );
+delete_post_meta_by_key( '_aeo_canonical_url' );
 
 // Clear any scheduled cron events.
 wp_clear_scheduled_hook( 'aeo_heartbeat_event' );

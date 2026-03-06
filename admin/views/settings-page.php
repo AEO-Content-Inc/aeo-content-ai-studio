@@ -7,8 +7,8 @@ $plugin     = aeo_content_ai_studio();
 $features   = $plugin->get_enabled_features();
 $modules    = $plugin->get_available_modules();
 $token      = get_option( 'aeo_site_token', '' );
-$platform   = get_option( 'aeo_platform_url', 'https://www.aeocontent.ai' );
-$connected  = ! empty( $token );
+$platform   = AEO_PLATFORM_URL;
+$connected  = ! empty( $token ) && get_option( 'aeo_connection_verified', false );
 
 $module_labels = array(
     'llms-txt'      => array( 'label' => 'llms.txt',            'desc' => 'Serve a virtual /llms.txt file for AI crawlers.' ),
@@ -31,7 +31,7 @@ $module_labels = array(
             <?php if ( $connected ) : ?>
                 <?php esc_html_e( 'Connected to AEO Content Platform', 'aeo-content-ai-studio' ); ?>
             <?php else : ?>
-                <?php esc_html_e( 'Not connected - enter your Site Token below to connect', 'aeo-content-ai-studio' ); ?>
+                <?php esc_html_e( 'Not connected - enter your Site API Key below to connect', 'aeo-content-ai-studio' ); ?>
             <?php endif; ?>
         </span>
         <span class="aeo-version">v<?php echo esc_html( AEO_VERSION ); ?></span>
@@ -43,18 +43,29 @@ $module_labels = array(
         <h2><?php esc_html_e( 'Connection', 'aeo-content-ai-studio' ); ?></h2>
         <table class="form-table">
             <tr>
-                <th scope="row"><label for="aeo_site_token"><?php esc_html_e( 'Site Token', 'aeo-content-ai-studio' ); ?></label></th>
+                <th scope="row"><label for="aeo_site_token"><?php esc_html_e( 'Site API Key', 'aeo-content-ai-studio' ); ?></label></th>
                 <td>
                     <input type="password" id="aeo_site_token" name="aeo_site_token"
                            value="<?php echo esc_attr( $token ); ?>" class="regular-text" autocomplete="off" />
-                    <p class="description"><?php esc_html_e( 'Shared secret for HMAC authentication. Get this from your AEO Content dashboard.', 'aeo-content-ai-studio' ); ?></p>
+                    <p class="description">
+                        <?php
+                        echo wp_kses(
+                            sprintf(
+                                /* translators: %1$s: opening link tag, %2$s: closing link tag */
+                                __( 'Your API key for authenticating with the AEO Content platform. Get this from your %1$sAEO Content dashboard%2$s.', 'aeo-content-ai-studio' ),
+                                '<a href="https://account.aeocontent.ai/login" target="_blank">',
+                                '</a>'
+                            ),
+                            array( 'a' => array( 'href' => array(), 'target' => array() ) )
+                        );
+                        ?>
+                    </p>
                 </td>
             </tr>
             <tr>
-                <th scope="row"><label for="aeo_platform_url"><?php esc_html_e( 'Platform URL', 'aeo-content-ai-studio' ); ?></label></th>
+                <th scope="row"><?php esc_html_e( 'Platform URL', 'aeo-content-ai-studio' ); ?></th>
                 <td>
-                    <input type="url" id="aeo_platform_url" name="aeo_platform_url"
-                           value="<?php echo esc_attr( $platform ); ?>" class="regular-text" />
+                    <code><?php echo esc_html( $platform ); ?></code>
                     <p class="description"><?php esc_html_e( 'AEO Content platform URL for heartbeat and registration.', 'aeo-content-ai-studio' ); ?></p>
                 </td>
             </tr>

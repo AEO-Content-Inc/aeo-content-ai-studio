@@ -1,14 +1,14 @@
 === AEO Content AI Studio ===
 Contributors: aeocontent
 Tags: seo, ai, schema, structured-data, llms-txt
-Requires at least: 6.0
-Tested up to: 6.7
+Requires at least: 6.2
+Tested up to: 6.9
 Requires PHP: 7.4
 Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-AI Engine Optimization for WordPress. Manages llms.txt, ai.txt, robots.txt rules, structured data, and semantic HTML to maximize your site's visibility to AI engines like ChatGPT, Claude, Perplexity, and Google AI Overviews.
+AI Engine Optimization for WordPress. Manages llms.txt, ai.txt, robots.txt, structured data, and semantic HTML for AI visibility.
 
 == Description ==
 

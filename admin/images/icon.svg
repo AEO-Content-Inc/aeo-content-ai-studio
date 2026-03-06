@@ -1,0 +1,24 @@
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_16970_38)">
+<circle cx="9.99999" cy="9.94346" r="1.31083" fill="#A03EE6"/>
+<circle cx="10" cy="9.94342" r="3.68157" stroke="#D9D9D9" stroke-width="0.655417"/>
+<circle opacity="0.4" cx="10" cy="9.94342" r="3.68157" stroke="white" stroke-width="0.655417"/>
+<circle opacity="0.6" cx="10" cy="9.94344" r="6.3264" stroke="white" stroke-width="0.655417"/>
+<circle opacity="0.8" cx="10" cy="9.94344" r="9.21879" stroke="white" stroke-width="0.655417"/>
+<circle cx="14.9924" cy="5.74249" r="0.983125" fill="#3EE6B5"/>
+<circle cx="14.9924" cy="5.74249" r="1.14698" stroke="#3EE6B5" stroke-opacity="0.2" stroke-width="0.327708"/>
+<circle cx="12.6325" cy="18.6199" r="0.983125" fill="#3EE6B5"/>
+<circle cx="12.6325" cy="18.6199" r="1.14698" stroke="#3EE6B5" stroke-opacity="0.2" stroke-width="0.327708"/>
+<circle cx="15.3142" cy="13.3121" r="0.983125" fill="#3EE6B5"/>
+<circle cx="15.3142" cy="13.3121" r="1.14698" stroke="#3EE6B5" stroke-opacity="0.2" stroke-width="0.327708"/>
+<circle cx="9.01687" cy="3.6102" r="0.983125" fill="#3EE6B5"/>
+<circle cx="9.01687" cy="3.6102" r="1.14698" stroke="#3EE6B5" stroke-opacity="0.2" stroke-width="0.327708"/>
+<circle cx="6.71948" cy="7.64945" r="0.983125" fill="#3EE6B5"/>
+<circle cx="6.71948" cy="7.64945" r="1.14698" stroke="#3EE6B5" stroke-opacity="0.2" stroke-width="0.327708"/>
+</g>
+<defs>
+<clipPath id="clip0_16970_38">
+<rect width="20" height="20" rx="4" fill="white"/>
+</clipPath>
+</defs>
+</svg>

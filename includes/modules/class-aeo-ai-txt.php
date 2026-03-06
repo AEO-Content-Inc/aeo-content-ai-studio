@@ -44,7 +44,7 @@ class AEO_Ai_Txt {
         header( 'Content-Type: text/plain; charset=utf-8' );
         header( 'Cache-Control: public, max-age=3600' );
         header( 'X-Robots-Tag: noindex' );
-        echo $content;
+        echo esc_html( $content );
         exit;
     }
 }

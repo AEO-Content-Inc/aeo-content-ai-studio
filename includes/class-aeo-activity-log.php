@@ -63,6 +63,7 @@ class AEO_Activity_Log {
             $ip = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
         }
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table, no WP API available.
         $wpdb->insert(
             $table,
             array(
@@ -86,44 +87,39 @@ class AEO_Activity_Log {
      */
     public static function get_logs( $page = 1, $per_page = 25, $filters = array() ) {
         global $wpdb;
-
         $table  = $wpdb->prefix . self::TABLE;
+
+        // Hardcoded whitelist - SQL clauses are string literals only, no user input.
+        $allowed_clauses = array(
+            'command'   => array( 'sql' => 'command = %s',     'suffix' => '' ),
+            'status'    => array( 'sql' => 'status = %s',      'suffix' => '' ),
+            'date_from' => array( 'sql' => 'created_at >= %s', 'suffix' => ' 00:00:00' ),
+            'date_to'   => array( 'sql' => 'created_at <= %s', 'suffix' => ' 23:59:59' ),
+        );
+
         $where  = array( '1=1' );
         $values = array();
 
-        if ( ! empty( $filters['command'] ) ) {
-            $where[]  = 'command = %s';
-            $values[] = sanitize_text_field( $filters['command'] );
-        }
-
-        if ( ! empty( $filters['status'] ) ) {
-            $where[]  = 'status = %s';
-            $values[] = sanitize_text_field( $filters['status'] );
-        }
-
-        if ( ! empty( $filters['date_from'] ) ) {
-            $where[]  = 'created_at >= %s';
-            $values[] = sanitize_text_field( $filters['date_from'] ) . ' 00:00:00';
-        }
-
-        if ( ! empty( $filters['date_to'] ) ) {
-            $where[]  = 'created_at <= %s';
-            $values[] = sanitize_text_field( $filters['date_to'] ) . ' 23:59:59';
+        foreach ( $allowed_clauses as $key => $clause ) {
+            if ( ! empty( $filters[ $key ] ) ) {
+                $where[]  = $clause['sql'];
+                $values[] = sanitize_text_field( $filters[ $key ] ) . $clause['suffix'];
+            }
         }
 
         $where_sql = implode( ' AND ', $where );
 
         // Count.
-        $count_sql = "SELECT COUNT(*) FROM {$table} WHERE {$where_sql}";
-        if ( ! empty( $values ) ) {
-            $count_sql = $wpdb->prepare( $count_sql, $values );
-        }
-        $total = (int) $wpdb->get_var( $count_sql );
+        $count_sql    = 'SELECT COUNT(*) FROM %i WHERE ' . $where_sql;
+        $count_values = array_merge( array( $table ), $values );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table; $where_sql is concatenation of hardcoded literals from $allowed_clauses only; values passed via prepare().
+        $total = (int) $wpdb->get_var( $wpdb->prepare( $count_sql, $count_values ) );
 
         // Fetch.
-        $offset    = max( 0, ( $page - 1 ) * $per_page );
-        $query_sql = "SELECT * FROM {$table} WHERE {$where_sql} ORDER BY created_at DESC LIMIT %d OFFSET %d";
-        $all_values = array_merge( $values, array( $per_page, $offset ) );
+        $offset     = max( 0, ( $page - 1 ) * $per_page );
+        $query_sql  = 'SELECT * FROM %i WHERE ' . $where_sql . ' ORDER BY created_at DESC LIMIT %d OFFSET %d';
+        $all_values = array_merge( array( $table ), $values, array( $per_page, $offset ) );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table; $where_sql is concatenation of hardcoded literals from $allowed_clauses only; values passed via prepare().
         $items = $wpdb->get_results( $wpdb->prepare( $query_sql, $all_values ), ARRAY_A );
 
         // Decode details JSON.
@@ -150,18 +146,16 @@ class AEO_Activity_Log {
 
         $table = $wpdb->prefix . self::TABLE;
 
-        $total   = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
-        $success = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE status = %s", 'success' ) );
-        $error   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE status = %s", 'error' ) );
-
-        $last_action = $wpdb->get_var( "SELECT created_at FROM {$table} ORDER BY created_at DESC LIMIT 1" );
-
-        $last_24h = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table} WHERE created_at >= %s",
-                gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS )
-            )
-        );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $total   = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i', $table ) );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $success = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE status = %s', $table, 'success' ) );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $error   = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE status = %s', $table, 'error' ) );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $last_action = $wpdb->get_var( $wpdb->prepare( 'SELECT created_at FROM %i ORDER BY created_at DESC LIMIT 1', $table ) );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $last_24h = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE created_at >= %s', $table, gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS ) ) );
 
         return array(
             'total'        => $total,
@@ -181,7 +175,8 @@ class AEO_Activity_Log {
     public static function get_commands() {
         global $wpdb;
         $table = $wpdb->prefix . self::TABLE;
-        return $wpdb->get_col( "SELECT DISTINCT command FROM {$table} ORDER BY command ASC" );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        return $wpdb->get_col( $wpdb->prepare( 'SELECT DISTINCT command FROM %i ORDER BY command ASC', $table ) );
     }
 
     /**
@@ -201,12 +196,8 @@ class AEO_Activity_Log {
     public static function cleanup() {
         global $wpdb;
         $table = $wpdb->prefix . self::TABLE;
-        $wpdb->query(
-            $wpdb->prepare(
-                "DELETE FROM {$table} WHERE created_at < %s",
-                gmdate( 'Y-m-d H:i:s', time() - ( 90 * DAY_IN_SECONDS ) )
-            )
-        );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE created_at < %s', $table, gmdate( 'Y-m-d H:i:s', time() - ( 90 * DAY_IN_SECONDS ) ) ) );
     }
 
     /**
@@ -299,6 +290,7 @@ class AEO_Activity_Log {
             ) );
         }
 
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing php://output stream, not a filesystem file.
         fclose( $output );
         exit;
     }

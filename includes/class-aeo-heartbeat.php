@@ -44,10 +44,10 @@ class AEO_Heartbeat {
      * Send heartbeat to platform.
      */
     public function send_heartbeat() {
-        $platform_url = get_option( 'aeo_platform_url', 'https://www.aeocontent.ai' );
-        $secret       = get_option( 'aeo_site_token', '' );
+        $platform_url = AEO_PLATFORM_URL;
+        $api_key      = get_option( 'aeo_site_token', '' );
 
-        if ( empty( $secret ) || empty( $platform_url ) ) {
+        if ( empty( $api_key ) || empty( $platform_url ) ) {
             return;
         }
 
@@ -63,15 +63,13 @@ class AEO_Heartbeat {
             'timestamp' => time(),
         ) );
 
-        $signature = AEO_Auth::sign_request( $body, $secret );
-
         $response = wp_remote_post(
             trailingslashit( $platform_url ) . 'api/v1/plugin/heartbeat',
             array(
                 'body'    => $body,
                 'headers' => array(
-                    'Content-Type'    => 'application/json',
-                    'X-AEO-Signature' => $signature,
+                    'Content-Type' => 'application/json',
+                    'x-api-key'   => $api_key,
                 ),
                 'timeout' => 15,
             )

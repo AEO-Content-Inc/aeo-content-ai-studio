@@ -10,7 +10,7 @@
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: aeo-content-ai-studio
  * Domain Path: /languages
- * Requires at least: 6.0
+ * Requires at least: 6.2
  * Requires PHP: 7.4
  */
 
@@ -22,6 +22,7 @@ define( 'AEO_VERSION', '1.1.0' );
 define( 'AEO_PLUGIN_FILE', __FILE__ );
 define( 'AEO_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AEO_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
+define( 'AEO_PLATFORM_URL', 'https://www.aeocontent.ai' );
 
 require_once AEO_PLUGIN_DIR . 'includes/class-aeo-plugin.php';
 

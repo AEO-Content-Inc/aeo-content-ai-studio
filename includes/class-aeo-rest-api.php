@@ -440,6 +440,7 @@ class AEO_Rest_Api {
             'post_type'      => $post_type,
             'post_status'    => 'publish',
             'posts_per_page' => $limit,
+            // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- No alternative for meta key existence check.
             'meta_query'     => array(
                 array(
                     'key'     => $meta_key,
@@ -455,12 +456,14 @@ class AEO_Rest_Api {
             $results[] = array(
                 'post_id'    => $post_id,
                 'title'      => get_the_title( $post_id ),
+                // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- Array key, not a DB query parameter.
                 'meta_value' => $value,
             );
         }
 
         AEO_Activity_Log::log( 'query_post_meta', 'success', array(
             'message'  => "Queried {$meta_key}: " . count( $results ) . ' posts found.',
+            // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Array key in log data, not a DB query parameter.
             'meta_key' => $meta_key,
             'count'    => count( $results ),
         ) );
