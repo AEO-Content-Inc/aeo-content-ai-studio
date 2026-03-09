@@ -16,6 +16,17 @@ class AEO_Ai_Txt {
         add_action( 'init', array( $this, 'add_rewrite_rules' ) );
         add_filter( 'query_vars', array( $this, 'add_query_vars' ) );
         add_action( 'template_redirect', array( $this, 'serve_file' ) );
+        add_filter( 'redirect_canonical', array( $this, 'prevent_trailing_slash' ) );
+    }
+
+    /**
+     * Prevent WordPress from adding a trailing slash to virtual .txt files.
+     */
+    public function prevent_trailing_slash( $redirect_url ) {
+        if ( get_query_var( 'aeo_ai_txt' ) ) {
+            return false;
+        }
+        return $redirect_url;
     }
 
     public function add_rewrite_rules() {

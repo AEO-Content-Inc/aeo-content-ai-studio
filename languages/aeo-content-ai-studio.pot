@@ -1,0 +1,224 @@
+# Copyright (C) 2026 AEO Content, Inc.
+# This file is distributed under the GPL v2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: AEO Content AI Studio 1.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/AEO-Content-Inc/aeo-content-ai-studio/issues\n"
+"Last-Translator: AEO Content, Inc.\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-03-09T00:00:00+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: Claude Code\n"
+"X-Domain: aeo-content-ai-studio\n"
+
+#. Plugin Name of the plugin
+msgid "AEO Content AI Studio"
+msgstr ""
+
+#. Description of the plugin
+msgid "AI Engine Optimization for WordPress. Manages llms.txt, ai.txt, robots.txt rules, structured data, and semantic HTML to maximize AI visibility."
+msgstr ""
+
+#: admin/views/activity-log-page.php:38
+msgid "AEO Activity Log"
+msgstr ""
+
+#: admin/views/activity-log-page.php:44
+msgid "Total Actions"
+msgstr ""
+
+#: admin/views/activity-log-page.php:48
+msgid "Success Rate"
+msgstr ""
+
+#: admin/views/activity-log-page.php:52
+msgid "Last 24 Hours"
+msgstr ""
+
+#: admin/views/activity-log-page.php:59
+#. translators: %s: human-readable time difference
+msgid "%s ago"
+msgstr ""
+
+#: admin/views/activity-log-page.php:61
+msgid "Never"
+msgstr ""
+
+#: admin/views/activity-log-page.php:65
+msgid "Last Action"
+msgstr ""
+
+#: admin/views/activity-log-page.php:74
+msgid "All Commands"
+msgstr ""
+
+#: admin/views/activity-log-page.php:83
+msgid "All Statuses"
+msgstr ""
+
+#: admin/views/activity-log-page.php:84
+msgid "Success"
+msgstr ""
+
+#: admin/views/activity-log-page.php:85
+msgid "Error"
+msgstr ""
+
+#: admin/views/activity-log-page.php:91
+msgid "Filter"
+msgstr ""
+
+#: admin/views/activity-log-page.php:94
+msgid "Clear"
+msgstr ""
+
+#: admin/views/activity-log-page.php:103
+msgid "Export CSV"
+msgstr ""
+
+#: admin/views/activity-log-page.php:109
+msgid "No activity recorded yet. Commands sent from the AEO Content platform will appear here."
+msgstr ""
+
+#: admin/views/activity-log-page.php:115
+msgid "Timestamp"
+msgstr ""
+
+#: admin/views/activity-log-page.php:116
+msgid "Command"
+msgstr ""
+
+#: admin/views/activity-log-page.php:117
+msgid "Status"
+msgstr ""
+
+#: admin/views/activity-log-page.php:118
+msgid "Details"
+msgstr ""
+
+#: admin/views/activity-log-page.php:119
+msgid "Post"
+msgstr ""
+
+#: admin/views/settings-page.php:26
+#: includes/class-aeo-settings.php:20
+#: includes/class-aeo-settings.php:31
+msgid "AEO Content AI Studio"
+msgstr ""
+
+#: admin/views/settings-page.php:32
+msgid "Connected to AEO Content Platform"
+msgstr ""
+
+#: admin/views/settings-page.php:34
+msgid "Not connected - enter your Site API Key below to connect"
+msgstr ""
+
+#: admin/views/settings-page.php:43
+msgid "Connection"
+msgstr ""
+
+#: admin/views/settings-page.php:46
+msgid "Site API Key"
+msgstr ""
+
+#: admin/views/settings-page.php:55
+#. translators: %1$s: opening link tag, %2$s: closing link tag
+msgid "Your API key for authenticating with the AEO Content platform. Get this from your %1$sAEO Content dashboard%2$s."
+msgstr ""
+
+#: admin/views/settings-page.php:66
+msgid "Platform URL"
+msgstr ""
+
+#: admin/views/settings-page.php:69
+msgid "AEO Content platform URL for heartbeat and registration."
+msgstr ""
+
+#: admin/views/settings-page.php:74
+msgid "Features"
+msgstr ""
+
+#: admin/views/settings-page.php:75
+msgid "Toggle which optimization features are active on this site."
+msgstr ""
+
+#: admin/views/settings-page.php:96
+msgid "Save Settings"
+msgstr ""
+
+#: admin/views/settings-page.php:100
+msgid "Quick Status"
+msgstr ""
+
+#: admin/views/settings-page.php:104
+msgid "llms.txt"
+msgstr ""
+
+#: admin/views/settings-page.php:105
+#: admin/views/settings-page.php:109
+#: admin/views/settings-page.php:127
+msgid "Configured"
+msgstr ""
+
+#: admin/views/settings-page.php:105
+#: admin/views/settings-page.php:109
+#: admin/views/settings-page.php:120
+#: admin/views/settings-page.php:127
+msgid "Not set"
+msgstr ""
+
+#: admin/views/settings-page.php:108
+msgid "ai.txt"
+msgstr ""
+
+#: admin/views/settings-page.php:112
+msgid "robots.txt AI Rules"
+msgstr ""
+
+#: admin/views/settings-page.php:118
+#. translators: %d: number of rules configured
+msgid "%d rule"
+msgid_plural "%d rules"
+msgstr[0] ""
+msgstr[1] ""
+
+#: admin/views/settings-page.php:126
+msgid "Organization Schema"
+msgstr ""
+
+#: includes/class-aeo-activity-log.php:258
+msgid "Unauthorized"
+msgstr ""
+
+#: includes/class-aeo-settings.php:21
+msgid "AEO Content"
+msgstr ""
+
+#: includes/class-aeo-settings.php:32
+msgid "Settings"
+msgstr ""
+
+#: includes/class-aeo-settings.php:40
+#: admin/views/activity-log-page.php:38
+msgid "AEO Activity Log"
+msgstr ""
+
+#: includes/class-aeo-settings.php:41
+msgid "Activity Log"
+msgstr ""
+
+#: includes/class-aeo-settings.php:85
+msgid "Could not connect to AEO Content platform. Please try again later."
+msgstr ""
+
+#: includes/class-aeo-settings.php:97
+msgid "Successfully connected to AEO Content platform."
+msgstr ""
+
+#: includes/class-aeo-settings.php:102
+msgid "Registration failed."
+msgstr ""

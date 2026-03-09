@@ -95,6 +95,7 @@ class AEO_Rest_Api {
 
         $commands = array(
             'set_llms_txt'         => 'cmd_set_llms_txt',
+            'set_llms_full_txt'    => 'cmd_set_llms_full_txt',
             'set_ai_txt'           => 'cmd_set_ai_txt',
             'set_robots_rules'     => 'cmd_set_robots_rules',
             'set_org_schema'       => 'cmd_set_org_schema',
@@ -201,6 +202,13 @@ class AEO_Rest_Api {
         return rest_ensure_response( array( 'ok' => true, 'message' => 'llms.txt updated.' ) );
     }
 
+    private function cmd_set_llms_full_txt( $payload ) {
+        $content = isset( $payload['content'] ) ? sanitize_textarea_field( $payload['content'] ) : '';
+        update_option( 'aeo_llms_full_txt_content', $content );
+        AEO_Activity_Log::log( 'set_llms_full_txt', 'success', array( 'message' => 'llms-full.txt updated.', 'length' => strlen( $content ) ) );
+        return rest_ensure_response( array( 'ok' => true, 'message' => 'llms-full.txt updated.' ) );
+    }
+
     private function cmd_set_ai_txt( $payload ) {
         $content = isset( $payload['content'] ) ? sanitize_textarea_field( $payload['content'] ) : '';
         update_option( 'aeo_ai_txt_content', $content );
@@ -263,7 +271,7 @@ class AEO_Rest_Api {
 
     private function cmd_set_post_faq( $payload ) {
         $post_id = isset( $payload['post_id'] ) ? intval( $payload['post_id'] ) : 0;
-        $pairs   = isset( $payload['pairs'] ) ? $payload['pairs'] : array();
+        $pairs   = isset( $payload['pairs'] ) ? $this->sanitize_schema( $payload['pairs'] ) : array();
         if ( ! $post_id || ! get_post( $post_id ) ) {
             AEO_Activity_Log::log( 'set_post_faq', 'error', array( 'message' => 'Post not found.', 'post_id' => $post_id ) );
             return new WP_Error( 'aeo_invalid_post', 'Post not found.', array( 'status' => 404 ) );

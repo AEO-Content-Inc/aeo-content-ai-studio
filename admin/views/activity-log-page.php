@@ -32,7 +32,7 @@ $logs     = AEO_Activity_Log::get_logs( $current_page, $per_page, $filters );
 $stats    = AEO_Activity_Log::get_stats();
 $commands = AEO_Activity_Log::get_commands();
 
-$base_url = admin_url( 'options-general.php?page=aeo-activity-log' );
+$base_url = admin_url( 'admin.php?page=aeo-activity-log' );
 ?>
 <div class="wrap aeo-settings">
     <h1><?php esc_html_e( 'AEO Activity Log', 'aeo-content-ai-studio' ); ?></h1>
@@ -175,12 +175,15 @@ $base_url = admin_url( 'options-general.php?page=aeo-activity-log' );
                     $pagination_args['paged'] = $i;
                     $class = ( $i === $current_page ) ? 'button button-primary' : 'button';
                 ?>
-                    <a href="<?php echo esc_url( add_query_arg( $pagination_args, admin_url( 'options-general.php' ) ) ); ?>" class="<?php echo esc_attr( $class ); ?>">
+                    <a href="<?php echo esc_url( add_query_arg( $pagination_args, admin_url( 'admin.php' ) ) ); ?>" class="<?php echo esc_attr( $class ); ?>">
                         <?php echo esc_html( $i ); ?>
                     </a>
                 <?php endfor; ?>
                 <span class="aeo-log-muted" style="margin-left: 8px;">
-                    Page <?php echo esc_html( $current_page ); ?> of <?php echo esc_html( $logs['pages'] ); ?> (<?php echo esc_html( $logs['total'] ); ?> entries)
+                    <?php
+                    /* translators: %1$d: current page number, %2$d: total pages, %3$d: total entries */
+                    echo esc_html( sprintf( __( 'Page %1$d of %2$d (%3$d entries)', 'aeo-content-ai-studio' ), $current_page, $logs['pages'], $logs['total'] ) );
+                    ?>
                 </span>
             </div>
         <?php endif; ?>

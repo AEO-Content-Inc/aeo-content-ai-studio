@@ -22,11 +22,18 @@ $options = array(
     'aeo_canonical_overrides',
     'aeo_semantic_html_enabled',
     'aeo_freshness_enabled',
+    'aeo_activity_log_db_version',
+    'aeo_llms_full_txt_content',
 );
 
 foreach ( $options as $option ) {
     delete_option( $option );
 }
+
+// Drop activity log table.
+global $wpdb;
+// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $wpdb->prefix . 'aeo_activity_log' ) );
 
 // Remove per-post meta.
 delete_post_meta_by_key( '_aeo_faq_schema' );

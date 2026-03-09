@@ -53,7 +53,7 @@ cd aeo-content-ai-studio
 ## How It Works
 
 ```
-AEO Content Platform ──HMAC-signed REST API──> WordPress Plugin
+AEO Content Platform ──API Key-authenticated REST API──> WordPress Plugin
          ^                                           |
          └────── Heartbeat (every 6 hours) ──────────┘
 ```
@@ -65,7 +65,7 @@ AEO Content Platform ──HMAC-signed REST API──> WordPress Plugin
 
 ### Authentication
 
-All communication uses **HMAC-SHA256** request signing with a shared secret. Requests older than 5 minutes are automatically rejected.
+All communication is authenticated via **API Key** sent in the `x-api-key` HTTP header. The key is validated using constant-time comparison to prevent timing attacks.
 
 ## Development
 
@@ -95,7 +95,7 @@ composer run phpcbf   # Auto-fix violations
 
 ## Compatibility
 
-- **WordPress:** 6.0+
+- **WordPress:** 6.2+
 - **PHP:** 7.4+
 - **SEO Plugins:** Compatible with Yoast SEO, Rank Math, All in One SEO
 - **Themes:** Works with any theme

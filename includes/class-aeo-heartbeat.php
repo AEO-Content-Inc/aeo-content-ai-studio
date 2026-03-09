@@ -76,18 +76,24 @@ class AEO_Heartbeat {
         );
 
         if ( is_wp_error( $response ) ) {
+            AEO_Activity_Log::log( 'heartbeat', 'error', array( 'message' => 'Could not reach platform: ' . $response->get_error_message() ) );
             return;
         }
 
         $status = wp_remote_retrieve_response_code( $response );
         if ( 200 !== $status ) {
+            AEO_Activity_Log::log( 'heartbeat', 'error', array( 'message' => "Platform returned {$status}." ) );
             return;
         }
 
         // Process any pending commands returned by platform.
         $result = json_decode( wp_remote_retrieve_body( $response ), true );
         if ( ! empty( $result['commands'] ) && is_array( $result['commands'] ) ) {
+            $count = count( $result['commands'] );
+            AEO_Activity_Log::log( 'heartbeat', 'success', array( 'message' => "Heartbeat sent. {$count} pending commands executed." ) );
             $this->process_pending_commands( $result['commands'] );
+        } else {
+            AEO_Activity_Log::log( 'heartbeat', 'success', array( 'message' => 'Heartbeat sent successfully.' ) );
         }
     }
 

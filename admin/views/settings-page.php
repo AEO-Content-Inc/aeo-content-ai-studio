@@ -24,6 +24,7 @@ $module_labels = array(
 ?>
 <div class="wrap aeo-settings">
     <h1><?php esc_html_e( 'AEO Content AI Studio', 'aeo-content-ai-studio' ); ?></h1>
+    <h2 class="aeo-subtitle"><?php esc_html_e( 'AI Engine Optimization for WordPress. Manages llms.txt, ai.txt, robots.txt rules, structured data, and semantic HTML to maximize your site\'s visibility to AI engines like ChatGPT, Claude, Perplexity, and Google AI Overviews.', 'aeo-content-ai-studio' ); ?></h2>
 
     <div class="aeo-status-bar <?php echo $connected ? 'aeo-connected' : 'aeo-disconnected'; ?>">
         <span class="aeo-status-dot"></span>

@@ -33,5 +33,10 @@ function aeo_content_ai_studio() {
     return AEO_Plugin::get_instance();
 }
 
+// Register activation hook.
+register_activation_hook( __FILE__, function () {
+    aeo_content_ai_studio()->on_activate();
+} );
+
 // Boot the plugin.
 aeo_content_ai_studio();

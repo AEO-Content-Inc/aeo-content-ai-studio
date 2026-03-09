@@ -1,7 +1,15 @@
 /* AEO Content AI Studio - Admin Styles */
 
 .aeo-settings h1 {
-    margin-bottom: 1em;
+    margin-bottom: 0.5em;
+}
+
+.aeo-subtitle {
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.6;
+    margin: 0 0 20px 0;
+    max-width: 800px;
 }
 
 .aeo-status-bar {

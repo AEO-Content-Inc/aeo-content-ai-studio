@@ -13,6 +13,19 @@ class AEO_Settings {
         add_action( 'admin_menu', array( $this, 'add_menu' ) );
         add_action( 'admin_init', array( $this, 'register_settings' ) );
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
+        add_filter( 'plugin_action_links_' . plugin_basename( AEO_PLUGIN_FILE ), array( $this, 'add_settings_link' ) );
+    }
+
+    /**
+     * Add Settings link to the plugins list page.
+     *
+     * @param array $links Existing action links.
+     * @return array Modified action links.
+     */
+    public function add_settings_link( $links ) {
+        $settings_link = '<a href="' . esc_url( admin_url( 'admin.php?page=aeo-content-ai-studio' ) ) . '">' . esc_html__( 'Settings', 'aeo-content-ai-studio' ) . '</a>';
+        array_unshift( $links, $settings_link );
+        return $links;
     }
 
     public function add_menu() {

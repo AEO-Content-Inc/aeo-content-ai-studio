@@ -25,13 +25,13 @@
     <rule ref="WordPress.WP.I18n">
         <properties>
             <property name="text_domain" type="array">
-                <element value="aeo-content-studio"/>
+                <element value="aeo-content-ai-studio"/>
             </property>
         </properties>
     </rule>
 
     <!-- Minimum supported versions -->
-    <config name="minimum_supported_wp_version" value="6.0"/>
+    <config name="minimum_supported_wp_version" value="6.2"/>
     <config name="testVersion" value="7.4-"/>
 
     <!-- PHP compatibility -->

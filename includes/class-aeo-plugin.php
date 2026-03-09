@@ -38,7 +38,6 @@ class AEO_Plugin {
         $this->load_core();
         $this->load_modules();
 
-        add_action( 'activated_plugin', array( $this, 'on_activate' ) );
         register_deactivation_hook( AEO_PLUGIN_FILE, array( $this, 'on_deactivate' ) );
     }
 
@@ -145,10 +144,7 @@ class AEO_Plugin {
     /**
      * Activation hook.
      */
-    public function on_activate( $plugin ) {
-        if ( plugin_basename( AEO_PLUGIN_FILE ) !== $plugin ) {
-            return;
-        }
+    public function on_activate() {
         // Set default enabled features if first activation.
         if ( false === get_option( 'aeo_enabled_features' ) ) {
             update_option( 'aeo_enabled_features', array(

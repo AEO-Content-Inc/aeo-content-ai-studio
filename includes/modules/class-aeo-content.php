@@ -43,7 +43,7 @@ class AEO_Content {
 
         $post_data = array(
             'post_type'   => 'post',
-            'post_status' => isset( $payload['status'] ) ? sanitize_text_field( $payload['status'] ) : 'draft',
+            'post_status' => isset( $payload['status'] ) && in_array( $payload['status'], array( 'publish', 'draft', 'pending' ), true ) ? $payload['status'] : 'draft',
         );
 
         if ( isset( $payload['title'] ) ) {
@@ -99,18 +99,18 @@ class AEO_Content {
 
         // Set AEO post meta.
         if ( isset( $payload['faq'] ) && is_array( $payload['faq'] ) ) {
-            update_post_meta( $post_id, '_aeo_faq_schema', $payload['faq'] );
+            update_post_meta( $post_id, '_aeo_faq_schema', $this->sanitize_schema( $payload['faq'] ) );
         } else {
             // Auto-extract FAQ from content.
             $this->auto_extract_faq( $post_id, $post_data['post_content'] ?? '' );
         }
 
         if ( isset( $payload['author'] ) ) {
-            update_post_meta( $post_id, '_aeo_author_schema', $payload['author'] );
+            update_post_meta( $post_id, '_aeo_author_schema', $this->sanitize_schema( $payload['author'] ) );
         }
 
         if ( isset( $payload['speakable'] ) ) {
-            update_post_meta( $post_id, '_aeo_speakable', $payload['speakable'] );
+            update_post_meta( $post_id, '_aeo_speakable', array_map( 'sanitize_text_field', (array) $payload['speakable'] ) );
         }
 
         if ( isset( $payload['canonical'] ) ) {
@@ -131,6 +131,32 @@ class AEO_Content {
             'url'     => get_permalink( $post_id ),
             'edit'    => get_edit_post_link( $post_id, 'raw' ),
         ) );
+    }
+
+    /**
+     * Recursively sanitize a schema array for safe storage.
+     *
+     * @param mixed $data Input data.
+     * @return mixed Sanitized data.
+     */
+    private function sanitize_schema( $data ) {
+        if ( is_array( $data ) ) {
+            $clean = array();
+            foreach ( $data as $key => $value ) {
+                $clean[ sanitize_text_field( $key ) ] = $this->sanitize_schema( $value );
+            }
+            return $clean;
+        }
+        if ( is_string( $data ) ) {
+            if ( filter_var( $data, FILTER_VALIDATE_URL ) ) {
+                return esc_url_raw( $data );
+            }
+            return sanitize_text_field( $data );
+        }
+        if ( is_bool( $data ) || is_int( $data ) || is_float( $data ) ) {
+            return $data;
+        }
+        return '';
     }
 
     /**

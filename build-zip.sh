@@ -13,7 +13,7 @@ DEST="$BUILD_DIR/aeo-content-ai-studio"
 echo "Building AEO Content AI Studio plugin ZIP..."
 
 # Copy plugin files to temp directory.
-mkdir -p "$DEST/includes/modules" "$DEST/admin/views" "$DEST/admin/css" "$DEST/languages"
+mkdir -p "$DEST/includes/modules" "$DEST/admin/views" "$DEST/admin/css" "$DEST/admin/images" "$DEST/languages"
 
 cp "$PLUGIN_DIR/aeo-content-ai-studio.php" "$DEST/"
 cp "$PLUGIN_DIR/uninstall.php" "$DEST/"
@@ -23,6 +23,8 @@ cp "$PLUGIN_DIR/includes/"*.php "$DEST/includes/"
 cp "$PLUGIN_DIR/includes/modules/"*.php "$DEST/includes/modules/"
 cp "$PLUGIN_DIR/admin/views/"*.php "$DEST/admin/views/"
 cp "$PLUGIN_DIR/admin/css/"*.css "$DEST/admin/css/"
+cp "$PLUGIN_DIR/admin/images/"*.png "$DEST/admin/images/" 2>/dev/null || true
+cp "$PLUGIN_DIR/admin/images/"*.svg "$DEST/admin/images/" 2>/dev/null || true
 
 # Include .pot file if it exists.
 if ls "$PLUGIN_DIR/languages/"*.pot 1>/dev/null 2>&1; then

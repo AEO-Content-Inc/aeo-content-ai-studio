@@ -40,7 +40,7 @@ AI engines like ChatGPT, Claude, and Perplexity are becoming major traffic sourc
 
 This plugin connects to the AEO Content platform at `aeocontent.ai` for the following:
 
-* **Heartbeat** (every 6 hours): Sends your site URL, plugin version, and enabled features list to `https://www.aeocontent.ai/api/v1/plugin/heartbeat`. This allows the platform to verify connectivity and deliver any pending optimization commands. No personal data or site content is transmitted.
+* **Heartbeat** (every 6 hours): Sends your site URL, home URL, plugin version, WordPress version, PHP version, and enabled features list to `https://www.aeocontent.ai/api/v1/plugin/heartbeat`. This allows the platform to verify connectivity and deliver any pending optimization commands. No personal data or site content is transmitted.
 * **Registration** (on initial setup): When you enter a Site Token, the plugin validates it against the platform.
 
 The platform's terms of service are available at [aeocontent.ai/terms](https://www.aeocontent.ai/terms) and privacy policy at [aeocontent.ai/privacy](https://www.aeocontent.ai/privacy).
@@ -72,7 +72,7 @@ All API communication between the platform and your site uses HMAC-SHA256 reques
 
 = What data does the plugin send to aeocontent.ai? =
 
-The heartbeat (every 6 hours) sends only: your site URL, home URL, plugin version, and the list of enabled features. No personal data, user information, or site content is transmitted. All communication is encrypted via HTTPS.
+The heartbeat (every 6 hours) sends only: your site URL, home URL, plugin version, WordPress version, PHP version, and the list of enabled features. No personal data, user information, or site content is transmitted. All communication is encrypted via HTTPS.
 
 = Can I use this without the platform? =
 
@@ -117,7 +117,7 @@ No. The plugin adds minimal overhead. Schema markup is injected via WordPress ho
 
 This plugin connects to the external service at aeocontent.ai. See the "External Service" section in the Description for full details on what data is transmitted and when.
 
-No personal user data is collected, stored, or transmitted by this plugin. The plugin does not use cookies, does not track users, and does not collect analytics.
+The plugin stores the IP address of incoming API requests in the activity log for security and diagnostic purposes. Log entries are automatically deleted after 90 days. No cookies are used, no users are tracked, and no analytics are collected.
 
 == Upgrade Notice ==
 
