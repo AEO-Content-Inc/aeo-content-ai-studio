@@ -43,7 +43,7 @@ All notable changes to this project will be documented in this file.
 - Canonical URL management
 - Semantic HTML improvements
 - Content freshness metadata
-- REST API with HMAC-SHA256 authentication
+- REST API with API Key authentication
 - 6-hour heartbeat connectivity check
 - Admin settings page with feature toggles
 - Activity log with CSV export

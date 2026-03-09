@@ -32,7 +32,7 @@ AI engines like ChatGPT, Claude, and Perplexity are becoming major traffic sourc
 = How It Works =
 
 1. Install the plugin and enter your Site Token from the [AEO Content dashboard](https://www.aeocontent.ai)
-2. The platform sends optimization commands to your site via HMAC-authenticated REST API
+2. The platform sends optimization commands to your site via API Key-authenticated REST API
 3. A heartbeat every 6 hours ensures connectivity and delivers any missed commands
 4. All features are individually toggleable from Settings > AEO Content
 
@@ -45,13 +45,13 @@ This plugin connects to the AEO Content platform at `aeocontent.ai` for the foll
 
 The platform's terms of service are available at [aeocontent.ai/terms](https://www.aeocontent.ai/terms) and privacy policy at [aeocontent.ai/privacy](https://www.aeocontent.ai/privacy).
 
-All communication uses HMAC-SHA256 request signing. Requests older than 5 minutes are rejected.
+All communication is authenticated via API Key sent in the x-api-key HTTP header, validated using constant-time comparison.
 
 == Installation ==
 
 1. Upload the `aeo-content-ai-studio` folder to `/wp-content/plugins/`
 2. Activate the plugin through the 'Plugins' menu in WordPress
-3. Go to Settings > AEO Content to enter your Site Token
+3. Go to AEO Content > Settings in the WordPress admin menu to enter your API Key
 4. Enable or disable individual features as needed
 
 Alternatively, search for "AEO Content AI Studio" in the WordPress plugin directory and install directly.
@@ -68,7 +68,7 @@ Yes. The plugin checks for existing schema and canonical tags before adding its 
 
 = How is authentication handled? =
 
-All API communication between the platform and your site uses HMAC-SHA256 request signing with a shared secret (your Site Token). Requests older than 5 minutes are automatically rejected.
+All API communication between the platform and your site is authenticated via API Key sent in the x-api-key HTTP header. The key is validated using constant-time comparison to prevent timing attacks.
 
 = What data does the plugin send to aeocontent.ai? =
 
@@ -81,6 +81,10 @@ The plugin is designed to work with the AEO Content platform. Without a valid Si
 = Does the plugin slow down my site? =
 
 No. The plugin adds minimal overhead. Schema markup is injected via WordPress hooks (no additional database queries on the frontend), and the heartbeat runs via WP-Cron in the background.
+
+== Support ==
+
+For support, feature requests, and bug reports, please visit the [plugin support forum](https://wordpress.org/support/plugin/aeo-content-ai-studio/) or open an issue on [GitHub](https://github.com/AEO-Content-Inc/aeo-content-ai-studio/issues).
 
 == Screenshots ==
 
@@ -108,7 +112,7 @@ No. The plugin adds minimal overhead. Schema markup is injected via WordPress ho
 * Canonical URL management
 * Semantic HTML improvements
 * Content freshness metadata
-* REST API with HMAC-SHA256 authentication
+* REST API with API Key authentication
 * 6-hour heartbeat connectivity check
 * Admin settings page with feature toggles
 * Activity log with CSV export
