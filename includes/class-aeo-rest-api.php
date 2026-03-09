@@ -2,7 +2,7 @@
 /**
  * REST API endpoints under /wp-json/aeo/v1/.
  *
- * All mutating endpoints require HMAC authentication from the AEO Content platform.
+ * All mutating endpoints require API Key authentication from the AEO Content platform.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -36,7 +36,7 @@ class AEO_Rest_Api {
             'permission_callback' => array( $this, 'check_auth' ),
         ) );
 
-        // Activity log (HMAC auth).
+        // Activity log (API Key auth).
         register_rest_route( self::REST_NAMESPACE, '/logs', array(
             'methods'             => 'GET',
             'callback'            => array( 'AEO_Activity_Log', 'handle_rest_logs' ),
@@ -65,7 +65,7 @@ class AEO_Rest_Api {
     }
 
     /**
-     * Permission callback - verify HMAC.
+     * Permission callback - verify API Key.
      */
     public function check_auth( $request ) {
         return AEO_Auth::verify_request( $request );
