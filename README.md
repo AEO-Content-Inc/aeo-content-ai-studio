@@ -33,7 +33,7 @@ AI engines are becoming major traffic sources. This plugin connects your WordPre
 1. Go to **Plugins > Add New** in your WordPress admin
 2. Search for **AEO Content AI Studio**
 3. Click **Install Now**, then **Activate**
-4. Go to **Settings > AEO Content** and enter your Site Token
+4. Go to **AEO Content > Settings** in the WordPress admin menu and enter your API Key
 
 ### Manual Install
 
@@ -58,7 +58,7 @@ AEO Content Platform ──API Key-authenticated REST API──> WordPress Plugi
          └────── Heartbeat (every 6 hours) ──────────┘
 ```
 
-1. Install the plugin and enter your **Site Token** from [aeocontent.ai](https://www.aeocontent.ai)
+1. Install the plugin and enter your **API Key** from [aeocontent.ai](https://www.aeocontent.ai)
 2. The platform sends optimization commands via authenticated REST API
 3. A heartbeat every 6 hours ensures connectivity and delivers missed commands
 4. All features are individually toggleable from the settings page
