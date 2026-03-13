@@ -16,15 +16,7 @@ class AEO_Plugin {
 
     /** @var array Map of module slug => class file and class name. */
     private $available_modules = array(
-        'llms-txt'      => array( 'file' => 'class-aeo-llms-txt.php',      'class' => 'AEO_Llms_Txt' ),
-        'ai-txt'        => array( 'file' => 'class-aeo-ai-txt.php',        'class' => 'AEO_Ai_Txt' ),
-        'robots-txt'    => array( 'file' => 'class-aeo-robots-txt.php',    'class' => 'AEO_Robots_Txt' ),
-        'schema-org'    => array( 'file' => 'class-aeo-schema-org.php',    'class' => 'AEO_Schema_Org' ),
-        'schema-post'   => array( 'file' => 'class-aeo-schema-post.php',   'class' => 'AEO_Schema_Post' ),
-        'canonical'     => array( 'file' => 'class-aeo-canonical.php',     'class' => 'AEO_Canonical' ),
-        'semantic-html' => array( 'file' => 'class-aeo-semantic-html.php', 'class' => 'AEO_Semantic_Html' ),
-        'freshness'     => array( 'file' => 'class-aeo-freshness.php',     'class' => 'AEO_Freshness' ),
-        'content'       => array( 'file' => 'class-aeo-content.php',       'class' => 'AEO_Content' ),
+        'content' => array( 'file' => 'class-aeo-content.php', 'class' => 'AEO_Content' ),
     );
 
     public static function get_instance() {
@@ -50,11 +42,13 @@ class AEO_Plugin {
         require_once AEO_PLUGIN_DIR . 'includes/class-aeo-rest-api.php';
         require_once AEO_PLUGIN_DIR . 'includes/class-aeo-heartbeat.php';
         require_once AEO_PLUGIN_DIR . 'includes/class-aeo-settings.php';
+        require_once AEO_PLUGIN_DIR . 'includes/class-aeo-audit-api.php';
 
         new AEO_Auth();
         new AEO_Rest_Api( $this );
         new AEO_Heartbeat();
         new AEO_Settings();
+        AEO_Audit_Api::register_ajax();
 
         // Schedule activity log cleanup cron.
         AEO_Activity_Log::schedule_cleanup();
@@ -147,17 +141,7 @@ class AEO_Plugin {
     public function on_activate() {
         // Set default enabled features if first activation.
         if ( false === get_option( 'aeo_enabled_features' ) ) {
-            update_option( 'aeo_enabled_features', array(
-                'llms-txt',
-                'ai-txt',
-                'robots-txt',
-                'schema-org',
-                'schema-post',
-                'canonical',
-                'semantic-html',
-                'freshness',
-                'content',
-            ) );
+            update_option( 'aeo_enabled_features', array( 'content' ) );
         }
 
         // Create activity log table.

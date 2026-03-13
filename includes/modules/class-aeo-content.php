@@ -42,15 +42,29 @@ class AEO_Content {
         $post_id = isset( $payload['post_id'] ) ? intval( $payload['post_id'] ) : 0;
 
         $post_data = array(
-            'post_type'   => 'post',
-            'post_status' => isset( $payload['status'] ) && in_array( $payload['status'], array( 'publish', 'draft', 'pending' ), true ) ? $payload['status'] : 'draft',
+            'post_type' => 'post',
         );
+
+        // Only set status if explicitly provided; on update, preserve existing status.
+        if ( isset( $payload['status'] ) && in_array( $payload['status'], array( 'publish', 'draft', 'pending' ), true ) ) {
+            $post_data['post_status'] = $payload['status'];
+        } elseif ( ! $post_id || ! get_post( $post_id ) ) {
+            // New post defaults to draft.
+            $post_data['post_status'] = 'draft';
+        }
 
         if ( isset( $payload['title'] ) ) {
             $post_data['post_title'] = sanitize_text_field( $payload['title'] );
         }
         if ( isset( $payload['content'] ) ) {
             $post_data['post_content'] = wp_kses_post( $payload['content'] );
+            // Download external images to Media Library before saving.
+            try {
+                $post_data['post_content'] = $this->download_content_images( $post_data['post_content'] );
+            } catch ( \Throwable $e ) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+                error_log( '[AEO] download_content_images failed: ' . $e->getMessage() );
+            }
         }
         if ( isset( $payload['slug'] ) ) {
             $post_data['post_name'] = sanitize_title( $payload['slug'] );
@@ -100,9 +114,14 @@ class AEO_Content {
         // Set AEO post meta.
         if ( isset( $payload['faq'] ) && is_array( $payload['faq'] ) ) {
             update_post_meta( $post_id, '_aeo_faq_schema', $this->sanitize_schema( $payload['faq'] ) );
-        } else {
-            // Auto-extract FAQ from content.
-            $this->auto_extract_faq( $post_id, $post_data['post_content'] ?? '' );
+        } elseif ( ! empty( $post_data['post_content'] ) ) {
+            // Auto-extract FAQ from content only when content was provided.
+            try {
+                $this->auto_extract_faq( $post_id, $post_data['post_content'] );
+            } catch ( \Throwable $e ) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+                error_log( '[AEO] auto_extract_faq failed: ' . $e->getMessage() );
+            }
         }
 
         if ( isset( $payload['author'] ) ) {
@@ -121,7 +140,12 @@ class AEO_Content {
         if ( ! empty( $payload['featured_image_url'] ) ) {
             $image_url = esc_url_raw( $payload['featured_image_url'], array( 'http', 'https' ) );
             if ( $image_url ) {
-                $this->set_featured_image( $post_id, $image_url );
+                try {
+                    $this->set_featured_image( $post_id, $image_url );
+                } catch ( \Throwable $e ) {
+                    // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+                    error_log( '[AEO] set_featured_image failed: ' . $e->getMessage() );
+                }
             }
         }
 
@@ -220,6 +244,60 @@ class AEO_Content {
         if ( ! empty( $pairs ) ) {
             update_post_meta( $post_id, '_aeo_faq_schema', $pairs );
         }
+    }
+
+    /**
+     * Download external images in HTML content to the Media Library.
+     *
+     * Finds all <img> tags with external src URLs, downloads each image,
+     * and replaces the src with the local WordPress URL.
+     *
+     * @param string $content HTML content.
+     * @return string Content with localized image URLs.
+     */
+    private function download_content_images( $content ) {
+        if ( empty( $content ) ) {
+            return $content;
+        }
+
+        if ( ! function_exists( 'media_sideload_image' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/media.php';
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            require_once ABSPATH . 'wp-admin/includes/image.php';
+        }
+
+        $site_host = wp_parse_url( home_url(), PHP_URL_HOST );
+
+        // Find all img tags with src attribute.
+        if ( ! preg_match_all( '/<img\s[^>]*src\s*=\s*["\']([^"\']+)["\'][^>]*>/i', $content, $matches, PREG_SET_ORDER ) ) {
+            return $content;
+        }
+
+        foreach ( $matches as $match ) {
+            $original_url = $match[1];
+
+            // Only process http/https URLs.
+            if ( 0 !== strpos( $original_url, 'http://' ) && 0 !== strpos( $original_url, 'https://' ) ) {
+                continue;
+            }
+
+            // Skip images already on this WordPress site.
+            $img_host = wp_parse_url( $original_url, PHP_URL_HOST );
+            if ( $img_host === $site_host ) {
+                continue;
+            }
+
+            // Download to Media Library (without attaching to a post yet).
+            $local_url = media_sideload_image( $original_url, 0, '', 'src' );
+            if ( is_wp_error( $local_url ) ) {
+                continue;
+            }
+
+            // Replace the external URL with the local one.
+            $content = str_replace( $original_url, $local_url, $content );
+        }
+
+        return $content;
     }
 
     /**

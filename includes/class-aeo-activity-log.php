@@ -47,7 +47,7 @@ class AEO_Activity_Log {
     /**
      * Log a command execution.
      *
-     * @param string      $command  Command name (e.g. 'set_llms_txt').
+     * @param string      $command  Command name (e.g. 'publish_post').
      * @param string      $status   'success' or 'error'.
      * @param mixed       $details  Arbitrary data (will be JSON-encoded).
      * @param int|null    $post_id  Related post ID, if any.
@@ -198,6 +198,16 @@ class AEO_Activity_Log {
         $table = $wpdb->prefix . self::TABLE;
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE created_at < %s', $table, gmdate( 'Y-m-d H:i:s', time() - ( 90 * DAY_IN_SECONDS ) ) ) );
+    }
+
+    /**
+     * Delete all log entries.
+     */
+    public static function clear_all() {
+        global $wpdb;
+        $table = $wpdb->prefix . self::TABLE;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $wpdb->query( $wpdb->prepare( 'TRUNCATE TABLE %i', $table ) );
     }
 
     /**

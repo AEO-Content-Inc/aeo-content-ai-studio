@@ -2,8 +2,8 @@
 /**
  * Plugin Name: AEO Content AI Studio
  * Plugin URI: https://www.aeocontent.ai
- * Description: AI Engine Optimization for WordPress. Manages llms.txt, ai.txt, robots.txt rules, structured data, and semantic HTML to maximize AI visibility.
- * Version: 1.1.0
+ * Description: AI Engine Optimization for WordPress. Connects your site to AEO Content AI Studio for AI-powered content management and audit reports.
+ * Version: 1.0.0
  * Author: AEO Content, Inc.
  * Author URI: https://www.aeocontent.ai
  * License: GPL v2 or later
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'AEO_VERSION', '1.1.0' );
+define( 'AEO_VERSION', '1.0.0' );
 define( 'AEO_PLUGIN_FILE', __FILE__ );
 define( 'AEO_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AEO_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

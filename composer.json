@@ -1,6 +1,6 @@
 {
     "name": "aeo-content-inc/aeo-content-ai-studio",
-    "description": "AI Engine Optimization for WordPress. Manages llms.txt, ai.txt, structured data, and semantic HTML for AI visibility.",
+    "description": "Connects WordPress to the AEO Content platform for AI-powered content publishing and audit reports.",
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
     "require": {

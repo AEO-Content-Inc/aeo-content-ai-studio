@@ -1,30 +1,51 @@
 # AEO Content AI Studio
 
-[![CI](https://github.com/AEO-Content-Inc/aeo-content-ai-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/AEO-Content-Inc/aeo-content-ai-studio/actions/workflows/ci.yml)
 [![WordPress Plugin Version](https://img.shields.io/wordpress/plugin/v/aeo-content-ai-studio)](https://wordpress.org/plugins/aeo-content-ai-studio/)
 [![WordPress Plugin: Tested WP Version](https://img.shields.io/wordpress/plugin/tested/aeo-content-ai-studio)](https://wordpress.org/plugins/aeo-content-ai-studio/)
 [![License: GPL v2+](https://img.shields.io/badge/License-GPLv2%2B-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 
-AI Engine Optimization for WordPress. Manages llms.txt, ai.txt, robots.txt rules, structured data, and semantic HTML to maximize your site's visibility to AI engines like ChatGPT, Claude, Perplexity, and Google AI Overviews.
+Connects your WordPress site to [AEO Content AI Studio](https://www.aeocontent.ai) for AI-powered content publishing and 28-criteria site audit reports.
 
-## What It Does
+## What is AEO?
 
-AI engines are becoming major traffic sources. This plugin connects your WordPress site to the [AEO Content platform](https://www.aeocontent.ai) to automatically implement optimizations that help your content appear in AI-generated answers.
+AI Engine Optimization (AEO) is the practice of structuring web content so AI answer engines — ChatGPT, Claude, Perplexity, and Google AI Overviews — can discover, parse, and cite it. While SEO focuses on search rankings, AEO focuses on getting your content into AI-generated answers.
 
-### Features
+## What This Plugin Does
 
 | Feature | Description |
 |---------|-------------|
-| **llms.txt / ai.txt** | Virtual files at site root for AI crawler discovery |
-| **robots.txt AI Rules** | AI-specific crawler directives (GPTBot, ClaudeBot, etc.) |
-| **Organization & WebSite Schema** | Site-wide JSON-LD structured data |
-| **Article & Author Schema** | Per-post Article, Person, SpeakableSpecification markup |
-| **FAQ Schema** | Auto-extracted FAQPage JSON-LD from content |
-| **Canonical URLs** | Platform-managed canonical URL overrides |
-| **Semantic HTML** | Article wrappers, time elements, lang attribute |
-| **Content Freshness** | dateModified metadata and Open Graph tags |
-| **Content Publishing** | Create/update posts with full optimization via API |
-| **Activity Log** | Track all commands with filterable log and CSV export |
+| **Content Publishing** | Read, create, and update WordPress posts from AEO Content AI Studio via REST API |
+| **Audit Report** | View your site's AI visibility score across 28 weighted criteria directly in WordPress admin |
+| **Activity Log** | Track every API interaction with filterable log, CSV export, and 90-day auto-cleanup |
+| **Categories & Tags API** | Sync taxonomy data to AEO Content AI Studio for accurate content organization |
+| **Heartbeat** | Periodic connectivity check keeps platform and plugin in sync |
+| **API Key Auth** | All endpoints secured with constant-time key comparison |
+
+## How It Works
+
+```
+AEO Content AI Studio                         WordPress Plugin
+    |                                               |
+    |  1. GET /categories, /tags, /posts            |
+    |---------------------------------------------->|
+    |                                               |
+    |  2. AI optimizes content in Studio            |
+    |                                               |
+    |  3. POST /publish (create or update post)     |
+    |---------------------------------------------->|
+    |                                               |
+    |  4. GET /audits/{slug} (audit data)           |
+    |<----------------------------------------------|
+    |                                               |
+    |  5. Heartbeat (periodic sync)                 |
+    |<----------------------------------------------|
+```
+
+1. Install the plugin and enter your **API Key** from [aeocontent.ai](https://account.aeocontent.ai)
+2. AEO Content AI Studio syncs your categories, tags, and posts via authenticated REST API
+3. AEO Content AI Studio analyzes and optimizes your content
+4. Optimized content is published back to WordPress
+5. View your site's AEO audit score in the **Audit Report** tab
 
 ## Installation
 
@@ -33,7 +54,7 @@ AI engines are becoming major traffic sources. This plugin connects your WordPre
 1. Go to **Plugins > Add New** in your WordPress admin
 2. Search for **AEO Content AI Studio**
 3. Click **Install Now**, then **Activate**
-4. Go to **AEO Content > Settings** in the WordPress admin menu and enter your API Key
+4. Go to **AEO Content > Settings** and enter your API Key
 
 ### Manual Install
 
@@ -41,31 +62,20 @@ AI engines are becoming major traffic sources. This plugin connects your WordPre
 2. Go to **Plugins > Add New > Upload Plugin**
 3. Upload the ZIP and activate
 
-### From Source
+## REST API Endpoints
 
-```bash
-git clone https://github.com/AEO-Content-Inc/aeo-content-ai-studio.git
-cd aeo-content-ai-studio
-./build-zip.sh
-# Upload aeo-content-ai-studio.zip via WordPress admin
-```
+All authenticated endpoints require the `x-api-key` header.
 
-## How It Works
-
-```
-AEO Content Platform ──API Key-authenticated REST API──> WordPress Plugin
-         ^                                           |
-         └────── Heartbeat (every 6 hours) ──────────┘
-```
-
-1. Install the plugin and enter your **API Key** from [aeocontent.ai](https://www.aeocontent.ai)
-2. The platform sends optimization commands via authenticated REST API
-3. A heartbeat every 6 hours ensures connectivity and delivers missed commands
-4. All features are individually toggleable from the settings page
-
-### Authentication
-
-All communication is authenticated via **API Key** sent in the `x-api-key` HTTP header. The key is validated using constant-time comparison to prevent timing attacks.
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/wp-json/aeo/v1/status` | No | Health check — version, features, URLs |
+| GET | `/wp-json/aeo/v1/posts` | Yes | Paginated post list |
+| GET | `/wp-json/aeo/v1/posts/{id}` | Yes | Full post with content, author, meta |
+| POST | `/wp-json/aeo/v1/publish` | Yes | Create or update a post |
+| POST | `/wp-json/aeo/v1/command` | Yes | Command dispatch |
+| GET | `/wp-json/aeo/v1/categories` | Yes | All categories with hierarchy |
+| GET | `/wp-json/aeo/v1/tags` | Yes | All tags |
+| GET | `/wp-json/aeo/v1/logs` | Yes | Activity log with filters |
 
 ## Development
 
@@ -87,12 +97,6 @@ composer run phpcs    # Check coding standards
 composer run phpcbf   # Auto-fix violations
 ```
 
-### Build
-
-```bash
-./build-zip.sh    # Creates aeo-content-ai-studio.zip
-```
-
 ## Compatibility
 
 - **WordPress:** 6.2+
@@ -106,7 +110,6 @@ GPL v2 or later. See [license.txt](license.txt).
 
 ## Links
 
-- [AEO Content Platform](https://www.aeocontent.ai)
+- [AEO Content AI Studio](https://www.aeocontent.ai)
 - [WordPress.org Plugin Page](https://wordpress.org/plugins/aeo-content-ai-studio/)
-- [AEORank Chrome Extension](https://github.com/AEO-Content-Inc/aeorank)
 - [Report an Issue](https://github.com/AEO-Content-Inc/aeo-content-ai-studio/issues)

@@ -43,25 +43,40 @@ class AEO_Rest_Api {
             'permission_callback' => array( $this, 'check_auth' ),
         ) );
 
-        // Direct endpoints.
-        $endpoints = array(
-            '/llms-txt'              => 'handle_llms_txt',
-            '/ai-txt'               => 'handle_ai_txt',
-            '/robots-txt'           => 'handle_robots_txt',
-            '/schema/organization'  => 'handle_schema_organization',
-            '/schema/post/(?P<id>\d+)' => 'handle_schema_post',
-            '/publish'              => 'handle_publish',
-            '/bulk/faq-schema'      => 'handle_bulk_faq_schema',
-            '/features'             => 'handle_features',
-        );
+        // Posts list (read).
+        register_rest_route( self::REST_NAMESPACE, '/posts', array(
+            'methods'             => 'GET',
+            'callback'            => array( $this, 'handle_get_posts' ),
+            'permission_callback' => array( $this, 'check_auth' ),
+        ) );
 
-        foreach ( $endpoints as $route => $callback ) {
-            register_rest_route( self::REST_NAMESPACE, $route, array(
-                'methods'             => 'POST',
-                'callback'            => array( $this, $callback ),
-                'permission_callback' => array( $this, 'check_auth' ),
-            ) );
-        }
+        // Single post (read).
+        register_rest_route( self::REST_NAMESPACE, '/posts/(?P<id>\d+)', array(
+            'methods'             => 'GET',
+            'callback'            => array( $this, 'handle_get_post' ),
+            'permission_callback' => array( $this, 'check_auth' ),
+        ) );
+
+        // Publish endpoint.
+        register_rest_route( self::REST_NAMESPACE, '/publish', array(
+            'methods'             => 'POST',
+            'callback'            => array( $this, 'handle_publish' ),
+            'permission_callback' => array( $this, 'check_auth' ),
+        ) );
+
+        // Categories list.
+        register_rest_route( self::REST_NAMESPACE, '/categories', array(
+            'methods'             => 'GET',
+            'callback'            => array( $this, 'handle_get_categories' ),
+            'permission_callback' => array( $this, 'check_auth' ),
+        ) );
+
+        // Tags list.
+        register_rest_route( self::REST_NAMESPACE, '/tags', array(
+            'methods'             => 'GET',
+            'callback'            => array( $this, 'handle_get_tags' ),
+            'permission_callback' => array( $this, 'check_auth' ),
+        ) );
     }
 
     /**
@@ -90,396 +105,330 @@ class AEO_Rest_Api {
         $payload = $request->get_param( 'payload' );
 
         if ( empty( $command ) ) {
-            return new WP_Error( 'aeo_missing_command', 'Missing command parameter.', array( 'status' => 400 ) );
+            return new WP_Error( 'aeo_missing_command', __( 'Missing command parameter.', 'aeo-content-ai-studio' ), array( 'status' => 400 ) );
         }
 
         $commands = array(
-            'set_llms_txt'         => 'cmd_set_llms_txt',
-            'set_llms_full_txt'    => 'cmd_set_llms_full_txt',
-            'set_ai_txt'           => 'cmd_set_ai_txt',
-            'set_robots_rules'     => 'cmd_set_robots_rules',
-            'set_org_schema'       => 'cmd_set_org_schema',
-            'set_website_schema'   => 'cmd_set_website_schema',
-            'set_post_schema'      => 'cmd_set_post_schema',
-            'set_post_faq'         => 'cmd_set_post_faq',
-            'set_post_speakable'   => 'cmd_set_post_speakable',
-            'set_author_defaults'  => 'cmd_set_author_defaults',
-            'set_canonical'        => 'cmd_set_canonical',
-            'publish_post'         => 'cmd_publish_post',
-            'enable_feature'       => 'cmd_enable_feature',
-            'disable_feature'      => 'cmd_disable_feature',
-            'bulk_faq_schema'      => 'cmd_bulk_faq_schema',
-            'bulk_speakable'       => 'cmd_bulk_speakable',
-            'query_post_meta'      => 'cmd_query_post_meta',
+            'publish_post' => 'cmd_publish_post',
         );
 
         if ( ! isset( $commands[ $command ] ) ) {
             AEO_Activity_Log::log( $command, 'error', array( 'message' => "Unknown command: {$command}" ) );
-            return new WP_Error( 'aeo_unknown_command', "Unknown command: {$command}", array( 'status' => 400 ) );
+            /* translators: %s: command name */
+            return new WP_Error( 'aeo_unknown_command', sprintf( __( 'Unknown command: %s', 'aeo-content-ai-studio' ), $command ), array( 'status' => 400 ) );
         }
 
         $method = $commands[ $command ];
         return $this->$method( $payload );
     }
 
-    // ─── Direct Endpoint Handlers ─────────────────────────────
-
-    public function handle_llms_txt( $request ) {
-        return $this->cmd_set_llms_txt( $request->get_json_params() );
-    }
-
-    public function handle_ai_txt( $request ) {
-        return $this->cmd_set_ai_txt( $request->get_json_params() );
-    }
-
-    public function handle_robots_txt( $request ) {
-        return $this->cmd_set_robots_rules( $request->get_json_params() );
-    }
-
-    public function handle_schema_organization( $request ) {
-        return $this->cmd_set_org_schema( $request->get_json_params() );
-    }
-
-    public function handle_schema_post( $request ) {
-        $payload = $request->get_json_params();
-        $payload['post_id'] = intval( $request->get_param( 'id' ) );
-        return $this->cmd_set_post_schema( $payload );
-    }
+    // ─── Endpoint Handlers ──────────────────────────────────
 
     public function handle_publish( $request ) {
         return $this->cmd_publish_post( $request->get_json_params() );
     }
 
-    public function handle_bulk_faq_schema( $request ) {
-        return $this->cmd_bulk_faq_schema( $request->get_json_params() );
-    }
-
-    public function handle_features( $request ) {
-        $action  = $request->get_param( 'action' );
-        $feature = $request->get_param( 'feature' );
-
-        if ( 'enable' === $action ) {
-            return $this->cmd_enable_feature( array( 'feature' => $feature ) );
-        }
-        return $this->cmd_disable_feature( array( 'feature' => $feature ) );
-    }
-
-    // ─── Helpers ──────────────────────────────────────────────
+    // ─── Posts Read Endpoints ────────────────────────────────
 
     /**
-     * Recursively sanitize a schema array for safe storage.
+     * GET /aeo/v1/posts — paginated list of posts.
      *
-     * @param mixed $data Input data.
-     * @return mixed Sanitized data.
+     * Params: page, per_page, status, search, post_type, orderby, order.
      */
-    private function sanitize_schema( $data ) {
-        if ( is_array( $data ) ) {
-            $clean = array();
-            foreach ( $data as $key => $value ) {
-                $clean[ sanitize_text_field( $key ) ] = $this->sanitize_schema( $value );
-            }
-            return $clean;
+    public function handle_get_posts( $request ) {
+        $module = $this->plugin->get_module( 'content' );
+        if ( ! $module ) {
+            return new WP_Error( 'aeo_module_disabled', __( 'Content module is not enabled.', 'aeo-content-ai-studio' ), array( 'status' => 400 ) );
         }
-        if ( is_string( $data ) ) {
-            // Preserve URLs.
-            if ( filter_var( $data, FILTER_VALIDATE_URL ) ) {
-                return esc_url_raw( $data );
-            }
-            return sanitize_text_field( $data );
+
+        $page      = max( 1, (int) $request->get_param( 'page' ) ?: 1 );
+        $per_page  = min( 100, max( 1, (int) $request->get_param( 'per_page' ) ?: 20 ) );
+        $status    = sanitize_text_field( $request->get_param( 'status' ) ?: 'publish' );
+        $search    = sanitize_text_field( $request->get_param( 'search' ) ?: '' );
+        $post_type = sanitize_text_field( $request->get_param( 'post_type' ) ?: 'post' );
+        $orderby   = sanitize_text_field( $request->get_param( 'orderby' ) ?: 'date' );
+
+        $allowed_types = array( 'post', 'page' );
+        if ( ! in_array( $post_type, $allowed_types, true ) ) {
+            $post_type = 'post';
         }
-        if ( is_bool( $data ) || is_int( $data ) || is_float( $data ) ) {
-            return $data;
+        $order     = sanitize_text_field( $request->get_param( 'order' ) ?: 'DESC' );
+
+        $allowed_statuses = array( 'publish', 'draft', 'pending', 'future', 'private', 'any' );
+        if ( ! in_array( $status, $allowed_statuses, true ) ) {
+            $status = 'publish';
         }
-        return '';
+
+        $allowed_orderby = array( 'date', 'modified', 'title', 'ID' );
+        if ( ! in_array( $orderby, $allowed_orderby, true ) ) {
+            $orderby = 'date';
+        }
+
+        $order = strtoupper( $order ) === 'ASC' ? 'ASC' : 'DESC';
+
+        $args = array(
+            'post_type'      => $post_type,
+            'post_status'    => $status,
+            'posts_per_page' => $per_page,
+            'paged'          => $page,
+            'orderby'        => $orderby,
+            'order'          => $order,
+        );
+
+        if ( ! empty( $search ) ) {
+            $args['s'] = $search;
+        }
+
+        $query = new WP_Query( $args );
+        $items = array();
+
+        foreach ( $query->posts as $post ) {
+            $items[] = $this->format_post_summary( $post );
+        }
+
+        AEO_Activity_Log::log( 'get_posts', 'success', array(
+            'message' => "Listed {$query->found_posts} posts (page {$page}).",
+            'total'   => $query->found_posts,
+        ) );
+
+        return rest_ensure_response( array(
+            'ok'    => true,
+            'posts' => $items,
+            'total' => (int) $query->found_posts,
+            'pages' => (int) $query->max_num_pages,
+            'page'  => $page,
+        ) );
+    }
+
+    /**
+     * GET /aeo/v1/posts/{id} — full post content.
+     */
+    public function handle_get_post( $request ) {
+        $module = $this->plugin->get_module( 'content' );
+        if ( ! $module ) {
+            return new WP_Error( 'aeo_module_disabled', __( 'Content module is not enabled.', 'aeo-content-ai-studio' ), array( 'status' => 400 ) );
+        }
+
+        $post_id = (int) $request->get_param( 'id' );
+        $post    = get_post( $post_id );
+
+        if ( ! $post ) {
+            return new WP_Error( 'aeo_not_found', __( 'Post not found.', 'aeo-content-ai-studio' ), array( 'status' => 404 ) );
+        }
+
+        $data = $this->format_post_summary( $post );
+
+        // Add full content.
+        $data['content']   = $post->post_content;
+        $data['author_id'] = (int) $post->post_author;
+
+        // Author info.
+        $author = get_userdata( $post->post_author );
+        if ( $author ) {
+            $data['author'] = array(
+                'id'           => (int) $author->ID,
+                'display_name' => $author->display_name,
+                'email'        => $author->user_email,
+            );
+        }
+
+        // Featured image.
+        $thumb_id = get_post_thumbnail_id( $post_id );
+        if ( $thumb_id ) {
+            $data['featured_image'] = array(
+                'id'  => (int) $thumb_id,
+                'url' => wp_get_attachment_url( $thumb_id ),
+                'alt' => get_post_meta( $thumb_id, '_wp_attachment_image_alt', true ),
+            );
+        }
+
+        // AEO meta.
+        $aeo_meta = array();
+        $faq = get_post_meta( $post_id, '_aeo_faq_schema', true );
+        if ( $faq ) {
+            $aeo_meta['faq'] = $faq;
+        }
+        $speakable = get_post_meta( $post_id, '_aeo_speakable', true );
+        if ( $speakable ) {
+            $aeo_meta['speakable'] = $speakable;
+        }
+        $canonical = get_post_meta( $post_id, '_aeo_canonical_url', true );
+        if ( $canonical ) {
+            $aeo_meta['canonical'] = $canonical;
+        }
+        $author_schema = get_post_meta( $post_id, '_aeo_author_schema', true );
+        if ( $author_schema ) {
+            $aeo_meta['author_schema'] = $author_schema;
+        }
+        if ( ! empty( $aeo_meta ) ) {
+            $data['aeo_meta'] = $aeo_meta;
+        }
+
+        AEO_Activity_Log::log( 'get_post', 'success', array(
+            'message' => "Post #{$post_id} retrieved.",
+        ), $post_id );
+
+        return rest_ensure_response( array(
+            'ok'   => true,
+            'post' => $data,
+        ) );
+    }
+
+    /**
+     * Format a WP_Post into a summary array (used in list and single endpoints).
+     *
+     * @param WP_Post $post
+     * @return array
+     */
+    private function format_post_summary( $post ) {
+        $categories = wp_get_post_categories( $post->ID, array( 'fields' => 'names' ) );
+        $tags       = wp_get_post_tags( $post->ID, array( 'fields' => 'names' ) );
+
+        return array(
+            'id'         => (int) $post->ID,
+            'title'      => $post->post_title,
+            'slug'       => $post->post_name,
+            'status'     => $post->post_status,
+            'date'       => $post->post_date_gmt,
+            'modified'   => $post->post_modified_gmt,
+            'excerpt'    => $post->post_excerpt ?: wp_trim_words( $post->post_content, 40, '...' ),
+            'url'        => get_permalink( $post->ID ),
+            'edit_url'   => get_edit_post_link( $post->ID, 'raw' ),
+            'categories' => $categories,
+            'tags'       => $tags,
+        );
+    }
+
+    // ─── Taxonomy Endpoints ────────────────────────────────────
+
+    /**
+     * GET /aeo/v1/categories — all categories.
+     *
+     * Params: search, hide_empty, parent, orderby, order.
+     */
+    public function handle_get_categories( $request ) {
+        $hide_empty = $request->get_param( 'hide_empty' );
+        $hide_empty = ( null === $hide_empty ) ? false : rest_sanitize_boolean( $hide_empty );
+
+        $args = array(
+            'taxonomy'   => 'category',
+            'hide_empty' => $hide_empty,
+            'orderby'    => sanitize_text_field( $request->get_param( 'orderby' ) ?: 'name' ),
+            'order'      => strtoupper( sanitize_text_field( $request->get_param( 'order' ) ?: 'ASC' ) ) === 'DESC' ? 'DESC' : 'ASC',
+        );
+
+        $search = sanitize_text_field( $request->get_param( 'search' ) ?: '' );
+        if ( ! empty( $search ) ) {
+            $args['search'] = $search;
+        }
+
+        $parent = $request->get_param( 'parent' );
+        if ( null !== $parent ) {
+            $args['parent'] = absint( $parent );
+        }
+
+        $terms = get_terms( $args );
+        if ( is_wp_error( $terms ) ) {
+            return $terms;
+        }
+
+        $items = array();
+        foreach ( $terms as $term ) {
+            $items[] = array(
+                'id'     => (int) $term->term_id,
+                'name'   => $term->name,
+                'slug'   => $term->slug,
+                'parent' => (int) $term->parent,
+                'count'  => (int) $term->count,
+            );
+        }
+
+        return rest_ensure_response( array(
+            'ok'         => true,
+            'categories' => $items,
+            'total'      => count( $items ),
+        ) );
+    }
+
+    /**
+     * GET /aeo/v1/tags — all tags.
+     *
+     * Params: search, hide_empty, orderby, order.
+     */
+    public function handle_get_tags( $request ) {
+        $hide_empty = $request->get_param( 'hide_empty' );
+        $hide_empty = ( null === $hide_empty ) ? false : rest_sanitize_boolean( $hide_empty );
+
+        $args = array(
+            'taxonomy'   => 'post_tag',
+            'hide_empty' => $hide_empty,
+            'orderby'    => sanitize_text_field( $request->get_param( 'orderby' ) ?: 'name' ),
+            'order'      => strtoupper( sanitize_text_field( $request->get_param( 'order' ) ?: 'ASC' ) ) === 'DESC' ? 'DESC' : 'ASC',
+        );
+
+        $search = sanitize_text_field( $request->get_param( 'search' ) ?: '' );
+        if ( ! empty( $search ) ) {
+            $args['search'] = $search;
+        }
+
+        $terms = get_terms( $args );
+        if ( is_wp_error( $terms ) ) {
+            return $terms;
+        }
+
+        $items = array();
+        foreach ( $terms as $term ) {
+            $items[] = array(
+                'id'    => (int) $term->term_id,
+                'name'  => $term->name,
+                'slug'  => $term->slug,
+                'count' => (int) $term->count,
+            );
+        }
+
+        return rest_ensure_response( array(
+            'ok'    => true,
+            'tags'  => $items,
+            'total' => count( $items ),
+        ) );
     }
 
     // ─── Command Implementations ──────────────────────────────
-
-    private function cmd_set_llms_txt( $payload ) {
-        $content = isset( $payload['content'] ) ? sanitize_textarea_field( $payload['content'] ) : '';
-        update_option( 'aeo_llms_txt_content', $content );
-        AEO_Activity_Log::log( 'set_llms_txt', 'success', array( 'message' => 'llms.txt updated.', 'length' => strlen( $content ) ) );
-        return rest_ensure_response( array( 'ok' => true, 'message' => 'llms.txt updated.' ) );
-    }
-
-    private function cmd_set_llms_full_txt( $payload ) {
-        $content = isset( $payload['content'] ) ? sanitize_textarea_field( $payload['content'] ) : '';
-        update_option( 'aeo_llms_full_txt_content', $content );
-        AEO_Activity_Log::log( 'set_llms_full_txt', 'success', array( 'message' => 'llms-full.txt updated.', 'length' => strlen( $content ) ) );
-        return rest_ensure_response( array( 'ok' => true, 'message' => 'llms-full.txt updated.' ) );
-    }
-
-    private function cmd_set_ai_txt( $payload ) {
-        $content = isset( $payload['content'] ) ? sanitize_textarea_field( $payload['content'] ) : '';
-        update_option( 'aeo_ai_txt_content', $content );
-        AEO_Activity_Log::log( 'set_ai_txt', 'success', array( 'message' => 'ai.txt updated.', 'length' => strlen( $content ) ) );
-        return rest_ensure_response( array( 'ok' => true, 'message' => 'ai.txt updated.' ) );
-    }
-
-    private function cmd_set_robots_rules( $payload ) {
-        $rules = isset( $payload['rules'] ) ? $payload['rules'] : array();
-        if ( ! is_array( $rules ) ) {
-            AEO_Activity_Log::log( 'set_robots_rules', 'error', array( 'message' => 'Rules must be an array.' ) );
-            return new WP_Error( 'aeo_invalid_rules', 'Rules must be an array.', array( 'status' => 400 ) );
-        }
-        // Sanitize each rule line.
-        $rules = array_map( 'sanitize_text_field', $rules );
-        update_option( 'aeo_robots_ai_rules', $rules );
-        AEO_Activity_Log::log( 'set_robots_rules', 'success', array( 'message' => 'robots.txt rules updated.', 'count' => count( $rules ) ) );
-        return rest_ensure_response( array( 'ok' => true, 'message' => 'robots.txt rules updated.' ) );
-    }
-
-    private function cmd_set_org_schema( $payload ) {
-        $schema = isset( $payload['schema'] ) ? $payload['schema'] : $payload;
-        $schema = $this->sanitize_schema( $schema );
-        update_option( 'aeo_org_schema', $schema );
-        $name = isset( $schema['name'] ) ? $schema['name'] : 'unknown';
-        AEO_Activity_Log::log( 'set_org_schema', 'success', array( 'message' => "Organization schema updated for {$name}." ) );
-        return rest_ensure_response( array( 'ok' => true, 'message' => 'Organization schema updated.' ) );
-    }
-
-    private function cmd_set_website_schema( $payload ) {
-        $schema = isset( $payload['schema'] ) ? $payload['schema'] : $payload;
-        $schema = $this->sanitize_schema( $schema );
-        update_option( 'aeo_website_schema', $schema );
-        AEO_Activity_Log::log( 'set_website_schema', 'success', array( 'message' => 'WebSite schema updated.' ) );
-        return rest_ensure_response( array( 'ok' => true, 'message' => 'WebSite schema updated.' ) );
-    }
-
-    private function cmd_set_post_schema( $payload ) {
-        $post_id = isset( $payload['post_id'] ) ? intval( $payload['post_id'] ) : 0;
-        if ( ! $post_id || ! get_post( $post_id ) ) {
-            AEO_Activity_Log::log( 'set_post_schema', 'error', array( 'message' => 'Post not found.', 'post_id' => $post_id ) );
-            return new WP_Error( 'aeo_invalid_post', 'Post not found.', array( 'status' => 404 ) );
-        }
-        $updated = array();
-        if ( isset( $payload['author'] ) ) {
-            update_post_meta( $post_id, '_aeo_author_schema', $this->sanitize_schema( $payload['author'] ) );
-            $updated[] = 'author';
-        }
-        if ( isset( $payload['faq'] ) ) {
-            update_post_meta( $post_id, '_aeo_faq_schema', $this->sanitize_schema( $payload['faq'] ) );
-            $updated[] = 'faq';
-        }
-        if ( isset( $payload['speakable'] ) ) {
-            update_post_meta( $post_id, '_aeo_speakable', $this->sanitize_schema( $payload['speakable'] ) );
-            $updated[] = 'speakable';
-        }
-        AEO_Activity_Log::log( 'set_post_schema', 'success', array( 'message' => 'Post schema updated.', 'fields' => $updated ), $post_id );
-        return rest_ensure_response( array( 'ok' => true, 'post_id' => $post_id, 'message' => 'Post schema updated.' ) );
-    }
-
-    private function cmd_set_post_faq( $payload ) {
-        $post_id = isset( $payload['post_id'] ) ? intval( $payload['post_id'] ) : 0;
-        $pairs   = isset( $payload['pairs'] ) ? $this->sanitize_schema( $payload['pairs'] ) : array();
-        if ( ! $post_id || ! get_post( $post_id ) ) {
-            AEO_Activity_Log::log( 'set_post_faq', 'error', array( 'message' => 'Post not found.', 'post_id' => $post_id ) );
-            return new WP_Error( 'aeo_invalid_post', 'Post not found.', array( 'status' => 404 ) );
-        }
-        update_post_meta( $post_id, '_aeo_faq_schema', $pairs );
-        AEO_Activity_Log::log( 'set_post_faq', 'success', array( 'message' => 'FAQ schema set.', 'pairs' => count( $pairs ) ), $post_id );
-        return rest_ensure_response( array( 'ok' => true, 'post_id' => $post_id, 'count' => count( $pairs ) ) );
-    }
-
-    private function cmd_set_post_speakable( $payload ) {
-        $post_id  = isset( $payload['post_id'] ) ? intval( $payload['post_id'] ) : 0;
-        $selectors = isset( $payload['selectors'] ) ? $payload['selectors'] : array();
-        if ( ! $post_id || ! get_post( $post_id ) ) {
-            AEO_Activity_Log::log( 'set_post_speakable', 'error', array( 'message' => 'Post not found.', 'post_id' => $post_id ) );
-            return new WP_Error( 'aeo_invalid_post', 'Post not found.', array( 'status' => 404 ) );
-        }
-        update_post_meta( $post_id, '_aeo_speakable', $selectors );
-        AEO_Activity_Log::log( 'set_post_speakable', 'success', array( 'message' => 'Speakable selectors set.' ), $post_id );
-        return rest_ensure_response( array( 'ok' => true, 'post_id' => $post_id ) );
-    }
-
-    private function cmd_set_author_defaults( $payload ) {
-        update_option( 'aeo_author_defaults', $this->sanitize_schema( $payload ) );
-        $name = isset( $payload['name'] ) ? $payload['name'] : 'unknown';
-        AEO_Activity_Log::log( 'set_author_defaults', 'success', array( 'message' => "Author defaults set to {$name}." ) );
-        return rest_ensure_response( array( 'ok' => true, 'message' => 'Author defaults updated.' ) );
-    }
-
-    private function cmd_set_canonical( $payload ) {
-        $post_id = isset( $payload['post_id'] ) ? intval( $payload['post_id'] ) : 0;
-        $url     = isset( $payload['url'] ) ? esc_url_raw( $payload['url'] ) : '';
-        if ( ! $post_id || ! get_post( $post_id ) ) {
-            AEO_Activity_Log::log( 'set_canonical', 'error', array( 'message' => 'Post not found.', 'post_id' => $post_id ) );
-            return new WP_Error( 'aeo_invalid_post', 'Post not found.', array( 'status' => 404 ) );
-        }
-        update_post_meta( $post_id, '_aeo_canonical_url', $url );
-        AEO_Activity_Log::log( 'set_canonical', 'success', array( 'message' => 'Canonical URL set.', 'url' => $url ), $post_id );
-        return rest_ensure_response( array( 'ok' => true, 'post_id' => $post_id ) );
-    }
 
     private function cmd_publish_post( $payload ) {
         $module = $this->plugin->get_module( 'content' );
         if ( ! $module ) {
             AEO_Activity_Log::log( 'publish_post', 'error', array( 'message' => 'Content module is not enabled.' ) );
-            return new WP_Error( 'aeo_module_disabled', 'Content module is not enabled.', array( 'status' => 400 ) );
+            return new WP_Error( 'aeo_module_disabled', __( 'Content module is not enabled.', 'aeo-content-ai-studio' ), array( 'status' => 400 ) );
         }
-        $result = $module->create_or_update_post( $payload );
-        $title  = isset( $payload['title'] ) ? $payload['title'] : 'untitled';
+
+        $title = isset( $payload['title'] ) ? $payload['title'] : 'untitled';
+
+        try {
+            $result = $module->create_or_update_post( $payload );
+        } catch ( \Throwable $e ) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+            error_log( '[AEO] cmd_publish_post fatal: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() );
+            AEO_Activity_Log::log( 'publish_post', 'error', array(
+                'message' => 'Internal error: ' . $e->getMessage(),
+            ) );
+            return new WP_Error( 'aeo_internal_error', __( 'Internal error during publish.', 'aeo-content-ai-studio' ), array( 'status' => 500 ) );
+        }
+
         $post_id = null;
         if ( ! is_wp_error( $result ) ) {
-            $data = $result->get_data();
+            $data    = $result->get_data();
             $post_id = isset( $data['post_id'] ) ? $data['post_id'] : null;
         }
+
         AEO_Activity_Log::log(
             'publish_post',
             is_wp_error( $result ) ? 'error' : 'success',
             array( 'message' => is_wp_error( $result ) ? $result->get_error_message() : "Published: {$title}" ),
             $post_id
         );
+
         return $result;
     }
 
-    private function cmd_enable_feature( $payload ) {
-        $feature = isset( $payload['feature'] ) ? sanitize_text_field( $payload['feature'] ) : '';
-        if ( $this->plugin->enable_feature( $feature ) ) {
-            AEO_Activity_Log::log( 'enable_feature', 'success', array( 'message' => "Feature '{$feature}' enabled.", 'feature' => $feature ) );
-            return rest_ensure_response( array( 'ok' => true, 'message' => "Feature '{$feature}' enabled." ) );
-        }
-        AEO_Activity_Log::log( 'enable_feature', 'error', array( 'message' => "Unknown feature: {$feature}", 'feature' => $feature ) );
-        return new WP_Error( 'aeo_unknown_feature', "Unknown feature: {$feature}", array( 'status' => 400 ) );
-    }
-
-    private function cmd_disable_feature( $payload ) {
-        $feature = isset( $payload['feature'] ) ? sanitize_text_field( $payload['feature'] ) : '';
-        $this->plugin->disable_feature( $feature );
-        AEO_Activity_Log::log( 'disable_feature', 'success', array( 'message' => "Feature '{$feature}' disabled.", 'feature' => $feature ) );
-        return rest_ensure_response( array( 'ok' => true, 'message' => "Feature '{$feature}' disabled." ) );
-    }
-
-    private function cmd_bulk_faq_schema( $payload ) {
-        $posts = isset( $payload['posts'] ) ? $payload['posts'] : array();
-        if ( empty( $posts ) || ! is_array( $posts ) ) {
-            AEO_Activity_Log::log( 'bulk_faq_schema', 'error', array( 'message' => 'Posts array is required.' ) );
-            return new WP_Error( 'aeo_invalid_payload', 'Posts array is required.', array( 'status' => 400 ) );
-        }
-
-        $results  = array();
-        $ok_count = 0;
-        foreach ( $posts as $item ) {
-            $post_id = isset( $item['post_id'] ) ? intval( $item['post_id'] ) : 0;
-            $pairs   = isset( $item['pairs'] ) ? $item['pairs'] : array();
-
-            if ( ! $post_id || ! get_post( $post_id ) ) {
-                $results[] = array( 'post_id' => $post_id, 'ok' => false, 'error' => 'Post not found.' );
-                continue;
-            }
-
-            update_post_meta( $post_id, '_aeo_faq_schema', $pairs );
-            $results[] = array( 'post_id' => $post_id, 'ok' => true, 'count' => count( $pairs ) );
-            $ok_count++;
-        }
-
-        AEO_Activity_Log::log( 'bulk_faq_schema', 'success', array(
-            'message'  => "Bulk FAQ: {$ok_count}/" . count( $posts ) . ' posts updated.',
-            'total'    => count( $posts ),
-            'success'  => $ok_count,
-        ) );
-        return rest_ensure_response( array( 'ok' => true, 'results' => $results ) );
-    }
-
-    // ─── New Commands (v1.1.0) ────────────────────────────────
-
-    /**
-     * Bulk set speakable CSS selectors on posts matching criteria.
-     */
-    private function cmd_bulk_speakable( $payload ) {
-        $selector  = isset( $payload['selector'] ) ? sanitize_text_field( $payload['selector'] ) : '.entry-content';
-        $post_type = isset( $payload['post_type'] ) ? sanitize_text_field( $payload['post_type'] ) : 'post';
-        $limit     = isset( $payload['limit'] ) ? min( intval( $payload['limit'] ), 1000 ) : 100;
-
-        $posts = get_posts( array(
-            'post_type'      => $post_type,
-            'post_status'    => 'publish',
-            'posts_per_page' => $limit,
-            'fields'         => 'ids',
-        ) );
-
-        if ( empty( $posts ) ) {
-            AEO_Activity_Log::log( 'bulk_speakable', 'success', array( 'message' => 'No posts found.', 'post_type' => $post_type ) );
-            return rest_ensure_response( array( 'ok' => true, 'updated' => 0, 'message' => 'No posts found.' ) );
-        }
-
-        $updated = 0;
-        $selectors = array( $selector );
-
-        foreach ( $posts as $post_id ) {
-            update_post_meta( $post_id, '_aeo_speakable', $selectors );
-            $updated++;
-        }
-
-        AEO_Activity_Log::log( 'bulk_speakable', 'success', array(
-            'message'   => "Speakable set on {$updated} posts.",
-            'selector'  => $selector,
-            'post_type' => $post_type,
-            'updated'   => $updated,
-        ) );
-
-        return rest_ensure_response( array(
-            'ok'       => true,
-            'updated'  => $updated,
-            'selector' => $selector,
-            'message'  => "Speakable set on {$updated} {$post_type} posts.",
-        ) );
-    }
-
-    /**
-     * Query AEO post meta for diagnostics.
-     */
-    private function cmd_query_post_meta( $payload ) {
-        $meta_key  = isset( $payload['meta_key'] ) ? sanitize_text_field( $payload['meta_key'] ) : '';
-        $post_type = isset( $payload['post_type'] ) ? sanitize_text_field( $payload['post_type'] ) : 'post';
-        $limit     = isset( $payload['limit'] ) ? min( intval( $payload['limit'] ), 200 ) : 50;
-
-        if ( empty( $meta_key ) ) {
-            return new WP_Error( 'aeo_missing_meta_key', 'meta_key is required.', array( 'status' => 400 ) );
-        }
-
-        // Only allow querying AEO-prefixed meta keys.
-        if ( strpos( $meta_key, '_aeo_' ) !== 0 && strpos( $meta_key, 'aeo_' ) !== 0 ) {
-            return new WP_Error( 'aeo_invalid_meta_key', 'Only AEO meta keys can be queried.', array( 'status' => 400 ) );
-        }
-
-        $posts = get_posts( array(
-            'post_type'      => $post_type,
-            'post_status'    => 'publish',
-            'posts_per_page' => $limit,
-            // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- No alternative for meta key existence check.
-            'meta_query'     => array(
-                array(
-                    'key'     => $meta_key,
-                    'compare' => 'EXISTS',
-                ),
-            ),
-            'fields'         => 'ids',
-        ) );
-
-        $results = array();
-        foreach ( $posts as $post_id ) {
-            $value = get_post_meta( $post_id, $meta_key, true );
-            $results[] = array(
-                'post_id'    => $post_id,
-                'title'      => get_the_title( $post_id ),
-                // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- Array key, not a DB query parameter.
-                'meta_value' => $value,
-            );
-        }
-
-        AEO_Activity_Log::log( 'query_post_meta', 'success', array(
-            'message'  => "Queried {$meta_key}: " . count( $results ) . ' posts found.',
-            // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Array key in log data, not a DB query parameter.
-            'meta_key' => $meta_key,
-            'count'    => count( $results ),
-        ) );
-
-        return rest_ensure_response( array(
-            'ok'      => true,
-            'results' => $results,
-            'count'   => count( $results ),
-        ) );
-    }
 }

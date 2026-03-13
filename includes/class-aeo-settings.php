@@ -33,14 +33,23 @@ class AEO_Settings {
             __( 'AEO Content AI Studio', 'aeo-content-ai-studio' ),
             __( 'AEO Content', 'aeo-content-ai-studio' ),
             'manage_options',
-            'aeo-content-ai-studio',
-            array( $this, 'render_page' ),
+            'aeo-audit-report',
+            array( $this, 'render_audit_report' ),
             AEO_PLUGIN_URL . 'admin/images/icon.png',
             30
         );
 
         add_submenu_page(
-            'aeo-content-ai-studio',
+            'aeo-audit-report',
+            __( 'AEO Audit Report', 'aeo-content-ai-studio' ),
+            __( 'Audit Report', 'aeo-content-ai-studio' ),
+            'manage_options',
+            'aeo-audit-report',
+            array( $this, 'render_audit_report' )
+        );
+
+        add_submenu_page(
+            'aeo-audit-report',
             __( 'AEO Content AI Studio', 'aeo-content-ai-studio' ),
             __( 'Settings', 'aeo-content-ai-studio' ),
             'manage_options',
@@ -49,7 +58,7 @@ class AEO_Settings {
         );
 
         add_submenu_page(
-            'aeo-content-ai-studio',
+            'aeo-audit-report',
             __( 'AEO Activity Log', 'aeo-content-ai-studio' ),
             __( 'Activity Log', 'aeo-content-ai-studio' ),
             'manage_options',
@@ -71,6 +80,10 @@ class AEO_Settings {
 
     /**
      * Sanitize API key and attempt registration with the platform.
+     *
+     * Generates a plugin_token (if not already present) and sends it
+     * to the platform during registration. The platform uses this token
+     * to authenticate its requests to the plugin's REST API.
      */
     public function sanitize_and_register_api_key( $input ) {
         $api_key = sanitize_text_field( $input );
@@ -80,10 +93,19 @@ class AEO_Settings {
             return '';
         }
 
+        // Generate plugin token if not already present.
+        $plugin_token = get_option( 'aeo_plugin_token', '' );
+        if ( empty( $plugin_token ) ) {
+            $plugin_token = AEO_Auth::generate_plugin_token();
+        }
+
         $response = wp_remote_post(
             trailingslashit( AEO_PLATFORM_URL ) . 'api/v1/plugin/register',
             array(
-                'body'    => wp_json_encode( array( 'site_url' => get_site_url() ) ),
+                'body'    => wp_json_encode( array(
+                    'site_url'     => get_site_url(),
+                    'plugin_token' => $plugin_token,
+                ) ),
                 'headers' => array(
                     'Content-Type' => 'application/json',
                     'x-api-key'   => $api_key,
@@ -105,6 +127,8 @@ class AEO_Settings {
         $body   = json_decode( wp_remote_retrieve_body( $response ), true );
 
         if ( 200 === $status && ! empty( $body['ok'] ) ) {
+            // Save plugin token only after successful registration.
+            update_option( 'aeo_plugin_token', $plugin_token, false );
             update_option( 'aeo_connection_verified', true );
             add_settings_error( 'aeo_site_token', 'aeo_register_success',
                 __( 'Successfully connected to AEO Content platform.', 'aeo-content-ai-studio' ),
@@ -112,7 +136,7 @@ class AEO_Settings {
             );
         } else {
             delete_option( 'aeo_connection_verified' );
-            $message = ! empty( $body['error'] ) ? $body['error'] : __( 'Registration failed.', 'aeo-content-ai-studio' );
+            $message = ! empty( $body['error'] ) ? sanitize_text_field( $body['error'] ) : __( 'Registration failed.', 'aeo-content-ai-studio' );
             add_settings_error( 'aeo_site_token', 'aeo_register_failed', $message, 'error' );
         }
 
@@ -129,18 +153,37 @@ class AEO_Settings {
 
     public function enqueue_styles( $hook ) {
         $aeo_pages = array(
-            'toplevel_page_aeo-content-ai-studio',
+            'toplevel_page_aeo-audit-report',
+            'aeo-content_page_aeo-content-ai-studio',
             'aeo-content_page_aeo-activity-log',
         );
         if ( ! in_array( $hook, $aeo_pages, true ) ) {
             return;
         }
+        $asset_ver = AEO_VERSION . '.' . filemtime( AEO_PLUGIN_DIR . 'admin/css/admin.css' );
         wp_enqueue_style(
             'aeo-admin',
             AEO_PLUGIN_URL . 'admin/css/admin.css',
             array(),
-            AEO_VERSION
+            $asset_ver
         );
+
+        // Audit page JS.
+        if ( 'toplevel_page_aeo-audit-report' === $hook ) {
+            $js_ver = AEO_VERSION . '.' . filemtime( AEO_PLUGIN_DIR . 'admin/js/audit.js' );
+            wp_enqueue_script(
+                'aeo-audit',
+                AEO_PLUGIN_URL . 'admin/js/audit.js',
+                array(),
+                $js_ver,
+                true
+            );
+            wp_localize_script( 'aeo-audit', 'aeoAudit', array(
+                'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
+                'nonce'    => wp_create_nonce( 'aeo_audit_nonce' ),
+                'favicon'  => get_site_icon_url( 48, '' ),
+            ) );
+        }
     }
 
     public function render_page() {
@@ -155,5 +198,12 @@ class AEO_Settings {
             return;
         }
         include AEO_PLUGIN_DIR . 'admin/views/activity-log-page.php';
+    }
+
+    public function render_audit_report() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            return;
+        }
+        include AEO_PLUGIN_DIR . 'admin/views/audit-page.php';
     }
 }

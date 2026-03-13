@@ -18,6 +18,15 @@ class AEO_Heartbeat {
     public function __construct() {
         add_filter( 'cron_schedules', array( $this, 'add_cron_schedule' ) );
         add_action( self::CRON_HOOK, array( $this, 'send_heartbeat' ) );
+
+        // Capture the real site URL during admin requests (HTTP_HOST is correct here).
+        if ( is_admin() && ! wp_doing_cron() ) {
+            $current = site_url();
+            if ( $current && ! filter_var( wp_parse_url( $current, PHP_URL_HOST ), FILTER_VALIDATE_IP ) ) {
+                update_option( 'aeo_real_site_url', $current, false );
+                update_option( 'aeo_real_home_url', home_url(), false );
+            }
+        }
     }
 
     /**
@@ -34,8 +43,8 @@ class AEO_Heartbeat {
      */
     public function add_cron_schedule( $schedules ) {
         $schedules[ self::INTERVAL_NAME ] = array(
-            'interval' => 6 * HOUR_IN_SECONDS,
-            'display'  => 'Every 6 hours',
+            'interval' => 3 * HOUR_IN_SECONDS,
+            'display'  => 'Every 3 hours',
         );
         return $schedules;
     }
@@ -54,8 +63,8 @@ class AEO_Heartbeat {
         global $wp_version;
 
         $body = wp_json_encode( array(
-            'site_url'  => get_site_url(),
-            'home_url'  => get_home_url(),
+            'site_url'  => get_option( 'aeo_real_site_url', site_url() ),
+            'home_url'  => get_option( 'aeo_real_home_url', home_url() ),
             'version'   => AEO_VERSION,
             'wp'        => $wp_version,
             'php'       => PHP_VERSION,
@@ -80,20 +89,35 @@ class AEO_Heartbeat {
             return;
         }
 
-        $status = wp_remote_retrieve_response_code( $response );
+        $status        = wp_remote_retrieve_response_code( $response );
+        $response_body = wp_remote_retrieve_body( $response );
+        $request_data  = json_decode( $body, true );
+
         if ( 200 !== $status ) {
-            AEO_Activity_Log::log( 'heartbeat', 'error', array( 'message' => "Platform returned {$status}." ) );
+            AEO_Activity_Log::log( 'heartbeat', 'error', array(
+                'message'       => "Platform returned {$status}.",
+                'request_body'  => $request_data,
+                'response_body' => $response_body,
+            ) );
             return;
         }
 
         // Process any pending commands returned by platform.
-        $result = json_decode( wp_remote_retrieve_body( $response ), true );
+        $result = json_decode( $response_body, true );
         if ( ! empty( $result['commands'] ) && is_array( $result['commands'] ) ) {
             $count = count( $result['commands'] );
-            AEO_Activity_Log::log( 'heartbeat', 'success', array( 'message' => "Heartbeat sent. {$count} pending commands executed." ) );
+            AEO_Activity_Log::log( 'heartbeat', 'success', array(
+                'message'       => "Heartbeat sent. {$count} pending commands executed.",
+                'request_body'  => $request_data,
+                'response_body' => $result,
+            ) );
             $this->process_pending_commands( $result['commands'] );
         } else {
-            AEO_Activity_Log::log( 'heartbeat', 'success', array( 'message' => 'Heartbeat sent successfully.' ) );
+            AEO_Activity_Log::log( 'heartbeat', 'success', array(
+                'message'       => 'Heartbeat sent successfully.',
+                'request_body'  => $request_data,
+                'response_body' => $result,
+            ) );
         }
     }
 

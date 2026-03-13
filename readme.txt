@@ -1,58 +1,63 @@
 === AEO Content AI Studio ===
 Contributors: aeocontent
-Tags: seo, ai, schema, structured-data, llms-txt
+Tags: ai, content, publishing, audit, optimization
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-AI Engine Optimization for WordPress. Manages llms.txt, ai.txt, robots.txt, structured data, and semantic HTML for AI visibility.
+Connects your WordPress site to AEO Content AI Studio for AI-powered content publishing and 28-criteria site audit reports.
 
 == Description ==
 
-AEO Content AI Studio connects your WordPress site to the [AEO Content platform](https://www.aeocontent.ai) to automatically implement AI visibility optimizations.
+AEO Content AI Studio connects your WordPress site to the [AEO Content AI Studio](https://www.aeocontent.ai) platform for AI-powered content management and AI visibility auditing.
 
-AI engines like ChatGPT, Claude, and Perplexity are becoming major traffic sources. This plugin ensures your site is optimized to appear in AI-generated answers by implementing structured data, machine-readable content files, and semantic HTML that AI engines understand.
+**What is AEO?** AI Engine Optimization is the practice of structuring web content so AI answer engines — ChatGPT, Claude, Perplexity, and Google AI Overviews — can discover, parse, and cite it. While SEO focuses on search rankings, AEO focuses on getting your content into AI-generated answers.
+
+= What This Plugin Does =
+
+**Content Publishing** — AEO Content AI Studio reads your existing posts, optimizes them with AI, and publishes updated or new content back to your site via a secure REST API. Categories, tags, featured images, and FAQ schema are handled automatically.
+
+**Audit Report** — View your site's AI visibility score directly in the WordPress dashboard. The audit evaluates 28 weighted criteria across three tiers — Content Substance, Content Organization, and Technical Plumbing — scored from 0 to 100. Each criterion includes detailed findings and a prioritized fix list.
+
+**Activity Log** — Every API interaction is logged with timestamps, status, and details. Filter by command or status, export to CSV, and auto-cleanup keeps logs manageable.
 
 = Features =
 
-* **llms.txt / ai.txt** - Serve virtual files at your site root for AI crawler discovery
-* **robots.txt AI Rules** - Append AI-specific crawler directives (GPTBot, ClaudeBot, PerplexityBot, etc.)
-* **Organization & WebSite Schema** - Site-wide JSON-LD structured data
-* **Article & Author Schema** - Per-post Article, Person, and SpeakableSpecification markup
-* **FAQ Schema** - Automatic FAQPage JSON-LD from content patterns or explicit data
-* **Canonical URLs** - Platform-managed canonical URL overrides
-* **Semantic HTML** - Article wrappers, time elements, and lang attribute
-* **Content Freshness** - dateModified metadata and Open Graph tags
-* **Content Publishing** - Create and update posts with full AEO optimization via API
-* **Activity Log** - Track all optimization commands with filterable log and CSV export
+* Read, create, and update posts from AEO Content AI Studio
+* View 28-criteria AI visibility audit report in WordPress admin
+* Browse site categories and tags via REST API for platform sync
+* Track all API activity with filterable log and CSV export
+* Automatic heartbeat keeps platform and plugin in sync
+* Secure API Key authentication on all endpoints
 
 = How It Works =
 
-1. Install the plugin and enter your Site Token from the [AEO Content dashboard](https://www.aeocontent.ai)
-2. The platform sends optimization commands to your site via API Key-authenticated REST API
-3. A heartbeat every 6 hours ensures connectivity and delivers any missed commands
-4. All features are individually toggleable from Settings > AEO Content
+1. Install the plugin and enter your API Key from the [AEO Content dashboard](https://account.aeocontent.ai)
+2. AEO Content AI Studio syncs your categories, tags, and posts via authenticated REST API
+3. AEO Content AI Studio analyzes and optimizes your content
+4. Optimized content is published back to WordPress with one click
+5. View your site's AEO audit score and recommendations in the Audit Report tab
 
 = External Service =
 
-This plugin connects to the AEO Content platform at `aeocontent.ai` for the following:
+This plugin connects to the AEO Content platform at `aeocontent.ai` for the following purposes:
 
-* **Heartbeat** (every 6 hours): Sends your site URL, home URL, plugin version, WordPress version, PHP version, and enabled features list to `https://www.aeocontent.ai/api/v1/plugin/heartbeat`. This allows the platform to verify connectivity and deliver any pending optimization commands. No personal data or site content is transmitted.
-* **Registration** (on initial setup): When you enter a Site Token, the plugin validates it against the platform.
+* **Registration** (on initial setup): When you save your API Key, the plugin sends your site URL to `https://www.aeocontent.ai/api/v1/plugin/register` to register the connection. No content or personal data is transmitted.
+* **Heartbeat** (periodic): The plugin sends your site URL, plugin version, WordPress version, PHP version, and enabled features to `https://www.aeocontent.ai/api/v1/plugin/heartbeat`. This keeps the platform in sync and delivers any pending updates. No personal data or site content is transmitted.
+* **Audit Report** (on demand): When you view the Audit Report page, the plugin fetches your site's audit data from `https://www.aeocontent.ai/api/v1/audits/{site-slug}`. This returns scoring data and recommendations generated by the platform. Audit results are cached locally for 1 hour.
 
-The platform's terms of service are available at [aeocontent.ai/terms](https://www.aeocontent.ai/terms) and privacy policy at [aeocontent.ai/privacy](https://www.aeocontent.ai/privacy).
-
-All communication is authenticated via API Key sent in the x-api-key HTTP header, validated using constant-time comparison.
+All communication uses HTTPS and is authenticated via API Key. The platform's [Terms of Service](https://www.aeocontent.ai/terms) and [Privacy Policy](https://www.aeocontent.ai/privacy) apply to data processed on the platform side.
 
 == Installation ==
 
 1. Upload the `aeo-content-ai-studio` folder to `/wp-content/plugins/`
 2. Activate the plugin through the 'Plugins' menu in WordPress
-3. Go to AEO Content > Settings in the WordPress admin menu to enter your API Key
-4. Enable or disable individual features as needed
+3. Go to **AEO Content > Settings** and enter your API Key
+4. Enable the **Content Publishing** feature
+5. View your audit score under **AEO Content > Audit Report**
 
 Alternatively, search for "AEO Content AI Studio" in the WordPress plugin directory and install directly.
 
@@ -60,70 +65,57 @@ Alternatively, search for "AEO Content AI Studio" in the WordPress plugin direct
 
 = Do I need an AEO Content account? =
 
-Yes. The plugin connects to the AEO Content platform which provides the optimization data and commands. Visit [aeocontent.ai](https://www.aeocontent.ai) to get started with a free audit.
+Yes. The plugin connects to the AEO Content platform which manages content optimization and audit scoring. Visit [aeocontent.ai](https://www.aeocontent.ai) to get started with a free audit.
+
+= What does the Audit Report show? =
+
+The audit evaluates your site across 28 weighted criteria grouped into three tiers: Content Substance (~55% of score), Content Organization (~30%), and Technical Plumbing (~15%). You get a score out of 100 with detailed findings per criterion and a prioritized list of improvements ranked by impact. Most websites score between 30 and 60; above 70 indicates strong AI visibility.
+
+= How does content publishing work? =
+
+AEO Content AI Studio reads your posts via the plugin's REST API, optimizes them using AI, and sends updated content back. The plugin creates or updates WordPress posts with the optimized content, including categories, tags, featured images, and FAQ structured data. You control which posts are updated from AEO Content AI Studio.
 
 = Is it compatible with Yoast SEO / Rank Math? =
 
-Yes. The plugin checks for existing schema and canonical tags before adding its own. You can disable individual features from the settings page to avoid any conflicts.
-
-= How is authentication handled? =
-
-All API communication between the platform and your site is authenticated via API Key sent in the x-api-key HTTP header. The key is validated using constant-time comparison to prevent timing attacks.
+Yes. The plugin does not inject schema or modify meta tags on the frontend. It manages post content and metadata through standard WordPress functions, so it works alongside any SEO plugin without conflicts.
 
 = What data does the plugin send to aeocontent.ai? =
 
-The heartbeat (every 6 hours) sends only: your site URL, home URL, plugin version, WordPress version, PHP version, and the list of enabled features. No personal data, user information, or site content is transmitted. All communication is encrypted via HTTPS.
-
-= Can I use this without the platform? =
-
-The plugin is designed to work with the AEO Content platform. Without a valid Site Token, the optimization features will not receive data. However, the plugin does not break your site if disconnected - features simply remain in their last configured state.
+The heartbeat sends only technical metadata: site URL, plugin version, WordPress version, PHP version, and enabled features. Post content is only transmitted when you explicitly use AEO Content AI Studio to read or publish posts. All communication is encrypted via HTTPS.
 
 = Does the plugin slow down my site? =
 
-No. The plugin adds minimal overhead. Schema markup is injected via WordPress hooks (no additional database queries on the frontend), and the heartbeat runs via WP-Cron in the background.
+No. The plugin has zero frontend footprint — it does not add scripts, styles, or markup to your public pages. The heartbeat runs via WP-Cron in the background, and audit data is cached locally.
 
-== Support ==
+= Can I use this without the platform? =
 
-For support, feature requests, and bug reports, please visit the [plugin support forum](https://wordpress.org/support/plugin/aeo-content-ai-studio/) or open an issue on [GitHub](https://github.com/AEO-Content-Inc/aeo-content-ai-studio/issues).
+The plugin requires a valid API Key from the AEO Content platform. Without it, the REST API endpoints remain inactive. The plugin does not break your site if disconnected — it simply has no data to display.
 
 == Screenshots ==
 
-1. Settings page with feature toggles and connection status
-2. Activity log showing all optimization commands
+1. Audit Report — AI visibility score with 28-criteria breakdown
+2. Settings — API Key connection and feature toggle
+3. Activity Log — Filterable log of all API interactions with CSV export
 
 == Changelog ==
 
-= 1.1.0 =
-* Added bulk speakable CSS selector assignment
-* Added post meta query command for diagnostics
-* Added internationalization (i18n) support
-* Added recursive schema data sanitization
-* Improved security: removed server version info from public endpoint
-* Improved security: SSRF prevention on featured image URLs
-* Fixed deprecated `current_time('timestamp')` usage
-* Fixed missing `$wpdb->prepare()` in uninstall cleanup
-
 = 1.0.0 =
 * Initial release
-* Virtual llms.txt and ai.txt files
-* robots.txt AI crawler rules
-* Organization, WebSite, Article, and FAQ schema
-* Speakable and Breadcrumb schema
-* Canonical URL management
-* Semantic HTML improvements
-* Content freshness metadata
-* REST API with API Key authentication
-* 6-hour heartbeat connectivity check
-* Admin settings page with feature toggles
-* Activity log with CSV export
+* Content Publishing — create and update posts via AEO Content AI Studio
+* Audit Report — 28-criteria AI visibility score with detailed findings
+* Activity Log — filterable command log with CSV export and auto-cleanup
+* REST API — posts, categories, tags, publish, command dispatch, and health check
+* API Key authentication with constant-time comparison
+* Periodic heartbeat for platform connectivity
+* Admin dashboard with three pages: Audit Report, Settings, Activity Log
 
 == Privacy ==
 
 This plugin connects to the external service at aeocontent.ai. See the "External Service" section in the Description for full details on what data is transmitted and when.
 
-The plugin stores the IP address of incoming API requests in the activity log for security and diagnostic purposes. Log entries are automatically deleted after 90 days. No cookies are used, no users are tracked, and no analytics are collected.
+The plugin stores the IP address of incoming API requests in the activity log for security and diagnostic purposes. Log entries are automatically deleted after 90 days. No cookies are set, no users are tracked, and no analytics are collected on the frontend.
 
 == Upgrade Notice ==
 
-= 1.1.0 =
-Security improvements and WordPress.org compliance updates. Recommended for all users.
+= 1.0.0 =
+Initial release. Install and enter your API Key to connect to the AEO Content platform.

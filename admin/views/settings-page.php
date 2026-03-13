@@ -11,20 +11,12 @@ $platform   = AEO_PLATFORM_URL;
 $connected  = ! empty( $token ) && get_option( 'aeo_connection_verified', false );
 
 $module_labels = array(
-    'llms-txt'      => array( 'label' => 'llms.txt',            'desc' => 'Serve a virtual /llms.txt file for AI crawlers.' ),
-    'ai-txt'        => array( 'label' => 'ai.txt',              'desc' => 'Serve a virtual /ai.txt file for AI crawlers.' ),
-    'robots-txt'    => array( 'label' => 'robots.txt Rules',    'desc' => 'Append AI crawler rules to robots.txt.' ),
-    'schema-org'    => array( 'label' => 'Organization Schema', 'desc' => 'Inject Organization + WebSite JSON-LD on every page.' ),
-    'schema-post'   => array( 'label' => 'Post Schema',         'desc' => 'Inject Article, Author, FAQ, and Speakable schema per post.' ),
-    'canonical'     => array( 'label' => 'Canonical URLs',      'desc' => 'Manage canonical URL tags per post.' ),
-    'semantic-html' => array( 'label' => 'Semantic HTML',       'desc' => 'Wrap content in article tags, add time elements, ensure lang attribute.' ),
-    'freshness'     => array( 'label' => 'Content Freshness',   'desc' => 'Add dateModified metadata and Open Graph meta tags.' ),
-    'content'       => array( 'label' => 'Content Publishing',  'desc' => 'Create and update posts with full AEO optimization via API.' ),
+    'content'       => array( 'label' => 'Content Publishing',  'desc' => 'Allow the AEO Content platform to read, create, and update posts on this site.' ),
 );
 ?>
 <div class="wrap aeo-settings">
     <h1><?php esc_html_e( 'AEO Content AI Studio', 'aeo-content-ai-studio' ); ?></h1>
-    <h2 class="aeo-subtitle"><?php esc_html_e( 'AI Engine Optimization for WordPress. Manages llms.txt, ai.txt, robots.txt rules, structured data, and semantic HTML to maximize your site\'s visibility to AI engines like ChatGPT, Claude, Perplexity, and Google AI Overviews.', 'aeo-content-ai-studio' ); ?></h2>
+    <h2 class="aeo-subtitle"><?php esc_html_e( 'AI Engine Optimization for WordPress. Connects your site to AEO Content AI Studio for AI-powered content management.', 'aeo-content-ai-studio' ); ?></h2>
 
     <div class="aeo-status-bar <?php echo $connected ? 'aeo-connected' : 'aeo-disconnected'; ?>">
         <span class="aeo-status-dot"></span>
@@ -97,37 +89,4 @@ $module_labels = array(
         <?php submit_button( __( 'Save Settings', 'aeo-content-ai-studio' ) ); ?>
     </form>
 
-    <?php if ( $connected ) : ?>
-    <h2><?php esc_html_e( 'Quick Status', 'aeo-content-ai-studio' ); ?></h2>
-    <table class="widefat fixed striped aeo-status-table">
-        <tbody>
-            <tr>
-                <td><strong><?php esc_html_e( 'llms.txt', 'aeo-content-ai-studio' ); ?></strong></td>
-                <td><?php echo get_option( 'aeo_llms_txt_content' ) ? esc_html__( 'Configured', 'aeo-content-ai-studio' ) : esc_html__( 'Not set', 'aeo-content-ai-studio' ); ?></td>
-            </tr>
-            <tr>
-                <td><strong><?php esc_html_e( 'ai.txt', 'aeo-content-ai-studio' ); ?></strong></td>
-                <td><?php echo get_option( 'aeo_ai_txt_content' ) ? esc_html__( 'Configured', 'aeo-content-ai-studio' ) : esc_html__( 'Not set', 'aeo-content-ai-studio' ); ?></td>
-            </tr>
-            <tr>
-                <td><strong><?php esc_html_e( 'robots.txt AI Rules', 'aeo-content-ai-studio' ); ?></strong></td>
-                <td>
-                    <?php
-                    $rules = get_option( 'aeo_robots_ai_rules', array() );
-                    if ( $rules ) {
-                        /* translators: %d: number of rules configured */
-                        echo esc_html( sprintf( _n( '%d rule', '%d rules', count( $rules ), 'aeo-content-ai-studio' ), count( $rules ) ) );
-                    } else {
-                        esc_html_e( 'Not set', 'aeo-content-ai-studio' );
-                    }
-                    ?>
-                </td>
-            </tr>
-            <tr>
-                <td><strong><?php esc_html_e( 'Organization Schema', 'aeo-content-ai-studio' ); ?></strong></td>
-                <td><?php echo get_option( 'aeo_org_schema' ) ? esc_html__( 'Configured', 'aeo-content-ai-studio' ) : esc_html__( 'Not set', 'aeo-content-ai-studio' ); ?></td>
-            </tr>
-        </tbody>
-    </table>
-    <?php endif; ?>
 </div>

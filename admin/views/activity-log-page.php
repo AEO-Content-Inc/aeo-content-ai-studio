@@ -9,9 +9,16 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+// Handle clear logs action.
+if ( isset( $_POST['aeo_clear_logs'] ) && check_admin_referer( 'aeo_clear_logs' ) && current_user_can( 'manage_options' ) ) {
+    AEO_Activity_Log::clear_all();
+    wp_safe_redirect( admin_url( 'admin.php?page=aeo-activity-log&cleared=1' ) );
+    exit;
+}
+
 // phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only filters, no state changes.
 $current_page = max( 1, isset( $_GET['paged'] ) ? intval( $_GET['paged'] ) : 1 );
-$per_page     = 25;
+$per_page     = 10;
 
 $filters = array();
 if ( ! empty( $_GET['command'] ) ) {
@@ -36,6 +43,10 @@ $base_url = admin_url( 'admin.php?page=aeo-activity-log' );
 ?>
 <div class="wrap aeo-settings">
     <h1><?php esc_html_e( 'AEO Activity Log', 'aeo-content-ai-studio' ); ?></h1>
+
+    <?php if ( isset( $_GET['cleared'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+        <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'All logs have been cleared.', 'aeo-content-ai-studio' ); ?></p></div>
+    <?php endif; ?>
 
     <!-- Stats Bar -->
     <div class="aeo-log-stats">
@@ -100,8 +111,16 @@ $base_url = admin_url( 'admin.php?page=aeo-activity-log' );
             '_wpnonce'        => wp_create_nonce( 'aeo_export_logs' ),
         ) );
         ?>
-        <a href="<?php echo esc_url( add_query_arg( $export_args, admin_url( 'admin.php' ) ) ); ?>" class="button" style="margin-left: auto;"><?php esc_html_e( 'Export CSV', 'aeo-content-ai-studio' ); ?></a>
-    </form>
+        <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+            <a href="<?php echo esc_url( add_query_arg( $export_args, admin_url( 'admin.php' ) ) ); ?>" class="button"><?php esc_html_e( 'Export CSV', 'aeo-content-ai-studio' ); ?></a>
+            <?php // Close GET form, open POST form inline for Clear button. ?>
+            </form><form method="post" style="display:inline; margin:0;">
+                <?php wp_nonce_field( 'aeo_clear_logs' ); ?>
+                <button type="submit" name="aeo_clear_logs" value="1" class="button" style="color:#a00;" onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to delete all logs?', 'aeo-content-ai-studio' ); ?>');">
+                    <?php esc_html_e( 'Clear All Logs', 'aeo-content-ai-studio' ); ?>
+                </button>
+            </form>
+        </div>
 
     <!-- Log Table -->
     <?php if ( empty( $logs['items'] ) ) : ?>
@@ -124,11 +143,23 @@ $base_url = admin_url( 'admin.php?page=aeo-activity-log' );
                     <tr>
                         <td>
                             <span title="<?php echo esc_attr( $entry['created_at'] ); ?>">
-                                <?php echo esc_html( date_i18n( 'M j, Y g:i a', strtotime( $entry['created_at'] ) ) ); ?>
+                                <?php echo esc_html( date_i18n( 'M j, Y g:i:s a', strtotime( $entry['created_at'] ) ) ); ?>
                             </span>
                         </td>
                         <td>
-                            <code class="aeo-log-command"><?php echo esc_html( $entry['command'] ); ?></code>
+                            <?php
+                            $cmd_type_map = array(
+                                'publish_post' => 'write',
+                                'get_posts'    => 'read',
+                                'get_post'     => 'read',
+                                'heartbeat'    => 'system',
+                                'reaudit'      => 'audit',
+                            );
+                            $cmd_type = isset( $cmd_type_map[ $entry['command'] ] ) ? $cmd_type_map[ $entry['command'] ] : 'read';
+                            ?>
+                            <span class="aeo-log-command aeo-cmd-<?php echo esc_attr( $cmd_type ); ?>">
+                                <?php echo esc_html( $entry['command'] ); ?>
+                            </span>
                         </td>
                         <td>
                             <span class="aeo-badge aeo-badge-<?php echo esc_attr( $entry['status'] ); ?>">
@@ -139,10 +170,17 @@ $base_url = admin_url( 'admin.php?page=aeo-activity-log' );
                             <?php
                             $details = $entry['details'];
                             if ( is_array( $details ) ) {
-                                // Show message if present, otherwise compact JSON.
                                 if ( isset( $details['message'] ) ) {
                                     echo esc_html( $details['message'] );
-                                } else {
+                                }
+                                // Show extra data (request_body, response_body, etc.) in expandable block.
+                                $extra = array_diff_key( $details, array( 'message' => 1 ) );
+                                if ( ! empty( $extra ) ) {
+                                    echo '<details style="margin-top:4px;"><summary style="cursor:pointer;font-size:12px;color:#666;">' . esc_html__( 'Show payload', 'aeo-content-ai-studio' ) . '</summary>';
+                                    echo '<pre style="font-size:11px;max-height:300px;overflow:auto;background:#f5f5f5;padding:8px;margin-top:4px;">';
+                                    echo esc_html( wp_json_encode( $extra, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) );
+                                    echo '</pre></details>';
+                                } elseif ( ! isset( $details['message'] ) ) {
                                     echo '<code class="aeo-log-details">' . esc_html( wp_json_encode( $details, JSON_UNESCAPED_SLASHES ) ) . '</code>';
                                 }
                             } elseif ( $details ) {
@@ -167,22 +205,61 @@ $base_url = admin_url( 'admin.php?page=aeo-activity-log' );
         </table>
 
         <!-- Pagination -->
-        <?php if ( $logs['pages'] > 1 ) : ?>
+        <?php if ( $logs['pages'] > 1 ) :
+            $total_pages     = $logs['pages'];
+            $pagination_args = array_merge( $filters, array( 'page' => 'aeo-activity-log' ) );
+            $neighbours      = 2;
+
+            // Build list of page numbers to show.
+            $pages_to_show = array( 1, $total_pages );
+            for ( $i = max( 2, $current_page - $neighbours ); $i <= min( $total_pages - 1, $current_page + $neighbours ); $i++ ) {
+                $pages_to_show[] = $i;
+            }
+            $pages_to_show = array_unique( $pages_to_show );
+            sort( $pages_to_show );
+        ?>
             <div class="aeo-log-pagination">
+                <?php // Previous button.
+                if ( $current_page > 1 ) :
+                    $pagination_args['paged'] = $current_page - 1;
+                ?>
+                    <a href="<?php echo esc_url( add_query_arg( $pagination_args, admin_url( 'admin.php' ) ) ); ?>" class="button">&laquo; <?php esc_html_e( 'Previous', 'aeo-content-ai-studio' ); ?></a>
+                <?php else : ?>
+                    <span class="button disabled">&laquo; <?php esc_html_e( 'Previous', 'aeo-content-ai-studio' ); ?></span>
+                <?php endif; ?>
+
                 <?php
-                $pagination_args = array_merge( $filters, array( 'page' => 'aeo-activity-log' ) );
-                for ( $i = 1; $i <= $logs['pages']; $i++ ) :
-                    $pagination_args['paged'] = $i;
-                    $class = ( $i === $current_page ) ? 'button button-primary' : 'button';
+                $prev = 0;
+                foreach ( $pages_to_show as $p ) :
+                    // Show ellipsis between gaps.
+                    if ( $p - $prev > 1 ) :
+                ?>
+                        <span class="aeo-log-muted" style="padding: 0 4px;">&hellip;</span>
+                    <?php endif;
+                    $pagination_args['paged'] = $p;
+                    $class = ( $p === $current_page ) ? 'button button-primary' : 'button';
                 ?>
                     <a href="<?php echo esc_url( add_query_arg( $pagination_args, admin_url( 'admin.php' ) ) ); ?>" class="<?php echo esc_attr( $class ); ?>">
-                        <?php echo esc_html( $i ); ?>
+                        <?php echo esc_html( $p ); ?>
                     </a>
-                <?php endfor; ?>
+                <?php
+                    $prev = $p;
+                endforeach;
+                ?>
+
+                <?php // Next button.
+                if ( $current_page < $total_pages ) :
+                    $pagination_args['paged'] = $current_page + 1;
+                ?>
+                    <a href="<?php echo esc_url( add_query_arg( $pagination_args, admin_url( 'admin.php' ) ) ); ?>" class="button"><?php esc_html_e( 'Next', 'aeo-content-ai-studio' ); ?> &raquo;</a>
+                <?php else : ?>
+                    <span class="button disabled"><?php esc_html_e( 'Next', 'aeo-content-ai-studio' ); ?> &raquo;</span>
+                <?php endif; ?>
+
                 <span class="aeo-log-muted" style="margin-left: 8px;">
                     <?php
                     /* translators: %1$d: current page number, %2$d: total pages, %3$d: total entries */
-                    echo esc_html( sprintf( __( 'Page %1$d of %2$d (%3$d entries)', 'aeo-content-ai-studio' ), $current_page, $logs['pages'], $logs['total'] ) );
+                    echo esc_html( sprintf( __( 'Page %1$d of %2$d (%3$d entries)', 'aeo-content-ai-studio' ), $current_page, $total_pages, $logs['total'] ) );
                     ?>
                 </span>
             </div>
