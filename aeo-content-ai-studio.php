@@ -1,7 +1,6 @@
 <?php
 /**
  * Plugin Name: AEO Content AI Studio
- * Plugin URI: https://www.aeocontent.ai
  * Description: AI Engine Optimization for WordPress. Connects your site to AEO Content AI Studio for AI-powered content management and audit reports.
  * Version: 1.0.0
  * Author: AEO Content, Inc.
