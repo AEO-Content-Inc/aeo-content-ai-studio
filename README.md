@@ -112,4 +112,5 @@ GPL v2 or later. See [license.txt](license.txt).
 
 - [AEO Content AI Studio](https://www.aeocontent.ai)
 - [WordPress.org Plugin Page](https://wordpress.org/plugins/aeo-content-ai-studio/)
+- [AEORank Engine Docs](https://www.aeocontent.ai/docs/guide/aeorank)
 - [Report an Issue](https://github.com/AEO-Content-Inc/aeo-content-ai-studio/issues)
