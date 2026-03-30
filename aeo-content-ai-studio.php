@@ -17,25 +17,25 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'AEO_VERSION', '1.0.0' );
-define( 'AEO_PLUGIN_FILE', __FILE__ );
-define( 'AEO_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
-define( 'AEO_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-define( 'AEO_PLATFORM_URL', 'https://www.aeocontent.ai' );
+define( 'AEOCAS_VERSION', '1.0.0' );
+define( 'AEOCAS_PLUGIN_FILE', __FILE__ );
+define( 'AEOCAS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
+define( 'AEOCAS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
+define( 'AEOCAS_PLATFORM_URL', 'https://www.aeocontent.ai' );
 
-require_once AEO_PLUGIN_DIR . 'includes/class-aeo-plugin.php';
+require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-plugin.php';
 
 /**
  * Returns the main plugin instance.
  */
-function aeo_content_ai_studio() {
-    return AEO_Plugin::get_instance();
+function aeocas_plugin() {
+    return AEOCAS_Plugin::get_instance();
 }
 
 // Register activation hook.
 register_activation_hook( __FILE__, function () {
-    aeo_content_ai_studio()->on_activate();
+    aeocas_plugin()->on_activate();
 } );
 
 // Boot the plugin.
-aeo_content_ai_studio();
+aeocas_plugin();

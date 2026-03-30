@@ -1,6 +1,6 @@
 <?php
 /**
- * REST API endpoints under /wp-json/aeo/v1/.
+ * REST API endpoints under /wp-json/aeocas/v1/.
  *
  * All mutating endpoints require API Key authentication from the AEO Content platform.
  */
@@ -9,12 +9,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class AEO_Rest_Api {
+class AEOCAS_Rest_Api {
 
-    /** @var AEO_Plugin */
+    /** @var AEOCAS_Plugin */
     private $plugin;
 
-    const REST_NAMESPACE = 'aeo/v1';
+    const REST_NAMESPACE = 'aeocas/v1';
 
     public function __construct( $plugin ) {
         $this->plugin = $plugin;
@@ -26,7 +26,7 @@ class AEO_Rest_Api {
         register_rest_route( self::REST_NAMESPACE, '/status', array(
             'methods'             => 'GET',
             'callback'            => array( $this, 'handle_status' ),
-            'permission_callback' => '__return_true',
+            'permission_callback' => array( $this, 'check_auth' ),
         ) );
 
         // Unified command dispatch.
@@ -39,7 +39,7 @@ class AEO_Rest_Api {
         // Activity log (API Key auth).
         register_rest_route( self::REST_NAMESPACE, '/logs', array(
             'methods'             => 'GET',
-            'callback'            => array( 'AEO_Activity_Log', 'handle_rest_logs' ),
+            'callback'            => array( 'AEOCAS_Activity_Log', 'handle_rest_logs' ),
             'permission_callback' => array( $this, 'check_auth' ),
         ) );
 
@@ -83,7 +83,7 @@ class AEO_Rest_Api {
      * Permission callback - verify API Key.
      */
     public function check_auth( $request ) {
-        return AEO_Auth::verify_request( $request );
+        return AEOCAS_Auth::verify_request( $request );
     }
 
     // ─── Status ───────────────────────────────────────────────
@@ -91,7 +91,7 @@ class AEO_Rest_Api {
     public function handle_status( $request ) {
         return rest_ensure_response( array(
             'ok'       => true,
-            'version'  => AEO_VERSION,
+            'version'  => AEOCAS_VERSION,
             'features' => $this->plugin->get_enabled_features(),
             'site_url' => get_site_url(),
             'home_url' => get_home_url(),
@@ -105,7 +105,7 @@ class AEO_Rest_Api {
         $payload = $request->get_param( 'payload' );
 
         if ( empty( $command ) ) {
-            return new WP_Error( 'aeo_missing_command', __( 'Missing command parameter.', 'aeo-content-ai-studio' ), array( 'status' => 400 ) );
+            return new WP_Error( 'aeocas_missing_command', __( 'Missing command parameter.', 'aeo-content-ai-studio' ), array( 'status' => 400 ) );
         }
 
         $commands = array(
@@ -113,9 +113,9 @@ class AEO_Rest_Api {
         );
 
         if ( ! isset( $commands[ $command ] ) ) {
-            AEO_Activity_Log::log( $command, 'error', array( 'message' => "Unknown command: {$command}" ) );
+            AEOCAS_Activity_Log::log( $command, 'error', array( 'message' => "Unknown command: {$command}" ) );
             /* translators: %s: command name */
-            return new WP_Error( 'aeo_unknown_command', sprintf( __( 'Unknown command: %s', 'aeo-content-ai-studio' ), $command ), array( 'status' => 400 ) );
+            return new WP_Error( 'aeocas_unknown_command', sprintf( __( 'Unknown command: %s', 'aeo-content-ai-studio' ), $command ), array( 'status' => 400 ) );
         }
 
         $method = $commands[ $command ];
@@ -138,7 +138,7 @@ class AEO_Rest_Api {
     public function handle_get_posts( $request ) {
         $module = $this->plugin->get_module( 'content' );
         if ( ! $module ) {
-            return new WP_Error( 'aeo_module_disabled', __( 'Content module is not enabled.', 'aeo-content-ai-studio' ), array( 'status' => 400 ) );
+            return new WP_Error( 'aeocas_module_disabled', __( 'Content module is not enabled.', 'aeo-content-ai-studio' ), array( 'status' => 400 ) );
         }
 
         $page      = max( 1, (int) $request->get_param( 'page' ) ?: 1 );
@@ -186,7 +186,7 @@ class AEO_Rest_Api {
             $items[] = $this->format_post_summary( $post );
         }
 
-        AEO_Activity_Log::log( 'get_posts', 'success', array(
+        AEOCAS_Activity_Log::log( 'get_posts', 'success', array(
             'message' => "Listed {$query->found_posts} posts (page {$page}).",
             'total'   => $query->found_posts,
         ) );
@@ -206,14 +206,14 @@ class AEO_Rest_Api {
     public function handle_get_post( $request ) {
         $module = $this->plugin->get_module( 'content' );
         if ( ! $module ) {
-            return new WP_Error( 'aeo_module_disabled', __( 'Content module is not enabled.', 'aeo-content-ai-studio' ), array( 'status' => 400 ) );
+            return new WP_Error( 'aeocas_module_disabled', __( 'Content module is not enabled.', 'aeo-content-ai-studio' ), array( 'status' => 400 ) );
         }
 
         $post_id = (int) $request->get_param( 'id' );
         $post    = get_post( $post_id );
 
         if ( ! $post ) {
-            return new WP_Error( 'aeo_not_found', __( 'Post not found.', 'aeo-content-ai-studio' ), array( 'status' => 404 ) );
+            return new WP_Error( 'aeocas_not_found', __( 'Post not found.', 'aeo-content-ai-studio' ), array( 'status' => 404 ) );
         }
 
         $data = $this->format_post_summary( $post );
@@ -243,28 +243,28 @@ class AEO_Rest_Api {
         }
 
         // AEO meta.
-        $aeo_meta = array();
-        $faq = get_post_meta( $post_id, '_aeo_faq_schema', true );
+        $aeocas_meta = array();
+        $faq = get_post_meta( $post_id, '_aeocas_faq_schema', true );
         if ( $faq ) {
-            $aeo_meta['faq'] = $faq;
+            $aeocas_meta['faq'] = $faq;
         }
-        $speakable = get_post_meta( $post_id, '_aeo_speakable', true );
+        $speakable = get_post_meta( $post_id, '_aeocas_speakable', true );
         if ( $speakable ) {
-            $aeo_meta['speakable'] = $speakable;
+            $aeocas_meta['speakable'] = $speakable;
         }
-        $canonical = get_post_meta( $post_id, '_aeo_canonical_url', true );
+        $canonical = get_post_meta( $post_id, '_aeocas_canonical_url', true );
         if ( $canonical ) {
-            $aeo_meta['canonical'] = $canonical;
+            $aeocas_meta['canonical'] = $canonical;
         }
-        $author_schema = get_post_meta( $post_id, '_aeo_author_schema', true );
+        $author_schema = get_post_meta( $post_id, '_aeocas_author_schema', true );
         if ( $author_schema ) {
-            $aeo_meta['author_schema'] = $author_schema;
+            $aeocas_meta['author_schema'] = $author_schema;
         }
-        if ( ! empty( $aeo_meta ) ) {
-            $data['aeo_meta'] = $aeo_meta;
+        if ( ! empty( $aeocas_meta ) ) {
+            $data['aeocas_meta'] = $aeocas_meta;
         }
 
-        AEO_Activity_Log::log( 'get_post', 'success', array(
+        AEOCAS_Activity_Log::log( 'get_post', 'success', array(
             'message' => "Post #{$post_id} retrieved.",
         ), $post_id );
 
@@ -398,8 +398,8 @@ class AEO_Rest_Api {
     private function cmd_publish_post( $payload ) {
         $module = $this->plugin->get_module( 'content' );
         if ( ! $module ) {
-            AEO_Activity_Log::log( 'publish_post', 'error', array( 'message' => 'Content module is not enabled.' ) );
-            return new WP_Error( 'aeo_module_disabled', __( 'Content module is not enabled.', 'aeo-content-ai-studio' ), array( 'status' => 400 ) );
+            AEOCAS_Activity_Log::log( 'publish_post', 'error', array( 'message' => 'Content module is not enabled.' ) );
+            return new WP_Error( 'aeocas_module_disabled', __( 'Content module is not enabled.', 'aeo-content-ai-studio' ), array( 'status' => 400 ) );
         }
 
         $title = isset( $payload['title'] ) ? $payload['title'] : 'untitled';
@@ -409,10 +409,10 @@ class AEO_Rest_Api {
         } catch ( \Throwable $e ) {
             // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log( '[AEO] cmd_publish_post fatal: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() );
-            AEO_Activity_Log::log( 'publish_post', 'error', array(
+            AEOCAS_Activity_Log::log( 'publish_post', 'error', array(
                 'message' => 'Internal error: ' . $e->getMessage(),
             ) );
-            return new WP_Error( 'aeo_internal_error', __( 'Internal error during publish.', 'aeo-content-ai-studio' ), array( 'status' => 500 ) );
+            return new WP_Error( 'aeocas_internal_error', __( 'Internal error during publish.', 'aeo-content-ai-studio' ), array( 'status' => 500 ) );
         }
 
         $post_id = null;
@@ -421,7 +421,7 @@ class AEO_Rest_Api {
             $post_id = isset( $data['post_id'] ) ? $data['post_id'] : null;
         }
 
-        AEO_Activity_Log::log(
+        AEOCAS_Activity_Log::log(
             'publish_post',
             is_wp_error( $result ) ? 'error' : 'success',
             array( 'message' => is_wp_error( $result ) ? $result->get_error_message() : "Published: {$title}" ),

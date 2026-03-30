@@ -279,7 +279,7 @@
 
         // Left: favicon + domain
         html += '<div class="aeo-hero-left">';
-        var faviconUrl = aeoAudit.favicon || 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(audit.domain) + '&sz=48';
+        var faviconUrl = aeocasAudit.favicon || 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(audit.domain) + '&sz=48';
         html += '<img class="aeo-hero-favicon" src="' + faviconUrl + '" alt="" width="48" height="48"/>';
         html += '<div class="aeo-hero-meta">';
         html += '<h2 class="aeo-hero-domain">' + esc(audit.domain) + '</h2>';
@@ -511,11 +511,11 @@
         errorBox.innerHTML = '';
 
         var data = new FormData();
-        data.append('action', 'aeo_get_audit');
-        data.append('nonce', aeoAudit.nonce);
+        data.append('action', 'aeocas_get_audit');
+        data.append('nonce', aeocasAudit.nonce);
         if (refresh) data.append('refresh', '1');
 
-        fetch(aeoAudit.ajaxUrl, { method: 'POST', body: data })
+        fetch(aeocasAudit.ajaxUrl, { method: 'POST', body: data })
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (res.success) {
@@ -612,10 +612,10 @@
 
     function pollAuditStatus() {
         var data = new FormData();
-        data.append('action', 'aeo_audit_status');
-        data.append('nonce', aeoAudit.nonce);
+        data.append('action', 'aeocas_audit_status');
+        data.append('nonce', aeocasAudit.nonce);
 
-        fetch(aeoAudit.ajaxUrl, { method: 'POST', body: data })
+        fetch(aeocasAudit.ajaxUrl, { method: 'POST', body: data })
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (!res.success) {
@@ -657,10 +657,10 @@
         showReauditProgress('queued');
 
         var data = new FormData();
-        data.append('action', 'aeo_reaudit');
-        data.append('nonce', aeoAudit.nonce);
+        data.append('action', 'aeocas_reaudit');
+        data.append('nonce', aeocasAudit.nonce);
 
-        fetch(aeoAudit.ajaxUrl, { method: 'POST', body: data })
+        fetch(aeocasAudit.ajaxUrl, { method: 'POST', body: data })
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (!res.success) {

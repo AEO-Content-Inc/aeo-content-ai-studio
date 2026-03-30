@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class AEO_Content {
+class AEOCAS_Content {
 
     public function __construct() {
         // No hooks needed - called via REST API.
@@ -113,7 +113,7 @@ class AEO_Content {
 
         // Set AEO post meta.
         if ( isset( $payload['faq'] ) && is_array( $payload['faq'] ) ) {
-            update_post_meta( $post_id, '_aeo_faq_schema', $this->sanitize_schema( $payload['faq'] ) );
+            update_post_meta( $post_id, '_aeocas_faq_schema', $this->sanitize_schema( $payload['faq'] ) );
         } elseif ( ! empty( $post_data['post_content'] ) ) {
             // Auto-extract FAQ from content only when content was provided.
             try {
@@ -125,15 +125,15 @@ class AEO_Content {
         }
 
         if ( isset( $payload['author'] ) ) {
-            update_post_meta( $post_id, '_aeo_author_schema', $this->sanitize_schema( $payload['author'] ) );
+            update_post_meta( $post_id, '_aeocas_author_schema', $this->sanitize_schema( $payload['author'] ) );
         }
 
         if ( isset( $payload['speakable'] ) ) {
-            update_post_meta( $post_id, '_aeo_speakable', array_map( 'sanitize_text_field', (array) $payload['speakable'] ) );
+            update_post_meta( $post_id, '_aeocas_speakable', array_map( 'sanitize_text_field', (array) $payload['speakable'] ) );
         }
 
         if ( isset( $payload['canonical'] ) ) {
-            update_post_meta( $post_id, '_aeo_canonical_url', esc_url_raw( $payload['canonical'] ) );
+            update_post_meta( $post_id, '_aeocas_canonical_url', esc_url_raw( $payload['canonical'] ) );
         }
 
         // Download and set featured image.
@@ -242,7 +242,7 @@ class AEO_Content {
         }
 
         if ( ! empty( $pairs ) ) {
-            update_post_meta( $post_id, '_aeo_faq_schema', $pairs );
+            update_post_meta( $post_id, '_aeocas_faq_schema', $pairs );
         }
     }
 

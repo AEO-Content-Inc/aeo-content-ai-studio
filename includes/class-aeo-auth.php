@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class AEO_Auth {
+class AEOCAS_Auth {
 
     public function __construct() {
         // Nothing to hook - called statically from REST API class.
@@ -25,10 +25,10 @@ class AEO_Auth {
      * @return true|WP_Error   True on success, WP_Error on failure.
      */
     public static function verify_request( $request ) {
-        $plugin_token = get_option( 'aeo_plugin_token', '' );
+        $plugin_token = get_option( 'aeocas_plugin_token', '' );
         if ( empty( $plugin_token ) ) {
             return new WP_Error(
-                'aeo_not_configured',
+                'aeocas_not_configured',
                 __( 'Plugin token is not configured. Please save your API Key in Settings to register with the platform.', 'aeo-content-ai-studio' ),
                 array( 'status' => 403 )
             );
@@ -37,7 +37,7 @@ class AEO_Auth {
         $api_key = $request->get_header( 'x_api_key' );
         if ( empty( $api_key ) ) {
             return new WP_Error(
-                'aeo_missing_api_key',
+                'aeocas_missing_api_key',
                 __( 'Missing x-api-key header.', 'aeo-content-ai-studio' ),
                 array( 'status' => 401 )
             );
@@ -45,7 +45,7 @@ class AEO_Auth {
 
         if ( ! hash_equals( $plugin_token, $api_key ) ) {
             return new WP_Error(
-                'aeo_invalid_api_key',
+                'aeocas_invalid_api_key',
                 __( 'Invalid API key.', 'aeo-content-ai-studio' ),
                 array( 'status' => 401 )
             );

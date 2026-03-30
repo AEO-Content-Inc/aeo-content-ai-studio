@@ -10,10 +10,10 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class AEO_Activity_Log {
+class AEOCAS_Activity_Log {
 
     /** @var string Table name (without prefix). */
-    const TABLE = 'aeo_activity_log';
+    const TABLE = 'aeocas_activity_log';
 
     /**
      * Create the activity log table. Called on plugin activation.
@@ -26,7 +26,7 @@ class AEO_Activity_Log {
 
         $sql = "CREATE TABLE {$table} (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME NOT NULL,
             command VARCHAR(100) NOT NULL,
             status VARCHAR(20) NOT NULL DEFAULT 'success',
             details LONGTEXT,
@@ -39,9 +39,11 @@ class AEO_Activity_Log {
         ) {$charset};";
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        ob_start();
         dbDelta( $sql );
+        ob_end_clean();
 
-        update_option( 'aeo_activity_log_db_version', '1.0' );
+        update_option( 'aeocas_activity_log_db_version', '1.0' );
     }
 
     /**
@@ -67,13 +69,14 @@ class AEO_Activity_Log {
         $wpdb->insert(
             $table,
             array(
+                'created_at' => current_time( 'mysql', true ),
                 'command'    => sanitize_text_field( $command ),
                 'status'     => in_array( $status, array( 'success', 'error' ), true ) ? $status : 'success',
                 'details'    => is_null( $details ) ? null : wp_json_encode( $details ),
                 'post_id'    => $post_id ? absint( $post_id ) : null,
                 'ip'         => $ip,
             ),
-            array( '%s', '%s', '%s', '%d', '%s' )
+            array( '%s', '%s', '%s', '%s', '%d', '%s' )
         );
     }
 
@@ -214,8 +217,8 @@ class AEO_Activity_Log {
      * Register the cleanup cron event.
      */
     public static function schedule_cleanup() {
-        if ( ! wp_next_scheduled( 'aeo_activity_log_cleanup' ) ) {
-            wp_schedule_event( time(), 'daily', 'aeo_activity_log_cleanup' );
+        if ( ! wp_next_scheduled( 'aeocas_activity_log_cleanup' ) ) {
+            wp_schedule_event( time(), 'daily', 'aeocas_activity_log_cleanup' );
         }
     }
 
@@ -260,7 +263,7 @@ class AEO_Activity_Log {
      */
     public static function handle_csv_export() {
         // Bail early if this is not a CSV export request.
-        if ( empty( $_GET['aeo_export_logs'] ) ) {
+        if ( empty( $_GET['aeocas_export_logs'] ) ) {
             return;
         }
 
@@ -268,7 +271,7 @@ class AEO_Activity_Log {
             wp_die( esc_html__( 'Unauthorized', 'aeo-content-ai-studio' ) );
         }
 
-        if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'aeo_export_logs' ) ) {
+        if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'aeocas_export_logs' ) ) {
             return;
         }
 
@@ -283,7 +286,7 @@ class AEO_Activity_Log {
         $items = self::get_all_for_export( $filters );
 
         header( 'Content-Type: text/csv; charset=utf-8' );
-        header( 'Content-Disposition: attachment; filename=aeo-activity-log-' . gmdate( 'Y-m-d' ) . '.csv' );
+        header( 'Content-Disposition: attachment; filename=aeocas-activity-log-' . gmdate( 'Y-m-d' ) . '.csv' );
 
         $output = fopen( 'php://output', 'w' );
         fputcsv( $output, array( 'ID', 'Timestamp', 'Command', 'Status', 'Post ID', 'Details', 'IP' ) );

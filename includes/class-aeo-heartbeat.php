@@ -10,10 +10,10 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class AEO_Heartbeat {
+class AEOCAS_Heartbeat {
 
-    const CRON_HOOK     = 'aeo_heartbeat_event';
-    const INTERVAL_NAME = 'aeo_six_hours';
+    const CRON_HOOK     = 'aeocas_heartbeat_event';
+    const INTERVAL_NAME = 'aeocas_six_hours';
 
     public function __construct() {
         add_filter( 'cron_schedules', array( $this, 'add_cron_schedule' ) );
@@ -23,8 +23,8 @@ class AEO_Heartbeat {
         if ( is_admin() && ! wp_doing_cron() ) {
             $current = site_url();
             if ( $current && ! filter_var( wp_parse_url( $current, PHP_URL_HOST ), FILTER_VALIDATE_IP ) ) {
-                update_option( 'aeo_real_site_url', $current, false );
-                update_option( 'aeo_real_home_url', home_url(), false );
+                update_option( 'aeocas_real_site_url', $current, false );
+                update_option( 'aeocas_real_home_url', home_url(), false );
             }
         }
     }
@@ -53,8 +53,8 @@ class AEO_Heartbeat {
      * Send heartbeat to platform.
      */
     public function send_heartbeat() {
-        $platform_url = AEO_PLATFORM_URL;
-        $api_key      = get_option( 'aeo_site_token', '' );
+        $platform_url = AEOCAS_PLATFORM_URL;
+        $api_key      = get_option( 'aeocas_site_token', '' );
 
         if ( empty( $api_key ) || empty( $platform_url ) ) {
             return;
@@ -63,12 +63,12 @@ class AEO_Heartbeat {
         global $wp_version;
 
         $body = wp_json_encode( array(
-            'site_url'  => get_option( 'aeo_real_site_url', site_url() ),
-            'home_url'  => get_option( 'aeo_real_home_url', home_url() ),
-            'version'   => AEO_VERSION,
+            'site_url'  => get_option( 'aeocas_real_site_url', site_url() ),
+            'home_url'  => get_option( 'aeocas_real_home_url', home_url() ),
+            'version'   => AEOCAS_VERSION,
             'wp'        => $wp_version,
             'php'       => PHP_VERSION,
-            'features'  => aeo_content_ai_studio()->get_enabled_features(),
+            'features'  => aeocas_plugin()->get_enabled_features(),
             'timestamp' => time(),
         ) );
 
@@ -85,7 +85,7 @@ class AEO_Heartbeat {
         );
 
         if ( is_wp_error( $response ) ) {
-            AEO_Activity_Log::log( 'heartbeat', 'error', array( 'message' => 'Could not reach platform: ' . $response->get_error_message() ) );
+            AEOCAS_Activity_Log::log( 'heartbeat', 'error', array( 'message' => 'Could not reach platform: ' . $response->get_error_message() ) );
             return;
         }
 
@@ -94,7 +94,7 @@ class AEO_Heartbeat {
         $request_data  = json_decode( $body, true );
 
         if ( 200 !== $status ) {
-            AEO_Activity_Log::log( 'heartbeat', 'error', array(
+            AEOCAS_Activity_Log::log( 'heartbeat', 'error', array(
                 'message'       => "Platform returned {$status}.",
                 'request_body'  => $request_data,
                 'response_body' => $response_body,
@@ -106,14 +106,14 @@ class AEO_Heartbeat {
         $result = json_decode( $response_body, true );
         if ( ! empty( $result['commands'] ) && is_array( $result['commands'] ) ) {
             $count = count( $result['commands'] );
-            AEO_Activity_Log::log( 'heartbeat', 'success', array(
+            AEOCAS_Activity_Log::log( 'heartbeat', 'success', array(
                 'message'       => "Heartbeat sent. {$count} pending commands executed.",
                 'request_body'  => $request_data,
                 'response_body' => $result,
             ) );
             $this->process_pending_commands( $result['commands'] );
         } else {
-            AEO_Activity_Log::log( 'heartbeat', 'success', array(
+            AEOCAS_Activity_Log::log( 'heartbeat', 'success', array(
                 'message'       => 'Heartbeat sent successfully.',
                 'request_body'  => $request_data,
                 'response_body' => $result,
@@ -125,7 +125,7 @@ class AEO_Heartbeat {
      * Execute pending commands received from platform.
      */
     private function process_pending_commands( $commands ) {
-        $rest_api = new AEO_Rest_Api( aeo_content_ai_studio() );
+        $rest_api = new AEOCAS_Rest_Api( aeocas_plugin() );
 
         foreach ( $commands as $cmd ) {
             if ( empty( $cmd['command'] ) ) {

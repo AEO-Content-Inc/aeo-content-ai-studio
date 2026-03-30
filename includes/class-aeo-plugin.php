@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class AEO_Plugin {
+class AEOCAS_Plugin {
 
     private static $instance = null;
 
@@ -16,7 +16,7 @@ class AEO_Plugin {
 
     /** @var array Map of module slug => class file and class name. */
     private $available_modules = array(
-        'content' => array( 'file' => 'class-aeo-content.php', 'class' => 'AEO_Content' ),
+        'content' => array( 'file' => 'class-aeo-content.php', 'class' => 'AEOCAS_Content' ),
     );
 
     public static function get_instance() {
@@ -30,32 +30,32 @@ class AEO_Plugin {
         $this->load_core();
         $this->load_modules();
 
-        register_deactivation_hook( AEO_PLUGIN_FILE, array( $this, 'on_deactivate' ) );
+        register_deactivation_hook( AEOCAS_PLUGIN_FILE, array( $this, 'on_deactivate' ) );
     }
 
     /**
      * Load core (non-optional) classes.
      */
     private function load_core() {
-        require_once AEO_PLUGIN_DIR . 'includes/class-aeo-auth.php';
-        require_once AEO_PLUGIN_DIR . 'includes/class-aeo-activity-log.php';
-        require_once AEO_PLUGIN_DIR . 'includes/class-aeo-rest-api.php';
-        require_once AEO_PLUGIN_DIR . 'includes/class-aeo-heartbeat.php';
-        require_once AEO_PLUGIN_DIR . 'includes/class-aeo-settings.php';
-        require_once AEO_PLUGIN_DIR . 'includes/class-aeo-audit-api.php';
+        require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-auth.php';
+        require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-activity-log.php';
+        require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-rest-api.php';
+        require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-heartbeat.php';
+        require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-settings.php';
+        require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-audit-api.php';
 
-        new AEO_Auth();
-        new AEO_Rest_Api( $this );
-        new AEO_Heartbeat();
-        new AEO_Settings();
-        AEO_Audit_Api::register_ajax();
+        new AEOCAS_Auth();
+        new AEOCAS_Rest_Api( $this );
+        new AEOCAS_Heartbeat();
+        new AEOCAS_Settings();
+        AEOCAS_Audit_Api::register_ajax();
 
         // Schedule activity log cleanup cron.
-        AEO_Activity_Log::schedule_cleanup();
-        add_action( 'aeo_activity_log_cleanup', array( 'AEO_Activity_Log', 'cleanup' ) );
+        AEOCAS_Activity_Log::schedule_cleanup();
+        add_action( 'aeocas_activity_log_cleanup', array( 'AEOCAS_Activity_Log', 'cleanup' ) );
 
         // CSV export handler (must run early before headers sent).
-        add_action( 'admin_init', array( 'AEO_Activity_Log', 'handle_csv_export' ) );
+        add_action( 'admin_init', array( 'AEOCAS_Activity_Log', 'handle_csv_export' ) );
     }
 
     /**
@@ -67,7 +67,7 @@ class AEO_Plugin {
         foreach ( $enabled as $slug ) {
             if ( isset( $this->available_modules[ $slug ] ) ) {
                 $info = $this->available_modules[ $slug ];
-                $file = AEO_PLUGIN_DIR . 'includes/modules/' . $info['file'];
+                $file = AEOCAS_PLUGIN_DIR . 'includes/modules/' . $info['file'];
                 if ( file_exists( $file ) ) {
                     require_once $file;
                     $class = $info['class'];
@@ -83,7 +83,7 @@ class AEO_Plugin {
      * @return string[]
      */
     public function get_enabled_features() {
-        $features = get_option( 'aeo_enabled_features', array() );
+        $features = get_option( 'aeocas_enabled_features', array() );
         return is_array( $features ) ? $features : array();
     }
 
@@ -104,7 +104,7 @@ class AEO_Plugin {
         $features = $this->get_enabled_features();
         if ( ! in_array( $slug, $features, true ) ) {
             $features[] = $slug;
-            update_option( 'aeo_enabled_features', $features );
+            update_option( 'aeocas_enabled_features', $features );
         }
         return true;
     }
@@ -115,7 +115,7 @@ class AEO_Plugin {
     public function disable_feature( $slug ) {
         $features = $this->get_enabled_features();
         $features = array_values( array_diff( $features, array( $slug ) ) );
-        update_option( 'aeo_enabled_features', $features );
+        update_option( 'aeocas_enabled_features', $features );
         return true;
     }
 
@@ -140,15 +140,15 @@ class AEO_Plugin {
      */
     public function on_activate() {
         // Set default enabled features if first activation.
-        if ( false === get_option( 'aeo_enabled_features' ) ) {
-            update_option( 'aeo_enabled_features', array( 'content' ) );
+        if ( false === get_option( 'aeocas_enabled_features' ) ) {
+            update_option( 'aeocas_enabled_features', array( 'content' ) );
         }
 
         // Create activity log table.
-        AEO_Activity_Log::create_table();
+        AEOCAS_Activity_Log::create_table();
 
         // Schedule heartbeat cron.
-        AEO_Heartbeat::activate();
+        AEOCAS_Heartbeat::activate();
 
         flush_rewrite_rules();
     }
@@ -157,8 +157,8 @@ class AEO_Plugin {
      * Deactivation hook.
      */
     public function on_deactivate() {
-        wp_clear_scheduled_hook( 'aeo_heartbeat_event' );
-        wp_clear_scheduled_hook( 'aeo_activity_log_cleanup' );
+        wp_clear_scheduled_hook( 'aeocas_heartbeat_event' );
+        wp_clear_scheduled_hook( 'aeocas_activity_log_cleanup' );
         flush_rewrite_rules();
     }
 }
