@@ -62,6 +62,17 @@ AEO Content AI Studio                         WordPress Plugin
 2. Go to **Plugins > Add New > Upload Plugin**
 3. Upload the ZIP and activate
 
+## Onboarding
+
+The plugin now uses a connect-first onboarding flow in `wp-admin`:
+
+1. Open **AEO Content > Settings**
+2. Click **Get Started** if this is your first account, or **I Already Have an Account** if you already use AEO Content
+3. Finish signup/login on `account.aeocontent.ai`
+4. Approve the WordPress site connection and return to WordPress
+
+An advanced manual API key form is still available as a fallback for direct support-driven setups.
+
 ## REST API Endpoints
 
 All authenticated endpoints require the `x-api-key` header.
@@ -96,6 +107,15 @@ composer install
 composer run phpcs    # Check coding standards
 composer run phpcbf   # Auto-fix violations
 ```
+
+### Testing
+
+```bash
+composer install
+composer run test
+```
+
+The current unit tests cover the new onboarding URL helpers in [`AEOCAS_Settings`](./includes/class-aeo-settings.php).
 
 ## Compatibility
 

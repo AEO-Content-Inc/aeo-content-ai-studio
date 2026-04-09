@@ -2,7 +2,7 @@
 /**
  * REST API endpoints under /wp-json/aeocas/v1/.
  *
- * All mutating endpoints require API Key authentication from the AEO Content platform.
+ * All mutating endpoints require authenticated platform requests.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -36,7 +36,7 @@ class AEOCAS_Rest_Api {
             'permission_callback' => array( $this, 'check_auth' ),
         ) );
 
-        // Activity log (API Key auth).
+        // Activity log (authenticated platform requests).
         register_rest_route( self::REST_NAMESPACE, '/logs', array(
             'methods'             => 'GET',
             'callback'            => array( 'AEOCAS_Activity_Log', 'handle_rest_logs' ),
@@ -80,7 +80,7 @@ class AEOCAS_Rest_Api {
     }
 
     /**
-     * Permission callback - verify API Key.
+     * Permission callback - verify the platform credential.
      */
     public function check_auth( $request ) {
         return AEOCAS_Auth::verify_request( $request );

@@ -80,7 +80,7 @@ class AEOCAS_Settings {
     }
 
     /**
-     * Sanitize API key and attempt registration with the platform.
+     * Sanitize a site credential and attempt registration with the platform.
      *
      * Generates a plugin_token (if not already present) and sends it
      * to the platform during registration. The platform uses this token

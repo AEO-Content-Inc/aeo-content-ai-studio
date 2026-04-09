@@ -41,6 +41,15 @@ AEO Content AI Studio connects your WordPress site to the [AEO Content AI Studio
 4. Optimized content is published back to WordPress with one click
 5. View your site's AEO audit score and recommendations in the Audit Report tab
 
+= Onboarding =
+
+New installs should start from **AEO Content > Settings** in WordPress admin:
+
+1. Click **Get Started** to create an account and connect the current site
+2. Or click **I Already Have an Account** if you already use AEO Content
+3. Finish setup on `account.aeocontent.ai`
+4. Return to WordPress and enable the features you want on this site
+
 = External Service =
 
 This plugin connects to the AEO Content platform at `aeocontent.ai` for the following purposes:
