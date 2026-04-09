@@ -19,7 +19,7 @@ AI Engine Optimization (AEO) is the practice of structuring web content so AI an
 | **Activity Log** | Track every API interaction with filterable log, CSV export, and 90-day auto-cleanup |
 | **Categories & Tags API** | Sync taxonomy data to AEO Content AI Studio for accurate content organization |
 | **Heartbeat** | Periodic connectivity check keeps platform and plugin in sync |
-| **API Key Auth** | All endpoints secured with constant-time key comparison |
+| **Credential Auth** | Platform and plugin requests are secured with site credentials and constant-time key comparison |
 
 ## How It Works
 
@@ -41,7 +41,7 @@ AEO Content AI Studio                         WordPress Plugin
     |<----------------------------------------------|
 ```
 
-1. Install the plugin and enter your **API Key** from [aeocontent.ai](https://account.aeocontent.ai)
+1. Install the plugin and click **Get Started** in **AEO Content > Settings**
 2. AEO Content AI Studio syncs your categories, tags, and posts via authenticated REST API
 3. AEO Content AI Studio analyzes and optimizes your content
 4. Optimized content is published back to WordPress
@@ -54,7 +54,7 @@ AEO Content AI Studio                         WordPress Plugin
 1. Go to **Plugins > Add New** in your WordPress admin
 2. Search for **AEO Content AI Studio**
 3. Click **Install Now**, then **Activate**
-4. Go to **AEO Content > Settings** and enter your API Key
+4. Go to **AEO Content > Settings** and click **Get Started** to connect your site
 
 ### Manual Install
 

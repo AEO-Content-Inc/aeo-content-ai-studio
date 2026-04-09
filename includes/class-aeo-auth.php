@@ -29,7 +29,7 @@ class AEOCAS_Auth {
         if ( empty( $plugin_token ) ) {
             return new WP_Error(
                 'aeocas_not_configured',
-                __( 'Plugin token is not configured. Please save your API Key in Settings to register with the platform.', 'aeo-content-ai-studio' ),
+                __( 'Site connection is not configured. Connect your site in Settings first.', 'aeo-content-ai-studio' ),
                 array( 'status' => 403 )
             );
         }
@@ -46,7 +46,7 @@ class AEOCAS_Auth {
         if ( ! hash_equals( $plugin_token, $api_key ) ) {
             return new WP_Error(
                 'aeocas_invalid_api_key',
-                __( 'Invalid API key.', 'aeo-content-ai-studio' ),
+                __( 'Invalid site credential.', 'aeo-content-ai-studio' ),
                 array( 'status' => 401 )
             );
         }

@@ -22,6 +22,7 @@ define( 'AEOCAS_PLUGIN_FILE', __FILE__ );
 define( 'AEOCAS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AEOCAS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'AEOCAS_PLATFORM_URL', 'https://www.aeocontent.ai' );
+define( 'AEOCAS_ACCOUNT_URL', 'https://account.aeocontent.ai' );
 
 require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-plugin.php';
 

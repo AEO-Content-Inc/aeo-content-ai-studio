@@ -2,7 +2,7 @@
 /**
  * Audit API client.
  *
- * Fetches audit data from the AEO Content platform using the stored API key.
+ * Fetches audit data from the AEO Content platform using the stored site credential.
  * Results are cached in a transient to avoid excessive API calls.
  */
 
@@ -44,7 +44,7 @@ class AEOCAS_Audit_Api {
     public static function get_audit( $force_refresh = false ) {
         $api_key = get_option( 'aeocas_site_token', '' );
         if ( empty( $api_key ) ) {
-            return new WP_Error( 'aeocas_no_key', __( 'API key is not configured. Go to Settings to enter your API key.', 'aeo-content-ai-studio' ) );
+            return new WP_Error( 'aeocas_no_key', __( 'Site connection is not configured. Go to Settings to connect your site.', 'aeo-content-ai-studio' ) );
         }
 
         $slug = self::get_site_slug();
@@ -85,7 +85,7 @@ class AEOCAS_Audit_Api {
         }
 
         if ( 401 === $status || 403 === $status ) {
-            return new WP_Error( 'aeocas_auth_error', __( 'API key is invalid or does not have read permission.', 'aeo-content-ai-studio' ) );
+            return new WP_Error( 'aeocas_auth_error', __( 'Site credential is invalid or does not have read permission.', 'aeo-content-ai-studio' ) );
         }
 
         if ( 200 !== $status || empty( $body['data'] ) ) {
@@ -141,7 +141,7 @@ class AEOCAS_Audit_Api {
     public static function trigger_reaudit() {
         $api_key = get_option( 'aeocas_site_token', '' );
         if ( empty( $api_key ) ) {
-            return new WP_Error( 'aeocas_no_key', __( 'API key is not configured.', 'aeo-content-ai-studio' ) );
+            return new WP_Error( 'aeocas_no_key', __( 'Site connection is not configured.', 'aeo-content-ai-studio' ) );
         }
 
         $slug = self::get_site_slug();
@@ -188,7 +188,7 @@ class AEOCAS_Audit_Api {
     public static function get_audit_status() {
         $api_key = get_option( 'aeocas_site_token', '' );
         if ( empty( $api_key ) ) {
-            return new WP_Error( 'aeocas_no_key', __( 'API key is not configured.', 'aeo-content-ai-studio' ) );
+            return new WP_Error( 'aeocas_no_key', __( 'Site connection is not configured.', 'aeo-content-ai-studio' ) );
         }
 
         $slug = self::get_site_slug();

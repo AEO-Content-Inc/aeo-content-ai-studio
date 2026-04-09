@@ -13,6 +13,7 @@ class AEOCAS_Settings {
         add_action( 'admin_menu', array( $this, 'add_menu' ) );
         add_action( 'admin_init', array( $this, 'register_settings' ) );
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
+        add_action( 'admin_post_aeocas_disconnect', array( $this, 'handle_disconnect' ) );
         add_filter( 'plugin_action_links_' . plugin_basename( AEOCAS_PLUGIN_FILE ), array( $this, 'add_settings_link' ) );
     }
 
@@ -68,7 +69,7 @@ class AEOCAS_Settings {
     }
 
     public function register_settings() {
-        register_setting( 'aeocas_settings', 'aeocas_site_token', array(
+        register_setting( 'aeocas_connection_settings', 'aeocas_site_token', array(
             'type'              => 'string',
             'sanitize_callback' => array( $this, 'sanitize_and_register_api_key' ),
         ) );
@@ -149,6 +150,78 @@ class AEOCAS_Settings {
         }
         $available = aeocas_plugin()->get_available_modules();
         return array_values( array_intersect( $input, $available ) );
+    }
+
+    /**
+     * Return the best-known site URL for onboarding and platform links.
+     *
+     * @return string
+     */
+    public static function get_site_url() {
+        return get_option( 'aeocas_real_site_url', site_url() );
+    }
+
+    /**
+     * Build an account URL for onboarding or sign-in.
+     *
+     * @param string $intent start|signin
+     * @return string
+     */
+    public static function get_connect_url( $intent = 'start' ) {
+        $args = array(
+            'intent'       => 'signin' === $intent ? 'signin' : 'start',
+            'site_url'     => self::get_site_url(),
+            'home_url'     => get_option( 'aeocas_real_home_url', home_url() ),
+            'return_url'   => admin_url( 'admin.php?page=aeo-content-ai-studio' ),
+            'utm_source'   => 'wordpress-plugin',
+            'utm_medium'   => 'plugin',
+            'utm_campaign' => 'wp-admin',
+        );
+
+        return add_query_arg( $args, trailingslashit( AEOCAS_ACCOUNT_URL ) . 'login' );
+    }
+
+    /**
+     * Build an account URL for connected users who want to manage their account.
+     *
+     * @return string
+     */
+    public static function get_manage_url() {
+        return add_query_arg(
+            array(
+                'utm_source'   => 'wordpress-plugin',
+                'utm_medium'   => 'plugin',
+                'utm_campaign' => 'wp-admin',
+            ),
+            trailingslashit( AEOCAS_ACCOUNT_URL ) . 'login'
+        );
+    }
+
+    /**
+     * Disconnect the current site from the platform.
+     */
+    public function handle_disconnect() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Unauthorized', 'aeo-content-ai-studio' ) );
+        }
+
+        check_admin_referer( 'aeocas_disconnect' );
+
+        delete_option( 'aeocas_site_token' );
+        delete_option( 'aeocas_plugin_token' );
+        delete_option( 'aeocas_connection_verified' );
+        AEOCAS_Audit_Api::clear_cache();
+
+        $redirect_url = add_query_arg(
+            array(
+                'page'          => 'aeo-content-ai-studio',
+                'aeocas_notice' => 'disconnected',
+            ),
+            admin_url( 'admin.php' )
+        );
+
+        wp_safe_redirect( $redirect_url );
+        exit;
     }
 
     public function enqueue_styles( $hook ) {
