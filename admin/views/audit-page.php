@@ -53,11 +53,19 @@ if ( ! defined( 'ABSPATH' ) ) {
             <a href="#" class="nav-tab" data-tab="opportunities">
                 <?php esc_html_e( 'Opportunities', 'aeo-content-ai-studio' ); ?>
             </a>
+            <a href="#" class="nav-tab" data-tab="pages">
+                <?php esc_html_e( 'Pages', 'aeo-content-ai-studio' ); ?>
+            </a>
+            <a href="#" class="nav-tab" data-tab="rewrite">
+                <?php esc_html_e( 'Rewrite Candidates', 'aeo-content-ai-studio' ); ?>
+            </a>
         </nav>
 
         <div class="aeo-tab-panel" id="tab-overview"></div>
         <div class="aeo-tab-panel" id="tab-scoreboard" style="display: none;"></div>
         <div class="aeo-tab-panel" id="tab-opportunities" style="display: none;"></div>
+        <div class="aeo-tab-panel" id="tab-pages" style="display: none;"></div>
+        <div class="aeo-tab-panel" id="tab-rewrite" style="display: none;"></div>
 
     </div>
 </div>

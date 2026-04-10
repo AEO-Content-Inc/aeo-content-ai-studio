@@ -536,12 +536,209 @@
         return html;
     }
 
+    /* ── Render Pages Tab ─────────────────────────────── */
+
+    function renderPages(audit) {
+        var pages = audit.pages_reviewed || [];
+        if (!pages.length) {
+            return '<div class="aeo-log-empty"><p>No page data available. Run a full site audit from the AEO Content dashboard to see individual page scores.</p></div>';
+        }
+
+        // Build link graph lookup for inbound link counts.
+        var linkGraph = audit.link_graph || {};
+        var nodes = linkGraph.nodes || [];
+        var inLinksMap = {};
+        nodes.forEach(function (n) { inLinksMap[n.url] = n.inDegree || 0; });
+
+        // Stats
+        var totalPages = pages.length;
+        var scored = pages.filter(function (p) { return p.pageRankScore > 0 || (p.pageRank && p.pageRank.score > 0); });
+        var scores = scored.map(function (p) { return p.pageRankScore || (p.pageRank ? p.pageRank.score : 0); });
+        var avgScore = scores.length ? Math.round(scores.reduce(function (a, b) { return a + b; }, 0) / scores.length) : 0;
+        var strongCount = scores.filter(function (s) { return s >= 70; }).length;
+        var needsAttention = scores.filter(function (s) { return s < 70; }).length;
+
+        var html = '';
+
+        // Stats bar
+        html += '<div class="aeo-log-stats" style="margin-bottom:16px;">';
+        html += '<div class="aeo-stat-card"><span class="aeo-stat-number">' + totalPages + '</span><span class="aeo-stat-label">Total Pages</span></div>';
+        html += '<div class="aeo-stat-card"><span class="aeo-stat-number">' + avgScore + '</span><span class="aeo-stat-label">Avg AEO Rank</span></div>';
+        html += '<div class="aeo-stat-card"><span class="aeo-stat-number aeo-stat-success">' + strongCount + '</span><span class="aeo-stat-label">Strong (70+)</span></div>';
+        html += '<div class="aeo-stat-card"><span class="aeo-stat-number" style="color:#ea4335;">' + needsAttention + '</span><span class="aeo-stat-label">Needs Attention</span></div>';
+        html += '</div>';
+
+        // Sort pages by score descending
+        var sorted = pages.slice().sort(function (a, b) {
+            var sa = a.pageRankScore || (a.pageRank ? a.pageRank.score : 0);
+            var sb = b.pageRankScore || (b.pageRank ? b.pageRank.score : 0);
+            return sb - sa;
+        });
+
+        // Table
+        html += '<table class="widefat fixed striped" style="margin-top:0;">';
+        html += '<thead><tr>';
+        html += '<th>Page</th>';
+        html += '<th style="width:90px;">Type</th>';
+        html += '<th style="width:80px;">AEO Rank</th>';
+        html += '<th style="width:70px;">Words</th>';
+        html += '<th style="width:70px;">In Links</th>';
+        html += '</tr></thead><tbody>';
+
+        sorted.forEach(function (page) {
+            var score = page.pageRankScore || (page.pageRank ? page.pageRank.score : 0);
+            var color = scoreColor100(score);
+            var bg = scoreBg100(score);
+            var cat = page.category || '';
+            var words = page.wordCount || 0;
+            var inLinks = inLinksMap[page.url] || 0;
+            var shortUrl = page.url.replace(/^https?:\/\/[^/]+/, '');
+
+            html += '<tr>';
+            html += '<td>';
+            html += '<div style="font-weight:600;font-size:13px;">' + esc(page.title || shortUrl) + '</div>';
+            html += '<div style="font-size:11px;color:#646970;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:500px;">' + esc(shortUrl) + '</div>';
+            html += '</td>';
+            html += '<td><span class="aeo-log-command">' + esc(cat) + '</span></td>';
+            html += '<td><span class="aeo-score-badge-pill" style="background:' + bg + ';color:' + color + ';">' + score + '</span></td>';
+            html += '<td style="color:#646970;">' + (words > 0 ? words.toLocaleString() : '-') + '</td>';
+            html += '<td style="color:#646970;">' + inLinks + '</td>';
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        return html;
+    }
+
+    /* ── Render Rewrite Candidates Tab ────────────────── */
+
+    function renderRewriteCandidates(audit) {
+        var pages = audit.pages_reviewed || [];
+        if (!pages.length) {
+            return '<div class="aeo-log-empty"><p>No page data available. Run a full site audit to see rewrite candidates.</p></div>';
+        }
+
+        // Build link graph lookup
+        var linkGraph = audit.link_graph || {};
+        var nodes = linkGraph.nodes || [];
+        var inLinksMap = {};
+        nodes.forEach(function (n) { inLinksMap[n.url] = n.inDegree || 0; });
+
+        // Filter to pages scoring below 70
+        var candidates = pages.filter(function (p) {
+            var score = p.pageRankScore || (p.pageRank ? p.pageRank.score : 0);
+            return score > 0 && score < 70;
+        }).map(function (p) {
+            var score = p.pageRankScore || (p.pageRank ? p.pageRank.score : 0);
+            var tier = score < 40 ? 'high' : score < 55 ? 'medium' : 'low';
+            var inLinks = inLinksMap[p.url] || 0;
+
+            // Find weakest pillar
+            var weakest = null;
+            if (p.pillarScores) {
+                var pillars = [
+                    { name: 'Answer Readiness', score: p.pillarScores.answerReadiness || 0 },
+                    { name: 'Content Structure', score: p.pillarScores.contentStructure || 0 },
+                    { name: 'Trust & Authority', score: p.pillarScores.trustAuthority || 0 },
+                    { name: 'Technical Foundation', score: p.pillarScores.technicalFoundation || 0 },
+                    { name: 'AI Discovery', score: p.pillarScores.aiDiscovery || 0 },
+                ];
+                pillars.sort(function (a, b) { return a.score - b.score; });
+                weakest = pillars[0];
+            }
+
+            // Priority score: lower AEO score + more inlinks = higher priority
+            var priority = (100 - score) + Math.min(inLinks * 5, 50);
+
+            return {
+                url: p.url,
+                title: p.title || p.url,
+                category: p.category || '',
+                score: score,
+                tier: tier,
+                inLinks: inLinks,
+                words: p.wordCount || 0,
+                weakest: weakest,
+                priority: priority,
+                topFixes: p.topFixes || [],
+                isStale: p.issues ? p.issues.some(function (i) { return (i.check || '').indexOf('freshness') !== -1; }) : false,
+            };
+        });
+
+        // Sort by priority descending
+        candidates.sort(function (a, b) { return b.priority - a.priority; });
+
+        var highCount = candidates.filter(function (c) { return c.tier === 'high'; }).length;
+        var medCount = candidates.filter(function (c) { return c.tier === 'medium'; }).length;
+        var lowCount = candidates.filter(function (c) { return c.tier === 'low'; }).length;
+
+        var html = '';
+
+        // Stats bar
+        html += '<div class="aeo-log-stats" style="margin-bottom:16px;">';
+        html += '<div class="aeo-stat-card"><span class="aeo-stat-number">' + candidates.length + '</span><span class="aeo-stat-label">Total Rewrites</span></div>';
+        html += '<div class="aeo-stat-card"><span class="aeo-stat-number" style="color:#ea4335;">' + highCount + '</span><span class="aeo-stat-label">High Priority</span></div>';
+        html += '<div class="aeo-stat-card"><span class="aeo-stat-number" style="color:#c5a200;">' + medCount + '</span><span class="aeo-stat-label">Medium Priority</span></div>';
+        html += '<div class="aeo-stat-card"><span class="aeo-stat-number" style="color:#34a853;">' + lowCount + '</span><span class="aeo-stat-label">Low Priority</span></div>';
+        html += '</div>';
+
+        if (!candidates.length) {
+            return html + '<div class="aeo-log-empty"><p>All scored pages are at 70 or above. No rewrites needed.</p></div>';
+        }
+
+        // Table
+        html += '<table class="widefat fixed striped" style="margin-top:0;">';
+        html += '<thead><tr>';
+        html += '<th>Page</th>';
+        html += '<th style="width:80px;">AEO Rank</th>';
+        html += '<th style="width:80px;">Priority</th>';
+        html += '<th style="width:150px;">Weakest Pillar</th>';
+        html += '<th style="width:70px;">Words</th>';
+        html += '<th style="width:70px;">In Links</th>';
+        html += '</tr></thead><tbody>';
+
+        candidates.forEach(function (c) {
+            var color = scoreColor100(c.score);
+            var bg = scoreBg100(c.score);
+            var tierColor = c.tier === 'high' ? '#ea4335' : c.tier === 'medium' ? '#c5a200' : '#34a853';
+            var tierBg = c.tier === 'high' ? 'rgba(234,67,53,0.12)' : c.tier === 'medium' ? 'rgba(197,162,0,0.12)' : 'rgba(52,168,83,0.12)';
+            var shortUrl = c.url.replace(/^https?:\/\/[^/]+/, '');
+
+            html += '<tr>';
+            html += '<td>';
+            html += '<div style="font-weight:600;font-size:13px;">' + esc(c.title) + '</div>';
+            html += '<div style="font-size:11px;color:#646970;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400px;">' + esc(shortUrl) + '</div>';
+            if (c.category) html += ' <span class="aeo-log-command" style="margin-top:2px;">' + esc(c.category) + '</span>';
+            if (c.isStale) html += ' <span class="aeo-badge aeo-badge-error" style="font-size:10px;">stale</span>';
+            html += '</td>';
+            html += '<td><span class="aeo-score-badge-pill" style="background:' + bg + ';color:' + color + ';">' + c.score + '</span></td>';
+            html += '<td><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;text-transform:uppercase;background:' + tierBg + ';color:' + tierColor + ';">' + c.tier + '</span></td>';
+            html += '<td>';
+            if (c.weakest) {
+                var wColor = scoreColor100(c.weakest.score);
+                html += '<span style="font-size:12px;">' + esc(c.weakest.name) + '</span>';
+                html += ' <span style="font-weight:600;color:' + wColor + ';">' + c.weakest.score + '</span>';
+            } else {
+                html += '<span style="color:#a7aaad;">-</span>';
+            }
+            html += '</td>';
+            html += '<td style="color:#646970;">' + (c.words > 0 ? c.words.toLocaleString() : '-') + '</td>';
+            html += '<td style="color:#646970;">' + c.inLinks + '</td>';
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        return html;
+    }
+
     /* ── Render All ───────────────────────────────────── */
 
     function renderAudit(audit) {
         document.getElementById('tab-overview').innerHTML      = renderOverview(audit);
         document.getElementById('tab-scoreboard').innerHTML    = renderScoreboard(audit);
         document.getElementById('tab-opportunities').innerHTML = renderOpportunities(audit);
+        document.getElementById('tab-pages').innerHTML         = renderPages(audit);
+        document.getElementById('tab-rewrite').innerHTML       = renderRewriteCandidates(audit);
 
         loading.style.display = 'none';
         content.style.display = '';

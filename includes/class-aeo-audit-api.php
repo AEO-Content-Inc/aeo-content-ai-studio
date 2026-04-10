@@ -63,7 +63,7 @@ class AEOCAS_Audit_Api {
         }
 
         // Fetch from platform.
-        $url = trailingslashit( AEOCAS_PLATFORM_URL ) . 'api/v1/audits/' . $slug . '?include=fix_prompts';
+        $url = trailingslashit( AEOCAS_PLATFORM_URL ) . 'api/v1/audits/' . $slug . '?include=all';
 
         $response = wp_remote_get( $url, array(
             'headers' => array(
