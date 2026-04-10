@@ -213,16 +213,12 @@ class AEOCAS_Settings {
 
         return add_query_arg(
             array(
-                'intent'       => 'google',
                 'site_url'     => self::get_site_url(),
                 'home_url'     => get_option( 'aeocas_real_home_url', home_url() ),
                 'plugin_token' => $plugin_token,
                 'return_url'   => admin_url( 'admin.php?page=aeo-content-ai-studio' ),
-                'utm_source'   => 'wordpress-plugin',
-                'utm_medium'   => 'plugin',
-                'utm_campaign' => 'wp-admin',
             ),
-            trailingslashit( AEOCAS_STUDIO_URL ) . 'login'
+            trailingslashit( AEOCAS_STUDIO_URL ) . 'wp-connect'
         );
     }
 
