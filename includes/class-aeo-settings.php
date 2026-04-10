@@ -222,7 +222,7 @@ class AEOCAS_Settings {
                 'utm_medium'   => 'plugin',
                 'utm_campaign' => 'wp-admin',
             ),
-            trailingslashit( AEOCAS_ACCOUNT_URL ) . 'login'
+            trailingslashit( AEOCAS_STUDIO_URL ) . 'login'
         );
     }
 
