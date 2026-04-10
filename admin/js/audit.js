@@ -100,7 +100,8 @@
 
     /* ── Criterion Slugs (for knowledge links) ──────── */
 
-    var CRITERION_SLUGS = {
+    /* Legacy slugs (audits with < 40 criteria) */
+    var LEGACY_CRITERION_SLUGS = {
         1:'llms-txt',2:'structured-data',3:'qa-content',4:'clean-html',
         5:'entity-authority',6:'robots-txt-ai',7:'faq-section',8:'original-data',
         9:'internal-linking',10:'semantic-html',11:'schema-coverage-ratio',
@@ -109,18 +110,43 @@
         18:'definition-patterns',19:'table-list-extractability',20:'content-velocity',
         21:'author-expert-schema',22:'direct-answer-density',23:'speakable-schema',
         24:'query-answer-alignment',25:'content-cannibalization',26:'visible-date-signal',
-        27:'topic-coherence',28:'content-depth',29:'live-citation-test',
-        30:'cross-engine-consistency',101:'product-offer-schema',
-        103:'hreflang-multilanguage',104:'ai-txt-tdm-policy',
-        105:'topic-authority-clustering',127:'social-profile-verification',
-        128:'ai-hallucination-audit',
-        201:'chatgpt-conversational-query-match',202:'chatgpt-direct-answer-paragraphs',
-        203:'chatgpt-bing-indexation',204:'chatgpt-content-retrievability',
-        205:'chatgpt-qa-distribution',206:'chatgpt-recency-bias',207:'chatgpt-comparison-tables',
-        301:'claude-llms-txt-quality',302:'claude-claudebot-directive',303:'claude-json-ld-depth',
-        304:'claude-entity-disambiguation',305:'claude-content-licensing',
-        306:'claude-semantic-hierarchy',307:'claude-citation-fact-blocks'
+        27:'topic-coherence',28:'content-depth',
+        29:'citation-ready-writing',30:'answer-first-placement',
+        31:'evidence-packaging',32:'entity-disambiguation',
+        33:'extraction-friction',34:'image-context-ai',
+        35:'duplicate-content',36:'cross-page-duplication'
     };
+
+    /* Current aeorank slugs (40+ criteria) */
+    var CURRENT_CRITERION_SLUGS = {
+        1:'llms-txt',2:'structured-data',3:'qa-content',4:'clean-html',
+        5:'entity-authority',6:'robots-txt-ai',7:'faq-section',8:'original-data',
+        9:'internal-linking',10:'semantic-html',11:'content-freshness',
+        12:'sitemap-completeness',13:'rss-feed-presence',14:'table-list-extractability',
+        15:'definition-patterns',16:'direct-answer-density',17:'content-licensing',
+        18:'author-expert-schema',19:'fact-density',20:'canonical-url-strategy',
+        21:'content-velocity',22:'schema-coverage-ratio',23:'speakable-schema',
+        24:'query-answer-alignment',25:'content-cannibalization',26:'visible-date-signal',
+        27:'topic-coherence',28:'content-depth',
+        29:'helpful-purpose-alignment',30:'first-hand-experience-signals',
+        31:'creator-transparency',32:'methodology-transparency',
+        33:'citation-ready-writing',34:'answer-first-placement',
+        35:'evidence-packaging',36:'entity-disambiguation',
+        37:'extraction-friction',38:'image-context-ai',
+        39:'duplicate-content',40:'cross-page-duplication',
+        41:'response-efficiency',42:'critical-path-efficiency',43:'document-weight',
+        44:'internationalization-signals',45:'answer-capsule-pattern',
+        46:'entity-density',47:'owned-data-density',48:'sentence-atomicity'
+    };
+
+    var CRITERION_SLUGS = LEGACY_CRITERION_SLUGS;
+
+    function getCriterionSlug(id, scorecard) {
+        if (scorecard && scorecard.length >= 40 && CURRENT_CRITERION_SLUGS[id]) {
+            return CURRENT_CRITERION_SLUGS[id];
+        }
+        return CRITERION_SLUGS[id] || CURRENT_CRITERION_SLUGS[id];
+    }
 
     var KNOWLEDGE_BASE_URL = 'https://www.aeocontent.ai/knowledge/';
 
@@ -204,7 +230,7 @@
         return months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
     }
 
-    /* ── V1 + V2 Category Groups ──────────────────────── */
+    /* ── Category / Pillar Groups ────────────────────── */
 
     var CATEGORIES_V1 = [
         { key: 'content',   label: 'Content',       color: '#34a853', bg: '#e6f4ea', ids: [3, 7, 8, 11, 15, 16, 19, 24, 25] },
@@ -219,12 +245,27 @@
         { key: 'plumbing',     label: 'Technical Plumbing',    color: '#ea4335', bg: '#fce8e6', weight: '~15%', ids: [25, 1, 6, 21, 17, 12, 20, 13, 22, 23] },
     ];
 
+    /* 5-pillar groups for current aeorank v3+ audits (34–48 criteria) */
+    var PILLAR_GROUPS = [
+        { key: 'answer',    label: 'Answer Readiness',     color: '#34a853', bg: '#e6f4ea', weight: '~46%', ids: [8, 19, 27, 28, 29, 30, 33, 34, 35, 39, 40, 45] },
+        { key: 'structure', label: 'Content Structure',     color: '#4285f4', bg: '#e8f0fe', weight: '~25%', ids: [3, 7, 14, 15, 16, 24, 36, 46, 48] },
+        { key: 'trust',     label: 'Trust & Authority',     color: '#f9ab00', bg: '#fef7e0', weight: '~15%', ids: [2, 5, 9, 11, 18, 31, 32, 47] },
+        { key: 'technical', label: 'Technical Foundation',  color: '#9334e6', bg: '#f3e8fd', weight: '~8%',  ids: [4, 10, 22, 23, 26, 37, 38, 41, 42, 43] },
+        { key: 'discovery', label: 'AI Discovery',          color: '#ea4335', bg: '#fce8e6', weight: '~6%',  ids: [1, 6, 12, 13, 17, 20, 21, 25, 44] },
+    ];
+
     function isV2(scorecard) {
         return scorecard.length >= 28 || scorecard.some(function (s) { return s.id === 27 || s.id === 28; });
     }
 
+    function isV3(scorecard) {
+        return scorecard.length >= 34 || scorecard.some(function (s) { return s.id === 29 || s.id === 33 || s.id === 35 || s.id === 36; });
+    }
+
     function getCategories(scorecard) {
-        return isV2(scorecard) ? CATEGORIES_V2 : CATEGORIES_V1;
+        if (isV3(scorecard)) return PILLAR_GROUPS;
+        if (isV2(scorecard)) return CATEGORIES_V2;
+        return CATEGORIES_V1;
     }
 
     function getCategoryForId(id, cats) {
@@ -271,7 +312,8 @@
         var html = '';
         var scorecard = audit.scorecard || [];
         var cats = getCategories(scorecard);
-        var v2 = isV2(scorecard);
+        var v3 = isV3(scorecard);
+        var v2 = v3 || isV2(scorecard);
         var passingCount = scorecard.filter(function (s) { return s.score >= 5; }).length;
 
         // Hero row: favicon + domain + verdict + score + legend
@@ -298,7 +340,9 @@
         // Center: verdict
         html += '<div class="aeo-hero-center">';
         html += '<p class="aeo-hero-verdict">' + esc(audit.verdict || 'Moderate AI visibility with ' + passingCount + ' of ' + scorecard.length + ' criteria passing.') + '</p>';
-        if (v2) {
+        if (v3) {
+            html += '<span class="aeo-v2-badge">5-PILLAR SCORING</span>';
+        } else if (v2) {
             html += '<span class="aeo-v2-badge">V2 SCORING</span>';
         }
         html += '</div>';
@@ -425,7 +469,7 @@
             html += '<div class="aeo-accordion-body" style="display:none;">';
 
             // Knowledge links bar
-            var slug = CRITERION_SLUGS[item.id];
+            var slug = getCriterionSlug(item.id, scorecard);
             if (slug) {
                 html += '<div class="aeo-sb-links-bar">';
                 html += '<a href="' + KNOWLEDGE_BASE_URL + slug + '" target="_blank" rel="noopener" class="aeo-sb-guide-link">Read full guide &rarr;</a>';
