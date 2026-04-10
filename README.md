@@ -110,12 +110,58 @@ composer run phpcbf   # Auto-fix violations
 
 ### Testing
 
+#### Unit tests (no WordPress required)
+
 ```bash
 composer install
 composer run test
 ```
 
-The current unit tests cover the new onboarding URL helpers in [`AEOCAS_Settings`](./includes/class-aeo-settings.php).
+The current unit tests cover the new onboarding URL helpers in [`AEOCAS_Settings`](./includes/class-aeo-settings.php). They run against the WordPress stubs in [`tests/bootstrap.php`](./tests/bootstrap.php), so no WP install is needed.
+
+#### End-to-end testing in a local WordPress (Docker)
+
+The fastest way to exercise the plugin against a real WordPress is to build the installable ZIP and upload it to a disposable WP container.
+
+1. **Build the ZIP**
+
+   ```bash
+   ./build-zip.sh
+   ```
+
+   This produces `aeo-content-ai-studio.zip` in the repo root, identical to the artifact uploaded to WordPress.org. Move it wherever you like, e.g.:
+
+   ```bash
+   mv aeo-content-ai-studio.zip ~/Downloads/
+   ```
+
+2. **Spin up a local WordPress** (requires Docker)
+
+   ```bash
+   npx @wordpress/env start
+   ```
+
+   Admin: <http://localhost:8888/wp-admin> — user `admin`, password `password`.
+
+3. **Install the ZIP** via **Plugins → Add New → Upload Plugin**, choose the ZIP, and activate. Open **AEO Content → Settings** to verify the onboarding flow.
+
+4. **Smoke-test the REST API**
+
+   ```bash
+   curl http://localhost:8888/wp-json/aeo/v1/status
+   curl -H "x-api-key: <key>" http://localhost:8888/wp-json/aeo/v1/posts
+   ```
+
+5. **Tear down** when finished:
+
+   ```bash
+   npx @wordpress/env stop      # stop containers
+   npx @wordpress/env destroy   # nuke containers + DB
+   ```
+
+> **Note:** the connect-first onboarding redirects to `account.aeocontent.ai`, which cannot call back to `http://localhost:8888`. For local end-to-end testing of the connect flow, either use the manual API key fallback on the Settings page, or expose the local site with a tunnel (e.g. `ngrok http 8888`) and use the public URL.
+
+Re-run `./build-zip.sh` after every code change and re-upload the ZIP to test fresh changes.
 
 ## Compatibility
 

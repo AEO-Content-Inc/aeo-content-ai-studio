@@ -14,6 +14,7 @@ class AEOCAS_Settings {
         add_action( 'admin_init', array( $this, 'register_settings' ) );
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
         add_action( 'admin_post_aeocas_disconnect', array( $this, 'handle_disconnect' ) );
+        add_action( 'wp_ajax_aeocas_google_connect', array( $this, 'ajax_google_connect' ) );
         add_filter( 'plugin_action_links_' . plugin_basename( AEOCAS_PLUGIN_FILE ), array( $this, 'add_settings_link' ) );
     }
 
@@ -198,6 +199,58 @@ class AEOCAS_Settings {
     }
 
     /**
+     * Build the popup URL for Google-based connect flow.
+     *
+     * @return string
+     */
+    public static function get_google_connect_url() {
+        // Ensure plugin_token exists before opening popup.
+        $plugin_token = get_option( 'aeocas_plugin_token', '' );
+        if ( empty( $plugin_token ) ) {
+            $plugin_token = AEOCAS_Auth::generate_plugin_token();
+            update_option( 'aeocas_plugin_token', $plugin_token, false );
+        }
+
+        return add_query_arg(
+            array(
+                'intent'       => 'google',
+                'site_url'     => self::get_site_url(),
+                'home_url'     => get_option( 'aeocas_real_home_url', home_url() ),
+                'plugin_token' => $plugin_token,
+                'return_url'   => admin_url( 'admin.php?page=aeo-content-ai-studio' ),
+                'utm_source'   => 'wordpress-plugin',
+                'utm_medium'   => 'plugin',
+                'utm_campaign' => 'wp-admin',
+            ),
+            trailingslashit( AEOCAS_ACCOUNT_URL ) . 'login'
+        );
+    }
+
+    /**
+     * AJAX handler: store tokens received from the Google connect popup.
+     */
+    public function ajax_google_connect() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
+        }
+
+        check_ajax_referer( 'aeocas_google_connect', 'nonce' );
+
+        $site_token = isset( $_POST['site_token'] ) ? sanitize_text_field( wp_unslash( $_POST['site_token'] ) ) : '';
+
+        if ( empty( $site_token ) ) {
+            wp_send_json_error( array( 'message' => __( 'Missing site token from platform.', 'aeo-content-ai-studio' ) ) );
+        }
+
+        update_option( 'aeocas_site_token', $site_token );
+        update_option( 'aeocas_connection_verified', true );
+
+        AEOCAS_Activity_Log::log( 'google_connect', 'success', array( 'message' => 'Site connected via Google sign-in.' ) );
+
+        wp_send_json_success( array( 'message' => __( 'Connected successfully.', 'aeo-content-ai-studio' ) ) );
+    }
+
+    /**
      * Disconnect the current site from the platform.
      */
     public function handle_disconnect() {
@@ -240,6 +293,27 @@ class AEOCAS_Settings {
             array(),
             $asset_ver
         );
+
+        // Google connect JS (settings page, disconnected state only).
+        if ( 'aeo-content_page_aeo-content-ai-studio' === $hook ) {
+            $connected = ! empty( get_option( 'aeocas_site_token', '' ) ) && get_option( 'aeocas_connection_verified', false );
+            if ( ! $connected ) {
+                $gc_ver = AEOCAS_VERSION . '.' . filemtime( AEOCAS_PLUGIN_DIR . 'admin/js/google-connect.js' );
+                wp_enqueue_script( 'aeocas-google-connect', AEOCAS_PLUGIN_URL . 'admin/js/google-connect.js', array(), $gc_ver, true );
+                wp_localize_script( 'aeocas-google-connect', 'aeocasGoogle', array(
+                    'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
+                    'nonce'         => wp_create_nonce( 'aeocas_google_connect' ),
+                    'connectUrl'    => self::get_google_connect_url(),
+                    'accountOrigin' => esc_url_raw( rtrim( AEOCAS_STUDIO_URL, '/' ) ),
+                    'i18n'          => array(
+                        'waiting'    => __( 'Waiting for Google sign-in...', 'aeo-content-ai-studio' ),
+                        'connecting' => __( 'Connecting your site...', 'aeo-content-ai-studio' ),
+                        'success'    => __( 'Connected! Reloading...', 'aeo-content-ai-studio' ),
+                        'error'      => __( 'Connection failed. Please try again.', 'aeo-content-ai-studio' ),
+                    ),
+                ) );
+            }
+        }
 
         // Audit page JS.
         if ( 'toplevel_page_aeocas-audit-report' === $hook ) {

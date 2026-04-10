@@ -114,6 +114,81 @@
     margin-bottom: 0;
 }
 
+/* ─── Google Connect Button ─────────────────────────── */
+
+.aeo-google-btn {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 10px;
+    background: #fff !important;
+    border: 2px solid #dadce0 !important;
+    border-radius: 8px !important;
+    color: #3c4043 !important;
+    font-size: 15px !important;
+    font-weight: 500 !important;
+    padding: 10px 24px 10px 20px !important;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+    line-height: 1.4 !important;
+}
+
+.aeo-google-btn:hover {
+    background: #f8f9fa !important;
+    border-color: #c6c9cc !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+
+.aeo-google-btn:active {
+    background: #f1f3f4 !important;
+}
+
+.aeo-google-icon {
+    flex-shrink: 0;
+}
+
+.aeo-connect-divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 16px 0;
+    color: #8c8f94;
+    font-size: 13px;
+}
+
+.aeo-connect-divider::before,
+.aeo-connect-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #dcdcde;
+}
+
+.aeo-connect-actions-alt {
+    opacity: 0.85;
+}
+
+.aeo-google-status {
+    font-size: 14px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 6px;
+}
+
+.aeo-google-status-loading {
+    color: #1a73e8;
+    background: #e8f0fe;
+}
+
+.aeo-google-status-success {
+    color: #137333;
+    background: #e6f4ea;
+}
+
+.aeo-google-status-error {
+    color: #a50e0e;
+    background: #fce8e6;
+}
+
 .aeo-manual-connect {
     max-width: 860px;
     margin: 0 0 24px;
