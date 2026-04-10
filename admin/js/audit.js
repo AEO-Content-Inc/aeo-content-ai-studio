@@ -541,7 +541,10 @@
     function renderPages(audit) {
         var pages = audit.pages_reviewed || [];
         if (!pages.length) {
-            return '<div class="aeo-log-empty"><p>No page data available. Run a full site audit from the AEO Content dashboard to see individual page scores.</p></div>';
+            return '<div class="aeo-log-empty">' +
+                '<p style="margin-bottom:12px;">No page data available yet. Run a full site audit to see individual page scores.</p>' +
+                '<button type="button" class="button button-primary button-hero aeo-trigger-reaudit">Run Full Site Audit</button>' +
+                '</div>';
         }
 
         // Build link graph lookup for inbound link counts.
@@ -615,7 +618,10 @@
     function renderRewriteCandidates(audit) {
         var pages = audit.pages_reviewed || [];
         if (!pages.length) {
-            return '<div class="aeo-log-empty"><p>No page data available. Run a full site audit to see rewrite candidates.</p></div>';
+            return '<div class="aeo-log-empty">' +
+                '<p style="margin-bottom:12px;">No page data available yet. Run a full site audit to see rewrite candidates.</p>' +
+                '<button type="button" class="button button-primary button-hero aeo-trigger-reaudit">Run Full Site Audit</button>' +
+                '</div>';
         }
 
         // Build link graph lookup
@@ -930,6 +936,22 @@
             triggerReaudit();
         });
     }
+
+    // Delegated handler for "Run Full Site Audit" buttons inside tab panels.
+    wrap.addEventListener('click', function (e) {
+        if (e.target.classList.contains('aeo-trigger-reaudit')) {
+            e.preventDefault();
+            if (pollTimer) return;
+            // Switch to overview tab so user sees progress bar.
+            var tabs = wrap.querySelectorAll('.nav-tab');
+            var panels = wrap.querySelectorAll('.aeo-tab-panel');
+            tabs.forEach(function (t) { t.classList.remove('nav-tab-active'); });
+            panels.forEach(function (p) { p.style.display = 'none'; });
+            tabs[0].classList.add('nav-tab-active');
+            panels[0].style.display = '';
+            triggerReaudit();
+        }
+    });
 
     /* ── Util ─────────────────────────────────────────── */
 
