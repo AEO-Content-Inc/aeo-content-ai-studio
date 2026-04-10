@@ -64,4 +64,43 @@ final class AEOCASSettingsTest extends TestCase {
         $this->assertSame( 'plugin', $query['utm_medium'] );
         $this->assertSame( 'wp-admin', $query['utm_campaign'] );
     }
+
+    public function test_get_google_connect_url_uses_studio_domain(): void {
+        $url = AEOCAS_Settings::get_google_connect_url();
+        $parts = wp_parse_url( $url );
+
+        $this->assertSame( 'studio.aeocontent.ai', $parts['host'] );
+        $this->assertSame( '/wp-connect', $parts['path'] );
+    }
+
+    public function test_get_google_connect_url_includes_site_params(): void {
+        $url = AEOCAS_Settings::get_google_connect_url();
+        $parts = wp_parse_url( $url );
+
+        parse_str( $parts['query'], $query );
+
+        $this->assertSame( 'https://captured.example', $query['site_url'] );
+        $this->assertSame( 'https://home-captured.example', $query['home_url'] );
+        $this->assertStringContainsString( 'admin.php', $query['return_url'] );
+    }
+
+    public function test_get_google_connect_url_includes_plugin_token(): void {
+        $url = AEOCAS_Settings::get_google_connect_url();
+        $parts = wp_parse_url( $url );
+
+        parse_str( $parts['query'], $query );
+
+        $this->assertArrayHasKey( 'plugin_token', $query );
+        $this->assertNotEmpty( $query['plugin_token'] );
+    }
+
+    public function test_get_google_connect_url_generates_token_when_missing(): void {
+        // Ensure no token exists.
+        unset( $GLOBALS['aeocas_test_options']['aeocas_plugin_token'] );
+
+        $url = AEOCAS_Settings::get_google_connect_url();
+
+        // Token should now be stored.
+        $this->assertNotEmpty( $GLOBALS['aeocas_test_options']['aeocas_plugin_token'] ?? '' );
+    }
 }

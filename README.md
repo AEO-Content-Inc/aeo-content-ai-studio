@@ -4,7 +4,7 @@
 [![WordPress Plugin: Tested WP Version](https://img.shields.io/wordpress/plugin/tested/aeo-content-ai-studio)](https://wordpress.org/plugins/aeo-content-ai-studio/)
 [![License: GPL v2+](https://img.shields.io/badge/License-GPLv2%2B-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 
-Connects your WordPress site to [AEO Content AI Studio](https://www.aeocontent.ai) for AI-powered content publishing and 28-criteria site audit reports.
+Connects your WordPress site to [AEO Content AI Studio](https://www.aeocontent.ai) for AI-powered content publishing and 5-pillar site audit reports with per-page scoring and rewrite prioritization.
 
 ## What is AEO?
 
@@ -14,12 +14,16 @@ AI Engine Optimization (AEO) is the practice of structuring web content so AI an
 
 | Feature | Description |
 |---------|-------------|
+| **Google Connect** | 1-click account creation and site connection via Google sign-in popup |
 | **Content Publishing** | Read, create, and update WordPress posts from AEO Content AI Studio via REST API |
-| **Audit Report** | View your site's AI visibility score across 28 weighted criteria directly in WordPress admin |
+| **Audit Report** | 5-pillar AI visibility score with per-page analysis, scoreboard, and opportunities |
+| **Pages** | Full site page inventory with AEO Rank scores, categories, word counts, and inbound links |
+| **Rewrite Candidates** | Prioritized list of pages needing content rewrites with tier classification and weakest pillar |
+| **Full Site Audit** | Trigger and monitor a complete site audit with real-time progress from WordPress admin |
 | **Activity Log** | Track every API interaction with filterable log, CSV export, and 90-day auto-cleanup |
 | **Categories & Tags API** | Sync taxonomy data to AEO Content AI Studio for accurate content organization |
 | **Heartbeat** | Periodic connectivity check keeps platform and plugin in sync |
-| **Credential Auth** | Platform and plugin requests are secured with site credentials and constant-time key comparison |
+| **Credential Auth** | Platform and plugin requests are secured with API keys and constant-time key comparison |
 
 ## How It Works
 
@@ -41,11 +45,12 @@ AEO Content AI Studio                         WordPress Plugin
     |<----------------------------------------------|
 ```
 
-1. Install the plugin and click **Get Started** in **AEO Content > Settings**
-2. AEO Content AI Studio syncs your categories, tags, and posts via authenticated REST API
-3. AEO Content AI Studio analyzes and optimizes your content
-4. Optimized content is published back to WordPress
-5. View your site's AEO audit score in the **Audit Report** tab
+1. Install the plugin and click **Continue with Google** in **AEO Content > Settings**
+2. A popup opens for Google sign-in — your account and site connection are created automatically
+3. AEO Content AI Studio syncs your categories, tags, and posts via authenticated REST API
+4. AEO Content AI Studio analyzes and optimizes your content
+5. Optimized content is published back to WordPress
+6. View your site's AEO audit score, per-page analysis, and rewrite candidates in the **Audit Report** tab
 
 ## Installation
 
@@ -64,14 +69,16 @@ AEO Content AI Studio                         WordPress Plugin
 
 ## Onboarding
 
-The plugin now uses a connect-first onboarding flow in `wp-admin`:
+The plugin supports 1-click onboarding via Google sign-in:
 
 1. Open **AEO Content > Settings**
-2. Click **Get Started** if this is your first account, or **I Already Have an Account** if you already use AEO Content
-3. Finish signup/login on `account.aeocontent.ai`
-4. Approve the WordPress site connection and return to WordPress
+2. Click **Continue with Google** — a popup opens on `studio.aeocontent.ai`
+3. Sign in with your Google account (creates a new account if needed, or signs into an existing one)
+4. The popup auto-closes and your site is connected immediately
 
-An advanced manual API key form is still available as a fallback for direct support-driven setups.
+Manual alternatives are also available:
+- **Create Account Manually** / **I Already Have an Account** — redirects to the platform for email-based signup/login
+- **Advanced: connect with an API key** — for direct support-driven setups
 
 ## REST API Endpoints
 

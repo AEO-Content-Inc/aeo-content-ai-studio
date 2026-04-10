@@ -8,7 +8,7 @@ Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Connects your WordPress site to AEO Content AI Studio for AI-powered content publishing and 28-criteria site audit reports.
+Connects your WordPress site to AEO Content AI Studio for AI-powered content publishing and 5-pillar site audit reports with per-page scoring.
 
 == Description ==
 
@@ -20,35 +20,40 @@ AEO Content AI Studio connects your WordPress site to the [AEO Content AI Studio
 
 **Content Publishing** — AEO Content AI Studio reads your existing posts, optimizes them with AI, and publishes updated or new content back to your site via a secure REST API. Categories, tags, featured images, and FAQ schema are handled automatically.
 
-**Audit Report** — View your site's AI visibility score directly in the WordPress dashboard. The audit evaluates 28 weighted criteria across three tiers — Content Substance, Content Organization, and Technical Plumbing — scored from 0 to 100. Each criterion includes detailed findings and a prioritized fix list.
+**Audit Report** — View your site's AI visibility score directly in the WordPress dashboard. The audit evaluates up to 48 criteria across five pillars — Answer Readiness, Content Structure, Trust & Authority, Technical Foundation, and AI Discovery — scored from 0 to 100. Includes per-page scoring, rewrite candidates, and a prioritized fix list. Trigger a full site audit directly from WordPress with real-time progress tracking.
 
 **Activity Log** — Every API interaction is logged with timestamps, status, and details. Filter by command or status, export to CSV, and auto-cleanup keeps logs manageable.
 
 = Features =
 
+* 1-click Google sign-in for instant account creation and site connection
 * Read, create, and update posts from AEO Content AI Studio
-* View 28-criteria AI visibility audit report in WordPress admin
+* 5-pillar AI visibility audit with per-page AEO Rank scores
+* Pages inventory with score, category, word count, and inbound link data
+* Rewrite candidates prioritized by score and impact with weakest-pillar analysis
+* Run full site audits from WordPress admin with real-time progress tracking
 * Browse site categories and tags via REST API for platform sync
 * Track all API activity with filterable log and CSV export
 * Automatic heartbeat keeps platform and plugin in sync
-* Secure credential-based authentication on all endpoints
+* Secure API key authentication on all endpoints
 
 = How It Works =
 
-1. Install the plugin and click **Get Started** in **AEO Content > Settings**
-2. AEO Content AI Studio syncs your categories, tags, and posts via authenticated REST API
-3. AEO Content AI Studio analyzes and optimizes your content
-4. Optimized content is published back to WordPress with one click
-5. View your site's AEO audit score and recommendations in the Audit Report tab
+1. Install the plugin and click **Continue with Google** in **AEO Content > Settings**
+2. A popup opens for Google sign-in — your account and site connection are created automatically
+3. AEO Content AI Studio syncs your categories, tags, and posts via authenticated REST API
+4. AEO Content AI Studio analyzes and optimizes your content
+5. Optimized content is published back to WordPress with one click
+6. View your site's AEO audit score, per-page analysis, and rewrite candidates in the Audit Report tab
 
 = Onboarding =
 
 New installs should start from **AEO Content > Settings** in WordPress admin:
 
-1. Click **Get Started** to create an account and connect the current site
-2. Or click **I Already Have an Account** if you already use AEO Content
-3. Finish setup on `account.aeocontent.ai`
-4. Return to WordPress and enable the features you want on this site
+1. Click **Continue with Google** — a popup opens for Google sign-in
+2. Sign in or create an account with one click
+3. The popup closes automatically and your site is connected
+4. Alternatively, click **Create Account Manually** or **I Already Have an Account** for email-based setup
 
 = External Service =
 
@@ -64,7 +69,7 @@ All communication uses HTTPS and authenticated platform credentials. The platfor
 
 1. Upload the `aeo-content-ai-studio` folder to `/wp-content/plugins/`
 2. Activate the plugin through the 'Plugins' menu in WordPress
-3. Go to **AEO Content > Settings** and click **Get Started** to connect your site
+3. Go to **AEO Content > Settings** and click **Continue with Google** to connect your site
 4. Enable the **Content Publishing** feature
 5. View your audit score under **AEO Content > Audit Report**
 
@@ -78,7 +83,7 @@ Yes. The plugin connects to the AEO Content platform which manages content optim
 
 = What does the Audit Report show? =
 
-The audit evaluates your site across 28 weighted criteria grouped into three tiers: Content Substance (~55% of score), Content Organization (~30%), and Technical Plumbing (~15%). You get a score out of 100 with detailed findings per criterion and a prioritized list of improvements ranked by impact. Most websites score between 30 and 60; above 70 indicates strong AI visibility.
+The audit evaluates your site across up to 48 criteria grouped into five pillars: Answer Readiness (~46%), Content Structure (~25%), Trust & Authority (~15%), Technical Foundation (~8%), and AI Discovery (~6%). You get an overall score out of 100 with per-page AEO Rank scores, a scoreboard with detailed findings, rewrite candidates prioritized by impact, and a fix list. Most websites score between 30 and 60; above 70 indicates strong AI visibility.
 
 = How does content publishing work? =
 
@@ -102,11 +107,19 @@ The plugin requires a valid site connection to the AEO Content platform. Without
 
 == Screenshots ==
 
-1. Audit Report — AI visibility score with 28-criteria breakdown
+1. Audit Report — 5-pillar AI visibility score with per-page analysis and rewrite candidates
 2. Settings — Connect flow and feature toggle
 3. Activity Log — Filterable log of all API interactions with CSV export
 
 == Changelog ==
+
+= 1.1.0 =
+* 1-click Google sign-in for account creation and site connection
+* 5-pillar audit scoring (Answer Readiness, Content Structure, Trust & Authority, Technical Foundation, AI Discovery)
+* Pages tab — full site inventory with per-page AEO Rank scores, categories, word counts, inbound links
+* Rewrite Candidates tab — prioritized list of pages needing rewrites with tier classification and weakest pillar
+* Run Full Site Audit button with real-time progress tracking (pending → discovering → auditing → seeding → completed)
+* Support for up to 48 audit criteria with current and legacy slug mappings
 
 = 1.0.0 =
 * Initial release
@@ -125,6 +138,9 @@ This plugin connects to the external service at aeocontent.ai. See the "External
 The plugin stores the IP address of incoming API requests in the activity log for security and diagnostic purposes. Log entries are automatically deleted after 90 days. No cookies are set, no users are tracked, and no analytics are collected on the frontend.
 
 == Upgrade Notice ==
+
+= 1.1.0 =
+Adds 1-click Google sign-in, 5-pillar audit scoring, per-page analysis, rewrite candidates, and full site audit from WordPress admin.
 
 = 1.0.0 =
 Initial release. Install the plugin and click Get Started to connect to the AEO Content platform.
