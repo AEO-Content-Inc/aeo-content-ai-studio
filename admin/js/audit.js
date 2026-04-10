@@ -600,7 +600,7 @@
             html += '<tr>';
             html += '<td>';
             html += '<div style="font-weight:600;font-size:13px;">' + esc(page.title || shortUrl) + '</div>';
-            html += '<div style="font-size:11px;color:#646970;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:500px;">' + esc(shortUrl) + '</div>';
+            html += '<div style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:500px;"><a href="' + esc(page.url) + '" target="_blank" rel="noopener" style="color:#646970;text-decoration:none;" onmouseover="this.style.color=\'#2271b1\'" onmouseout="this.style.color=\'#646970\'">' + esc(shortUrl) + ' &#8599;</a></div>';
             html += '</td>';
             html += '<td><span class="aeo-log-command">' + esc(cat) + '</span></td>';
             html += '<td><span class="aeo-score-badge-pill" style="background:' + bg + ';color:' + color + ';">' + score + '</span></td>';
@@ -713,7 +713,7 @@
             html += '<tr>';
             html += '<td>';
             html += '<div style="font-weight:600;font-size:13px;">' + esc(c.title) + '</div>';
-            html += '<div style="font-size:11px;color:#646970;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400px;">' + esc(shortUrl) + '</div>';
+            html += '<div style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400px;"><a href="' + esc(c.url) + '" target="_blank" rel="noopener" style="color:#646970;text-decoration:none;" onmouseover="this.style.color=\'#2271b1\'" onmouseout="this.style.color=\'#646970\'">' + esc(shortUrl) + ' &#8599;</a></div>';
             if (c.category) html += ' <span class="aeo-log-command" style="margin-top:2px;">' + esc(c.category) + '</span>';
             if (c.isStale) html += ' <span class="aeo-badge aeo-badge-error" style="font-size:10px;">stale</span>';
             html += '</td>';
@@ -956,8 +956,13 @@
     /* ── Util ─────────────────────────────────────────── */
 
     function esc(str) {
+        if (!str) return '';
+        // Decode HTML entities first (API returns &#8211; etc.), then safely escape.
+        var tmp = document.createElement('textarea');
+        tmp.innerHTML = str;
+        var decoded = tmp.value;
         var el = document.createElement('span');
-        el.textContent = str;
+        el.textContent = decoded;
         return el.innerHTML;
     }
 
