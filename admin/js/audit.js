@@ -958,16 +958,127 @@
         return card('Search Intent', inner);
     }
 
+    /* Rotating wait verbs, displayed while Discovery is pending.  */
+    var DISCOVERY_VERBS = [
+        'Pondering', 'Synthesizing', 'Contemplating', 'Ruminating',
+        'Deliberating', 'Cogitating', 'Mulling', 'Percolating',
+        'Marinating', 'Brewing', 'Noodling', 'Untangling',
+        'Crunching numbers', 'Spelunking', 'Rummaging', 'Sniffing around',
+        'Harvesting signals', 'Wrangling bytes', 'Chasing breadcrumbs',
+        'Scouting the terrain', 'Decoding', 'Weaving', 'Parsing vibes',
+        'Reticulating splines', 'Consulting the oracle', 'Sharpening pencils',
+        'Reading tea leaves', 'Herding electrons', 'Counting pixels',
+        'Triangulating', 'Whispering to the DB', 'Polishing the scoreboard'
+    ];
+
+    var discoveryUiState = {
+        phase: 'idle',     // 'idle' | 'loading' | 'pending' | 'ready' | 'error'
+        startedAt: null,
+        lastPollAt: null,
+        verbIdx: 0,
+        tickCounter: 0,
+        tickTimer: null,
+        status: null,
+        currentStage: null
+    };
+
+    function formatElapsed(ms) {
+        var total = Math.max(0, Math.floor(ms / 1000));
+        var m = Math.floor(total / 60);
+        var s = total % 60;
+        if (m === 0) return s + 's';
+        return m + 'm ' + (s < 10 ? '0' : '') + s + 's';
+    }
+
+    function updateDiscoveryPendingDynamic() {
+        var st = discoveryUiState;
+        if (st.phase !== 'pending') return;
+
+        var verbEl    = document.getElementById('aeo-disc-verb');
+        var stageEl   = document.getElementById('aeo-disc-stage');
+        var elapsedEl = document.getElementById('aeo-disc-elapsed');
+        var lastPollEl= document.getElementById('aeo-disc-lastpoll');
+        var fillEl    = document.getElementById('aeo-disc-fill');
+
+        if (!verbEl && !stageEl && !elapsedEl && !lastPollEl) return; // DOM gone
+
+        if (verbEl) {
+            verbEl.textContent = DISCOVERY_VERBS[st.verbIdx % DISCOVERY_VERBS.length] + '…';
+        }
+        if (stageEl) {
+            var label = st.currentStage || STAGE_LABELS[st.status] || 'Waiting for the audit worker to pick up your job...';
+            stageEl.textContent = label;
+        }
+        if (elapsedEl && st.startedAt) {
+            elapsedEl.textContent = formatElapsed(Date.now() - st.startedAt);
+        }
+        if (lastPollEl && st.lastPollAt) {
+            var secs = Math.max(0, Math.round((Date.now() - st.lastPollAt) / 1000));
+            lastPollEl.textContent = secs === 0 ? 'just now' : (secs + 's ago');
+        }
+        if (fillEl) {
+            var pct = STAGE_PROGRESS[st.status] || 5;
+            fillEl.style.width = pct + '%';
+        }
+    }
+
+    function startDiscoveryTicker() {
+        stopDiscoveryTicker();
+        discoveryUiState.tickTimer = setInterval(function () {
+            discoveryUiState.tickCounter++;
+            // Rotate the verb every 3 ticks (~3s) — frequent enough to feel alive,
+            // slow enough to actually read each word.
+            if (discoveryUiState.tickCounter % 3 === 0) {
+                discoveryUiState.verbIdx++;
+            }
+            updateDiscoveryPendingDynamic();
+        }, 1000);
+    }
+
+    function stopDiscoveryTicker() {
+        if (discoveryUiState.tickTimer) {
+            clearInterval(discoveryUiState.tickTimer);
+            discoveryUiState.tickTimer = null;
+        }
+    }
+
     function renderDiscoveryPending(payload) {
-        var status = payload && payload.status ? payload.status : 'pending';
-        var stage  = (payload && payload.current_stage) || STAGE_LABELS[status] || 'Waiting for audit worker...';
-        var pct    = STAGE_PROGRESS[status] || 5;
+        // Capture state for the ticker. If we're already in a pending phase,
+        // preserve startedAt so the elapsed counter keeps climbing across
+        // re-renders; otherwise start a fresh timer.
+        var st = discoveryUiState;
+        if (st.phase !== 'pending') {
+            st.startedAt = Date.now();
+            st.verbIdx = 0;
+            st.tickCounter = 0;
+        }
+        st.phase         = 'pending';
+        st.status        = (payload && payload.status) || 'pending';
+        st.currentStage  = (payload && payload.current_stage) || null;
+        st.lastPollAt    = Date.now();
+
+        var stageLabel = st.currentStage || STAGE_LABELS[st.status] || 'Waiting for the audit worker to pick up your job...';
+        var pct        = STAGE_PROGRESS[st.status] || 5;
+        var verb       = DISCOVERY_VERBS[st.verbIdx % DISCOVERY_VERBS.length];
+
         return ''
             + '<div class="aeo-discovery-pending">'
             +   '<h2>Discovery is running…</h2>'
-            +   '<p>We kick off a full site audit the moment you connect. The deterministic Discovery layer finishes in under a minute and its findings appear here automatically.</p>'
-            +   '<div class="aeo-reaudit-track"><div class="aeo-reaudit-fill" style="width:' + pct + '%;background:#4285f4;"></div></div>'
-            +   '<p class="aeo-discovery-stage">' + esc(stage) + '</p>'
+            +   '<p class="description">We kicked off a full site audit the moment you connected. The deterministic Discovery layer usually finishes in under a minute and its findings appear here automatically.</p>'
+            +   '<p class="aeo-disc-verb-row">'
+            +     '<span class="aeo-disc-verb" id="aeo-disc-verb">' + esc(verb) + '…</span>'
+            +   '</p>'
+            +   '<div class="aeo-reaudit-track">'
+            +     '<div class="aeo-reaudit-fill aeo-disc-fill" id="aeo-disc-fill" style="width:' + pct + '%;"></div>'
+            +   '</div>'
+            +   '<p class="aeo-disc-stage-row">'
+            +     '<span class="spinner is-active" style="float:none;margin:0 6px 0 0;"></span>'
+            +     '<span id="aeo-disc-stage">' + esc(stageLabel) + '</span>'
+            +   '</p>'
+            +   '<div class="aeo-disc-meta">'
+            +     '<span>Running for <strong id="aeo-disc-elapsed">' + esc(formatElapsed(Date.now() - st.startedAt)) + '</strong></span>'
+            +     '<span>Last checked <strong id="aeo-disc-lastpoll">just now</strong></span>'
+            +   '</div>'
             + '</div>';
     }
 
@@ -1055,13 +1166,33 @@
 
     function startDiscoveryPolling() {
         stopDiscoveryPolling();
-        discoveryPollTimer = setInterval(function () { loadDiscovery(true); }, 10000);
+        // 5s interval — fast enough to feel live but gentle on the remote.
+        discoveryPollTimer = setInterval(function () { loadDiscovery(true); }, 5000);
+    }
+
+    function renderPendingFresh(tab, payload) {
+        tab.innerHTML = renderDiscoveryPending(payload);
+        startDiscoveryTicker();
+    }
+
+    function applyPendingUpdate(payload) {
+        // Already showing the pending card — just patch the dynamic state and let
+        // the ticker update the DOM. Avoids a full innerHTML replacement flash
+        // and keeps the elapsed counter climbing smoothly.
+        var st = discoveryUiState;
+        st.status       = (payload && payload.status) || 'pending';
+        st.currentStage = (payload && payload.current_stage) || null;
+        st.lastPollAt   = Date.now();
+        updateDiscoveryPendingDynamic();
     }
 
     function loadDiscovery(refresh) {
         var tab = document.getElementById('tab-discovery');
         if (!tab) return;
+
+        // First paint: show a loading spinner until the first response lands.
         if (!refresh && !tab.innerHTML.trim()) {
+            discoveryUiState.phase = 'loading';
             tab.innerHTML = renderDiscoveryLoading();
         }
 
@@ -1074,25 +1205,47 @@
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (res.success) {
-                    tab.innerHTML = renderDiscovery(res.data);
-                    if (res.data && res.data.discovery) {
+                    var payload = res.data;
+                    if (payload && payload.discovery) {
+                        // Ready: stop everything and render full findings.
                         stopDiscoveryPolling();
+                        stopDiscoveryTicker();
+                        discoveryUiState.phase = 'ready';
+                        tab.innerHTML = renderDiscovery(payload);
+                    } else if (discoveryUiState.phase === 'pending' && document.getElementById('aeo-disc-verb')) {
+                        // Already in pending state with live DOM — patch in place.
+                        applyPendingUpdate(payload);
+                        startDiscoveryPolling();
                     } else {
+                        // First pending render (or recovering from error/loading).
+                        renderPendingFresh(tab, payload);
                         startDiscoveryPolling();
                     }
                 } else {
                     var msg = (res.data && res.data.message) ? res.data.message : 'Failed to load discovery.';
                     var code = (res.data && res.data.code) || '';
                     if (code === 'aeocas_no_discovery') {
-                        tab.innerHTML = renderDiscoveryPending({ status: 'pending', current_stage: 'No audit job yet. Click "Run Full Site Audit" to start.' });
+                        // No job row yet on the remote — probably the onboard insert
+                        // hasn't landed yet, or the user arrived before connecting.
+                        // Render the pending card and KEEP polling (this was the
+                        // bug that made the UI look permanently stuck).
+                        if (discoveryUiState.phase !== 'pending') {
+                            renderPendingFresh(tab, { status: 'pending', current_stage: 'Waiting for the audit job to be queued…' });
+                        } else {
+                            applyPendingUpdate({ status: 'pending', current_stage: 'Waiting for the audit job to be queued…' });
+                        }
+                        startDiscoveryPolling();
                     } else {
+                        stopDiscoveryPolling();
+                        stopDiscoveryTicker();
+                        discoveryUiState.phase = 'error';
                         tab.innerHTML = '<div class="notice notice-error" style="padding:12px 16px;"><p>' + esc(msg) + '</p></div>';
                     }
-                    stopDiscoveryPolling();
                 }
             })
             .catch(function () {
-                // Network error — keep polling silently.
+                // Network error — keep polling silently; the ticker keeps ticking
+                // and "Last checked" will drift, making the stall visible.
             });
     }
 
@@ -1226,6 +1379,11 @@
         reauditBtn.textContent = 'Running...';
         lastPolledStatus = null;
         errorBox.innerHTML = '';
+        // Reset Discovery UI state so the elapsed counter starts at 0 and the
+        // pending card re-paints cleanly for the new audit run.
+        stopDiscoveryTicker();
+        stopDiscoveryPolling();
+        discoveryUiState.phase = 'idle';
         // Keep the tab container visible so users watch Discovery populate live.
         showReauditProgress('queued');
         // Kick Discovery into "pending" state immediately.
