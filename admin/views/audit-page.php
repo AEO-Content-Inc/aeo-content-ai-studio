@@ -47,6 +47,9 @@ if ( ! defined( 'ABSPATH' ) ) {
             <a href="#" class="nav-tab nav-tab-active" data-tab="discovery">
                 <?php esc_html_e( 'Discovery', 'aeo-content-ai-studio' ); ?>
             </a>
+            <a href="#" class="nav-tab" data-tab="site-audit">
+                <?php esc_html_e( 'Site Audit', 'aeo-content-ai-studio' ); ?>
+            </a>
             <a href="#" class="nav-tab" data-tab="overview">
                 <?php esc_html_e( 'Overview', 'aeo-content-ai-studio' ); ?>
             </a>
@@ -56,20 +59,29 @@ if ( ! defined( 'ABSPATH' ) ) {
             <a href="#" class="nav-tab" data-tab="opportunities">
                 <?php esc_html_e( 'Opportunities', 'aeo-content-ai-studio' ); ?>
             </a>
-            <a href="#" class="nav-tab" data-tab="pages">
-                <?php esc_html_e( 'Pages', 'aeo-content-ai-studio' ); ?>
-            </a>
             <a href="#" class="nav-tab" data-tab="rewrite">
                 <?php esc_html_e( 'Rewrite Candidates', 'aeo-content-ai-studio' ); ?>
             </a>
         </nav>
 
         <div class="aeo-tab-panel" id="tab-discovery"></div>
+        <div class="aeo-tab-panel" id="tab-site-audit" style="display: none;"></div>
         <div class="aeo-tab-panel" id="tab-overview" style="display: none;"></div>
         <div class="aeo-tab-panel" id="tab-scoreboard" style="display: none;"></div>
         <div class="aeo-tab-panel" id="tab-opportunities" style="display: none;"></div>
-        <div class="aeo-tab-panel" id="tab-pages" style="display: none;"></div>
         <div class="aeo-tab-panel" id="tab-rewrite" style="display: none;"></div>
 
+    </div>
+
+    <!-- AEO score breakdown modal -->
+    <div id="aeo-score-modal" class="aeo-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="aeo-score-modal-title">
+        <div class="aeo-modal-backdrop"></div>
+        <div class="aeo-modal-dialog">
+            <header class="aeo-modal-header">
+                <h2 id="aeo-score-modal-title"><?php esc_html_e( 'AEO Page Rank — Score Breakdown', 'aeo-content-ai-studio' ); ?></h2>
+                <button type="button" class="aeo-modal-close" aria-label="Close">&times;</button>
+            </header>
+            <div class="aeo-modal-body" id="aeo-score-modal-body"></div>
+        </div>
     </div>
 </div>

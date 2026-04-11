@@ -243,16 +243,15 @@ class AEOCAS_Settings {
 
         AEOCAS_Activity_Log::log( 'google_connect', 'success', array( 'message' => 'Site connected via Google sign-in.' ) );
 
-        // Kick off the first-run onboarding audit: Discovery + Full Site Audit.
-        // The platform enqueues both in one pipeline; the audit page's Discovery
-        // tab will auto-populate as soon as the discovering stage finishes.
+        // Fire-and-forget the onboarding audit dispatch. The HTTP call is
+        // non-blocking (timeout 3s, blocking=false) so this returns in ~3s
+        // even if the platform is slow. The Discovery tab on the audit page
+        // polls the status endpoint directly and will pick up whatever state
+        // the job is in, so we don't need the synchronous response.
         $onboard_result  = AEOCAS_Audit_Api::trigger_onboarding();
         $onboard_warning = null;
         if ( is_wp_error( $onboard_result ) ) {
-            // Don't fail the connect flow if onboarding can't be queued — the user
-            // can still trigger an audit manually from the audit page.
             $onboard_warning = $onboard_result->get_error_message();
-            AEOCAS_Activity_Log::log( 'onboard', 'error', array( 'message' => $onboard_warning ) );
         } else {
             update_option( 'aeocas_onboarding_pending', 1 );
         }
@@ -260,7 +259,6 @@ class AEOCAS_Settings {
         wp_send_json_success( array(
             'message'      => __( 'Connected successfully.', 'aeo-content-ai-studio' ),
             'redirect_url' => admin_url( 'admin.php?page=aeocas-audit-report' ),
-            'onboard'      => is_wp_error( $onboard_result ) ? null : ( $onboard_result['data'] ?? null ),
             'warning'      => $onboard_warning,
         ) );
     }

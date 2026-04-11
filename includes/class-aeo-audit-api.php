@@ -268,7 +268,12 @@ class AEOCAS_Audit_Api {
      * than once; subsequent calls return the current job state instead of
      * queuing a duplicate.
      *
-     * @return array|WP_Error Response data or error.
+     * Fire-and-forget: the call is made with blocking=false and a short timeout
+     * so the user's "Connect" action returns instantly, even if the platform is
+     * slow. The Discovery tab polls the status endpoint independently, so we
+     * don't need to wait for a synchronous response.
+     *
+     * @return true|WP_Error True on dispatch success, WP_Error on local failure.
      */
     public static function trigger_onboarding() {
         $api_key = get_option( 'aeocas_site_token', '' );
@@ -279,32 +284,28 @@ class AEOCAS_Audit_Api {
         $url = trailingslashit( AEOCAS_PLATFORM_URL ) . 'api/v1/plugin/onboard';
 
         $response = wp_remote_post( $url, array(
-            'headers' => array(
+            'headers'  => array(
                 'Authorization' => 'Bearer ' . $api_key,
                 'Content-Type'  => 'application/json',
+                'Accept'        => 'application/json',
             ),
-            'body'    => wp_json_encode( array( 'site_url' => get_home_url() ) ),
-            'timeout' => 20,
+            'body'     => wp_json_encode( array( 'site_url' => get_home_url() ) ),
+            'timeout'  => 3,
+            'blocking' => false,
         ) );
 
         if ( is_wp_error( $response ) ) {
+            AEOCAS_Activity_Log::log( 'onboard', 'error', array( 'message' => $response->get_error_message() ) );
             return new WP_Error( 'aeocas_api_error', $response->get_error_message() );
         }
 
-        $status = wp_remote_retrieve_response_code( $response );
-        $body   = json_decode( wp_remote_retrieve_body( $response ), true );
-
-        if ( $status >= 400 ) {
-            $message = isset( $body['error']['message'] ) ? $body['error']['message'] : ( isset( $body['message'] ) ? $body['message'] : __( 'Failed to start onboarding audit.', 'aeo-content-ai-studio' ) );
-            return new WP_Error( 'aeocas_onboard_error', $message );
-        }
-
-        // Clear any stale caches so the audit page fetches fresh data.
+        // Non-blocking dispatch succeeded. Clear caches so the audit page
+        // fetches fresh data once the remote job starts producing results.
         self::clear_cache();
 
-        AEOCAS_Activity_Log::log( 'onboard', 'success', array( 'message' => 'Onboarding audit triggered.', 'response' => $body['data'] ?? null ) );
+        AEOCAS_Activity_Log::log( 'onboard', 'success', array( 'message' => 'Onboarding audit dispatched (non-blocking).' ) );
 
-        return $body;
+        return true;
     }
 
     /**

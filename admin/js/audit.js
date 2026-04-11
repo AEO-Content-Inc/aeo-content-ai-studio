@@ -347,9 +347,12 @@
         }
         html += '</div>';
 
-        // Right: score circle + legend
+        // Right: score circle + legend (circle is clickable → breakdown modal)
         html += '<div class="aeo-hero-right">';
-        html += renderScoreCircle(audit.overall_score, 100, 100);
+        html += '<button type="button" class="aeo-score-trigger" aria-label="View score breakdown">';
+        html +=   renderScoreCircle(audit.overall_score, 100, 100);
+        html +=   '<span class="aeo-score-trigger-hint">Click for breakdown</span>';
+        html += '</button>';
         html += '<div class="aeo-score-legend">';
         html += '<div class="aeo-legend-item"><span class="aeo-legend-dot" style="background:#ea4335;"></span> 0-49</div>';
         html += '<div class="aeo-legend-item"><span class="aeo-legend-dot" style="background:#c5a200;"></span> 50-69</div>';
@@ -536,81 +539,238 @@
         return html;
     }
 
-    /* ── Render Pages Tab ─────────────────────────────── */
+    /* ── Render Site Audit Tab ────────────────────────── */
 
-    function renderPages(audit) {
-        var pages = audit.pages_reviewed || [];
-        if (!pages.length) {
-            return '<div class="aeo-log-empty">' +
-                '<p style="margin-bottom:12px;">No page data available yet. Run a full site audit to see individual page scores.</p>' +
-                '<button type="button" class="button button-primary button-hero aeo-trigger-reaudit">Run Full Site Audit</button>' +
-                '</div>';
+    function getPageScore(p) {
+        if (!p) return 0;
+        if (typeof p.pageRankScore === 'number' && p.pageRankScore > 0) return p.pageRankScore;
+        if (p.pageRank && typeof p.pageRank.score === 'number') return p.pageRank.score;
+        if (typeof p.aeoScore === 'number') return p.aeoScore;
+        return 0;
+    }
+
+    function getPageIssueCount(p) {
+        if (!p) return 0;
+        if (Array.isArray(p.issues)) return p.issues.length;
+        return 0;
+    }
+
+    function buildInLinksMap(audit) {
+        var m = {};
+        var g = audit && audit.link_graph ? audit.link_graph : {};
+        (g.nodes || []).forEach(function (n) { m[n.url] = n.inDegree || 0; });
+        return m;
+    }
+
+    function collectPageCategories(pages) {
+        var seen = {};
+        var out = [];
+        pages.forEach(function (p) {
+            var c = (p.category || '').trim();
+            if (!c || seen[c]) return;
+            seen[c] = true;
+            out.push(c);
+        });
+        out.sort();
+        return out;
+    }
+
+    function applySiteAuditFilters(audit) {
+        var pages = (audit && audit.pages_reviewed) || [];
+        var inLinks = buildInLinksMap(audit);
+        var search  = (siteAuditFilters.search || '').toLowerCase().trim();
+        var cat     = siteAuditFilters.category;
+        var range   = siteAuditFilters.scoreRange;
+        var sort    = siteAuditFilters.sort;
+
+        var filtered = pages.filter(function (p) {
+            if (cat !== 'all' && (p.category || '') !== cat) return false;
+            var score = getPageScore(p);
+            if (range === 'low'  && !(score > 0 && score < 40)) return false;
+            if (range === 'mid'  && !(score >= 40 && score < 70)) return false;
+            if (range === 'high' && !(score >= 70)) return false;
+            if (range === 'unscored' && score > 0) return false;
+            if (search) {
+                var hay = ((p.url || '') + ' ' + (p.title || '')).toLowerCase();
+                if (hay.indexOf(search) === -1) return false;
+            }
+            return true;
+        });
+
+        filtered.sort(function (a, b) {
+            switch (sort) {
+                case 'score-asc':   return getPageScore(a) - getPageScore(b);
+                case 'score-desc':  return getPageScore(b) - getPageScore(a);
+                case 'issues-desc': return getPageIssueCount(b) - getPageIssueCount(a);
+                case 'words-desc':  return (b.wordCount || 0) - (a.wordCount || 0);
+                case 'words-asc':   return (a.wordCount || 0) - (b.wordCount || 0);
+                case 'links-desc':  return (inLinks[b.url] || 0) - (inLinks[a.url] || 0);
+                case 'url-asc':     return (a.url || '').localeCompare(b.url || '');
+                default:            return getPageScore(b) - getPageScore(a);
+            }
+        });
+
+        return { filtered: filtered, inLinks: inLinks };
+    }
+
+    function renderSiteAuditStats(audit) {
+        var pages = (audit && audit.pages_reviewed) || [];
+        var total = pages.length;
+        var scored = pages.filter(function (p) { return getPageScore(p) > 0; });
+        var scores = scored.map(getPageScore);
+        var avg = scores.length ? Math.round(scores.reduce(function (a, b) { return a + b; }, 0) / scores.length) : 0;
+        var strong = scores.filter(function (s) { return s >= 70; }).length;
+        var needs  = scores.filter(function (s) { return s > 0 && s < 70; }).length;
+
+        return ''
+            + '<div class="aeo-log-stats" id="aeo-site-audit-stats">'
+            +   '<div class="aeo-stat-card"><span class="aeo-stat-number">' + total + '</span><span class="aeo-stat-label">Total Pages</span></div>'
+            +   '<div class="aeo-stat-card"><span class="aeo-stat-number">' + avg + '</span><span class="aeo-stat-label">Avg AEO Rank</span></div>'
+            +   '<div class="aeo-stat-card"><span class="aeo-stat-number aeo-stat-success">' + strong + '</span><span class="aeo-stat-label">Strong (70+)</span></div>'
+            +   '<div class="aeo-stat-card"><span class="aeo-stat-number" style="color:#ea4335;">' + needs + '</span><span class="aeo-stat-label">Needs Attention</span></div>'
+            + '</div>';
+    }
+
+    function renderSiteAuditToolbar(audit) {
+        var cats = collectPageCategories(audit.pages_reviewed || []);
+        var f = siteAuditFilters;
+        var catOptions = '<option value="all"' + (f.category === 'all' ? ' selected' : '') + '>All categories</option>';
+        cats.forEach(function (c) {
+            catOptions += '<option value="' + esc(c) + '"' + (f.category === c ? ' selected' : '') + '>' + esc(c) + '</option>';
+        });
+
+        function opt(val, label, current) {
+            return '<option value="' + val + '"' + (current === val ? ' selected' : '') + '>' + esc(label) + '</option>';
         }
 
-        // Build link graph lookup for inbound link counts.
-        var linkGraph = audit.link_graph || {};
-        var nodes = linkGraph.nodes || [];
-        var inLinksMap = {};
-        nodes.forEach(function (n) { inLinksMap[n.url] = n.inDegree || 0; });
+        var rangeOptions = ''
+            + opt('all',      'All scores',           f.scoreRange)
+            + opt('high',     'Strong (70+)',         f.scoreRange)
+            + opt('mid',      'Moderate (40–69)',     f.scoreRange)
+            + opt('low',      'Weak (1–39)',          f.scoreRange)
+            + opt('unscored', 'Unscored',             f.scoreRange);
 
-        // Stats
-        var totalPages = pages.length;
-        var scored = pages.filter(function (p) { return p.pageRankScore > 0 || (p.pageRank && p.pageRank.score > 0); });
-        var scores = scored.map(function (p) { return p.pageRankScore || (p.pageRank ? p.pageRank.score : 0); });
-        var avgScore = scores.length ? Math.round(scores.reduce(function (a, b) { return a + b; }, 0) / scores.length) : 0;
-        var strongCount = scores.filter(function (s) { return s >= 70; }).length;
-        var needsAttention = scores.filter(function (s) { return s < 70; }).length;
+        var sortOptions = ''
+            + opt('score-desc',  'AEO rank (high → low)', f.sort)
+            + opt('score-asc',   'AEO rank (low → high)', f.sort)
+            + opt('issues-desc', 'Issues (most first)',   f.sort)
+            + opt('words-desc',  'Word count (high → low)', f.sort)
+            + opt('words-asc',   'Word count (low → high)', f.sort)
+            + opt('links-desc',  'Inbound links (most first)', f.sort)
+            + opt('url-asc',     'URL (A → Z)', f.sort);
 
-        var html = '';
+        return ''
+            + '<div class="aeo-site-audit-toolbar">'
+            +   '<input type="search" id="aeo-site-audit-search" class="aeo-site-audit-search" placeholder="Search pages by URL or title..." value="' + esc(f.search) + '" />'
+            +   '<select data-aeo-filter="category" class="aeo-site-audit-select">' + catOptions + '</select>'
+            +   '<select data-aeo-filter="scoreRange" class="aeo-site-audit-select">' + rangeOptions + '</select>'
+            +   '<select data-aeo-filter="sort" class="aeo-site-audit-select">' + sortOptions + '</select>'
+            +   '<span class="aeo-site-audit-count" id="aeo-site-audit-count"></span>'
+            + '</div>';
+    }
 
-        // Stats bar
-        html += '<div class="aeo-log-stats" style="margin-bottom:16px;">';
-        html += '<div class="aeo-stat-card"><span class="aeo-stat-number">' + totalPages + '</span><span class="aeo-stat-label">Total Pages</span></div>';
-        html += '<div class="aeo-stat-card"><span class="aeo-stat-number">' + avgScore + '</span><span class="aeo-stat-label">Avg AEO Rank</span></div>';
-        html += '<div class="aeo-stat-card"><span class="aeo-stat-number aeo-stat-success">' + strongCount + '</span><span class="aeo-stat-label">Strong (70+)</span></div>';
-        html += '<div class="aeo-stat-card"><span class="aeo-stat-number" style="color:#ea4335;">' + needsAttention + '</span><span class="aeo-stat-label">Needs Attention</span></div>';
-        html += '</div>';
+    function renderSiteAuditRows(audit) {
+        var out = applySiteAuditFilters(audit);
+        var rows = out.filtered;
+        var inLinks = out.inLinks;
 
-        // Sort pages by score descending
-        var sorted = pages.slice().sort(function (a, b) {
-            var sa = a.pageRankScore || (a.pageRank ? a.pageRank.score : 0);
-            var sb = b.pageRankScore || (b.pageRank ? b.pageRank.score : 0);
-            return sb - sa;
-        });
+        if (!rows.length) {
+            return '<tr><td colspan="5" class="aeo-site-audit-empty">No pages match the current filters.</td></tr>';
+        }
 
-        // Table
-        html += '<table class="widefat fixed striped" style="margin-top:0;">';
-        html += '<thead><tr>';
-        html += '<th>Page</th>';
-        html += '<th style="width:90px;">Type</th>';
-        html += '<th style="width:80px;">AEO Rank</th>';
-        html += '<th style="width:70px;">Words</th>';
-        html += '<th style="width:70px;">In Links</th>';
-        html += '</tr></thead><tbody>';
-
-        sorted.forEach(function (page) {
-            var score = page.pageRankScore || (page.pageRank ? page.pageRank.score : 0);
+        return rows.map(function (page) {
+            var score = getPageScore(page);
             var color = scoreColor100(score);
-            var bg = scoreBg100(score);
-            var cat = page.category || '';
+            var bg    = scoreBg100(score);
+            var cat   = page.category || '';
             var words = page.wordCount || 0;
-            var inLinks = inLinksMap[page.url] || 0;
-            var shortUrl = page.url.replace(/^https?:\/\/[^/]+/, '');
+            var il    = inLinks[page.url] || 0;
+            var shortUrl = (page.url || '').replace(/^https?:\/\/[^/]+/, '');
+            var issueCount = getPageIssueCount(page);
+            var issueHtml = issueCount > 0
+                ? '<span class="aeo-site-audit-issues">' + issueCount + ' issue' + (issueCount === 1 ? '' : 's') + '</span>'
+                : '';
 
-            html += '<tr>';
-            html += '<td>';
-            html += '<div style="font-weight:600;font-size:13px;">' + esc(page.title || shortUrl) + '</div>';
-            html += '<div style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:500px;"><a href="' + esc(page.url) + '" target="_blank" rel="noopener" style="color:#646970;text-decoration:none;" onmouseover="this.style.color=\'#2271b1\'" onmouseout="this.style.color=\'#646970\'">' + esc(shortUrl) + ' &#8599;</a></div>';
-            html += '</td>';
-            html += '<td><span class="aeo-log-command">' + esc(cat) + '</span></td>';
-            html += '<td><span class="aeo-score-badge-pill" style="background:' + bg + ';color:' + color + ';">' + score + '</span></td>';
-            html += '<td style="color:#646970;">' + (words > 0 ? words.toLocaleString() : '-') + '</td>';
-            html += '<td style="color:#646970;">' + inLinks + '</td>';
-            html += '</tr>';
-        });
+            return ''
+                + '<tr>'
+                +   '<td>'
+                +     '<div class="aeo-site-audit-title">' + esc(page.title || shortUrl) + '</div>'
+                +     '<div class="aeo-site-audit-url"><a href="' + esc(page.url) + '" target="_blank" rel="noopener">' + esc(shortUrl || page.url) + ' &#8599;</a></div>'
+                +     (issueHtml ? '<div class="aeo-site-audit-issue-row">' + issueHtml + '</div>' : '')
+                +   '</td>'
+                +   '<td><span class="aeo-log-command">' + esc(cat) + '</span></td>'
+                +   '<td><span class="aeo-score-badge-pill" style="background:' + bg + ';color:' + color + ';">' + (score > 0 ? score : '—') + '</span></td>'
+                +   '<td style="color:#646970;">' + (words > 0 ? words.toLocaleString() : '—') + '</td>'
+                +   '<td style="color:#646970;">' + il + '</td>'
+                + '</tr>';
+        }).join('');
+    }
 
-        html += '</tbody></table>';
-        return html;
+    function renderSiteAudit(audit) {
+        // In-progress or no data yet: show the progress card driven by the
+        // shared Discovery polling state.
+        var pages = (audit && audit.pages_reviewed) || [];
+        if (!pages.length) {
+            return renderSiteAuditPending();
+        }
+
+        return ''
+            + '<div class="aeo-site-audit-header">'
+            +   '<h2>Site Audit</h2>'
+            +   '<p class="description">Every page the platform crawled, scored against the full AEO criteria set.</p>'
+            + '</div>'
+            + renderSiteAuditStats(audit)
+            + renderSiteAuditToolbar(audit)
+            + '<table class="widefat fixed striped aeo-site-audit-table" id="aeo-site-audit-table">'
+            +   '<thead><tr>'
+            +     '<th>Page</th>'
+            +     '<th style="width:120px;">Type</th>'
+            +     '<th style="width:110px;">AEO Rank</th>'
+            +     '<th style="width:90px;">Words</th>'
+            +     '<th style="width:90px;">In Links</th>'
+            +   '</tr></thead>'
+            +   '<tbody id="aeo-site-audit-tbody">' + renderSiteAuditRows(audit) + '</tbody>'
+            + '</table>';
+    }
+
+    function refreshSiteAuditCount() {
+        if (!currentAuditData) return;
+        var count = document.getElementById('aeo-site-audit-count');
+        if (!count) return;
+        var pages = (currentAuditData.pages_reviewed || []).length;
+        var out = applySiteAuditFilters(currentAuditData);
+        count.textContent = out.filtered.length + ' of ' + pages + ' pages';
+    }
+
+    function refreshSiteAuditTableOnly() {
+        if (!currentAuditData) return;
+        var tbody = document.getElementById('aeo-site-audit-tbody');
+        if (!tbody) return;
+        tbody.innerHTML = renderSiteAuditRows(currentAuditData);
+        refreshSiteAuditCount();
+    }
+
+    function renderSiteAuditPending() {
+        // Mirrors the Discovery pending card but worded for the full audit.
+        var st = discoveryUiState;
+        var status = st.status || 'pending';
+        var stage  = st.currentStage || STAGE_LABELS[status] || 'Waiting for the audit worker...';
+        var pct    = STAGE_PROGRESS[status] || 5;
+        return ''
+            + '<div class="aeo-discovery-pending aeo-site-audit-pending">'
+            +   '<h2>Site audit is running…</h2>'
+            +   '<p class="description">We\'re crawling every page on your site and scoring it against the full AEO criteria set. This page will update automatically as soon as results are in.</p>'
+            +   '<div class="aeo-reaudit-track">'
+            +     '<div class="aeo-reaudit-fill aeo-disc-fill" style="width:' + pct + '%;"></div>'
+            +   '</div>'
+            +   '<p class="aeo-disc-stage-row">'
+            +     '<span class="spinner is-active" style="float:none;margin:0 6px 0 0;"></span>'
+            +     '<span>' + esc(stage) + '</span>'
+            +   '</p>'
+            +   '<p style="text-align:center;margin-top:14px;">'
+            +     '<a href="#" class="button aeo-trigger-reaudit">Re-run Site Audit</a>'
+            +   '</p>'
+            + '</div>';
     }
 
     /* ── Render Rewrite Candidates Tab ────────────────── */
@@ -739,8 +899,16 @@
 
     /* ── Discovery Tab ────────────────────────────────── */
 
-    var AUDIT_TAB_IDS = ['overview', 'scoreboard', 'opportunities', 'pages', 'rewrite'];
+    var AUDIT_TAB_IDS = ['site-audit', 'overview', 'scoreboard', 'opportunities', 'rewrite'];
     var discoveryPollTimer = null;
+    var auditRetryTimer = null;
+    var currentAuditData = null;
+    var siteAuditFilters = {
+        category: 'all',
+        scoreRange: 'all',
+        sort: 'score-desc',
+        search: ''
+    };
 
     function renderDiscoveryLoading() {
         return '<div class="aeo-tab-loading"><span class="spinner is-active" style="float:none;margin:0 8px 0 0;"></span>Loading discovery findings...</div>';
@@ -1082,6 +1250,22 @@
             + '</div>';
     }
 
+    function renderDiscoveryFailed(payload) {
+        var stage = (payload && payload.current_stage) || 'Audit failed.';
+        return ''
+            + '<div class="aeo-discovery-pending aeo-discovery-failed">'
+            +   '<h2>Audit failed</h2>'
+            +   '<p class="description">The platform ran into an error while processing your site. You can retry the audit — if it keeps failing, please contact support.</p>'
+            +   '<p class="aeo-disc-stage-row" style="justify-content:center;">'
+            +     '<span class="dashicons dashicons-warning" style="color:#ea4335;margin-right:6px;"></span>'
+            +     '<span>' + esc(stage) + '</span>'
+            +   '</p>'
+            +   '<p style="text-align:center;margin-top:16px;">'
+            +     '<a href="#" class="button button-primary aeo-trigger-reaudit">Retry Audit</a>'
+            +   '</p>'
+            + '</div>';
+    }
+
     function renderDiscovery(payload) {
         if (!payload || !payload.discovery) {
             return renderDiscoveryPending(payload);
@@ -1118,17 +1302,162 @@
     /* ── Render All ───────────────────────────────────── */
 
     function renderAudit(audit) {
+        currentAuditData = audit;
         document.getElementById('tab-overview').innerHTML      = renderOverview(audit);
         document.getElementById('tab-scoreboard').innerHTML    = renderScoreboard(audit);
         document.getElementById('tab-opportunities').innerHTML = renderOpportunities(audit);
-        document.getElementById('tab-pages').innerHTML         = renderPages(audit);
+        document.getElementById('tab-site-audit').innerHTML    = renderSiteAudit(audit);
         document.getElementById('tab-rewrite').innerHTML       = renderRewriteCandidates(audit);
+        refreshSiteAuditCount();
+    }
+
+    /* ── Score Breakdown Modal ────────────────────────── */
+
+    var SCORE_RANGES = [
+        { min: 86, max: 100, label: 'AI-first content architecture',  color: '#34a853' },
+        { min: 71, max: 85,  label: 'Strong AI visibility',            color: '#34a853' },
+        { min: 56, max: 70,  label: 'Moderate visibility',             color: '#c5a200' },
+        { min: 41, max: 55,  label: 'Weak visibility',                 color: '#c5a200' },
+        { min: 26, max: 40,  label: 'Minimal visibility',              color: '#ea4335' },
+        { min: 0,  max: 25,  label: 'Not on the radar',                color: '#ea4335' }
+    ];
+
+    function getScoreRangeLabel(score) {
+        for (var i = 0; i < SCORE_RANGES.length; i++) {
+            if (score >= SCORE_RANGES[i].min && score <= SCORE_RANGES[i].max) {
+                return SCORE_RANGES[i];
+            }
+        }
+        return SCORE_RANGES[SCORE_RANGES.length - 1];
+    }
+
+    function renderScoreBreakdown(audit) {
+        if (!audit) return '<p>No audit data loaded yet.</p>';
+        var scorecard = audit.scorecard || [];
+        var cats = getCategories(scorecard);
+        var overall = audit.overall_score || 0;
+        var range = getScoreRangeLabel(overall);
+
+        // Build map of criterion id → item
+        var byId = {};
+        scorecard.forEach(function (item) { byId[item.id] = item; });
+
+        var html = '';
+
+        // Header: overall score + human-readable range
+        html += '<div class="aeo-score-modal-hero">';
+        html +=   '<div class="aeo-score-modal-score">';
+        html +=     renderScoreCircle(overall, 100, 120);
+        html +=   '</div>';
+        html +=   '<div class="aeo-score-modal-range">';
+        html +=     '<div class="aeo-score-modal-range-label" style="color:' + range.color + ';">' + esc(range.label) + '</div>';
+        html +=     '<p class="description">Your AEO Page Rank is a weighted composite across ' + cats.length + ' pillars. Each pillar contains multiple criteria scored 0–10; the pillar score is the average of its criteria, and the overall score is the weighted sum of the pillar scores (×10).</p>';
+        html +=   '</div>';
+        html += '</div>';
+
+        // Pillar cards
+        html += '<h3 class="aeo-score-modal-subhead">Pillar breakdown</h3>';
+        html += '<div class="aeo-score-modal-pillars">';
+        cats.forEach(function (cat) {
+            var items = (cat.ids || []).map(function (id) { return byId[id]; }).filter(Boolean);
+            if (!items.length) return;
+            var avg = items.reduce(function (a, b) { return a + (b.score || 0); }, 0) / items.length;
+            var avgRounded = Math.round(avg * 10) / 10;
+            var pct100 = Math.round(avg * 10);
+
+            html += '<section class="aeo-score-pillar-card">';
+            html +=   '<div class="aeo-score-pillar-head">';
+            html +=     '<span class="aeo-cat-badge" style="background:' + cat.bg + ';color:' + cat.color + ';">' + esc(cat.label).toUpperCase() + '</span>';
+            html +=     (cat.weight ? '<span class="aeo-score-pillar-weight">' + esc(cat.weight) + ' of overall</span>' : '');
+            html +=     '<span class="aeo-score-pillar-avg" style="color:' + scoreColor100(pct100) + ';">' + avgRounded + '/10</span>';
+            html +=   '</div>';
+            html +=   '<div class="aeo-score-pillar-bar"><div class="aeo-score-pillar-fill" style="width:' + pct100 + '%;background:' + scoreColor100(pct100) + ';"></div></div>';
+            html +=   '<ul class="aeo-score-pillar-criteria">';
+            items.forEach(function (item) {
+                var clr = scoreColor10(item.score);
+                var bg  = scoreBg10(item.score);
+                html += '<li>';
+                html +=   '<span class="aeo-score-pillar-crit-name">' + esc(item.criterion) + '</span>';
+                html +=   '<span class="aeo-score-badge-pill" style="background:' + bg + ';color:' + clr + ';">' + (item.score || 0) + '/10</span>';
+                html += '</li>';
+            });
+            html +=   '</ul>';
+            html += '</section>';
+        });
+        html += '</div>';
+
+        // Score ranges reference table
+        html += '<h3 class="aeo-score-modal-subhead">Score ranges</h3>';
+        html += '<table class="widefat aeo-score-ranges-table">';
+        html +=   '<thead><tr><th>Range</th><th>Label</th><th>What it means</th></tr></thead><tbody>';
+        var descriptions = [
+            'Reference-grade content. AI assistants cite pages here verbatim.',
+            'Competitive presence in AI answers across your core queries.',
+            'Inconsistent visibility; some queries surface you, most don\'t.',
+            'Thin presence; AI assistants rarely cite you.',
+            'You show up only for long-tail or brand-exact queries.',
+            'No meaningful AI visibility yet.'
+        ];
+        SCORE_RANGES.forEach(function (r, i) {
+            var highlight = overall >= r.min && overall <= r.max ? ' style="background:' + r.color + '22;"' : '';
+            html += '<tr' + highlight + '>';
+            html += '<td><strong>' + r.min + '–' + r.max + '</strong></td>';
+            html += '<td><span style="color:' + r.color + ';font-weight:600;">' + esc(r.label) + '</span></td>';
+            html += '<td style="color:#50575e;">' + esc(descriptions[i]) + '</td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+
+        return html;
+    }
+
+    function openScoreModal() {
+        if (!currentAuditData) return;
+        var modal = document.getElementById('aeo-score-modal');
+        var body  = document.getElementById('aeo-score-modal-body');
+        if (!modal || !body) return;
+        body.innerHTML = renderScoreBreakdown(currentAuditData);
+        modal.style.display = '';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeScoreModal() {
+        var modal = document.getElementById('aeo-score-modal');
+        if (!modal) return;
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
     }
 
     /* ── Load Audit Data ──────────────────────────────── */
 
+    function stopAuditRetry() {
+        if (auditRetryTimer) {
+            clearInterval(auditRetryTimer);
+            auditRetryTimer = null;
+        }
+    }
+
+    function startAuditRetry() {
+        stopAuditRetry();
+        // Re-fetch the audit every 15s while we still don't have data. The
+        // Site Audit tab shows a live progress card driven by discoveryUiState
+        // between polls, so the user sees motion even during the wait.
+        auditRetryTimer = setInterval(function () {
+            if (currentAuditData) { stopAuditRetry(); return; }
+            loadAudit(true);
+        }, 15000);
+    }
+
+    function setSiteAuditPending() {
+        var tab = document.getElementById('tab-site-audit');
+        if (tab) tab.innerHTML = renderSiteAuditPending();
+    }
+
     function loadAudit(refresh) {
-        setAuditTabsLoading();
+        if (!currentAuditData) {
+            setAuditTabsLoading();
+            setSiteAuditPending();
+        }
         errorBox.innerHTML = '';
 
         var data = new FormData();
@@ -1140,18 +1469,40 @@
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (res.success) {
+                    stopAuditRetry();
                     renderAudit(res.data);
                 } else {
-                    var msg = 'No audit yet — your first site audit may still be running.';
+                    var msg = 'Your first site audit is still running.';
                     if (res.data) {
                         if (typeof res.data === 'string') msg = res.data;
                         else if (res.data.message) msg = res.data.message;
                     }
-                    setAuditTabsEmpty(msg);
+                    // Other audit tabs (Overview/Scoreboard/Opportunities/Rewrite)
+                    // show the simple empty state, but Site Audit shows the
+                    // live progress card so users watch it populate.
+                    AUDIT_TAB_IDS.forEach(function (id) {
+                        var el = document.getElementById('tab-' + id);
+                        if (!el) return;
+                        if (id === 'site-audit') {
+                            el.innerHTML = renderSiteAuditPending();
+                        } else {
+                            el.innerHTML = renderAuditEmpty(msg);
+                        }
+                    });
+                    startAuditRetry();
                 }
             })
             .catch(function (err) {
-                setAuditTabsEmpty('Network error: ' + (err.message || 'Please try again.'));
+                AUDIT_TAB_IDS.forEach(function (id) {
+                    var el = document.getElementById('tab-' + id);
+                    if (!el) return;
+                    if (id === 'site-audit') {
+                        el.innerHTML = renderSiteAuditPending();
+                    } else {
+                        el.innerHTML = renderAuditEmpty('Network error: ' + (err.message || 'Please try again.'));
+                    }
+                });
+                startAuditRetry();
             });
     }
 
@@ -1184,6 +1535,9 @@
         st.currentStage = (payload && payload.current_stage) || null;
         st.lastPollAt   = Date.now();
         updateDiscoveryPendingDynamic();
+        // The Site Audit pending card mirrors discoveryUiState, so re-render
+        // it if the audit data isn't in yet.
+        if (!currentAuditData) setSiteAuditPending();
     }
 
     function loadDiscovery(refresh) {
@@ -1206,7 +1560,21 @@
             .then(function (res) {
                 if (res.success) {
                     var payload = res.data;
-                    if (payload && payload.discovery) {
+                    // If the remote job has reached completed, also refresh the
+                    // audit endpoint so the Site Audit tab (and friends) can
+                    // render the pages list as soon as it's available.
+                    if (payload && payload.status === 'completed' && !currentAuditData) {
+                        loadAudit(true);
+                    }
+                    if (payload && payload.status === 'failed') {
+                        // Audit failed on the platform side. Stop everything
+                        // and show a clear failure card with a retry button.
+                        stopDiscoveryPolling();
+                        stopDiscoveryTicker();
+                        discoveryUiState.phase = 'error';
+                        tab.innerHTML = renderDiscoveryFailed(payload);
+                        setSiteAuditPending(); // will also show failed state via shared stage label
+                    } else if (payload && payload.discovery) {
                         // Ready: stop everything and render full findings.
                         stopDiscoveryPolling();
                         stopDiscoveryTicker();
@@ -1428,7 +1796,7 @@
         if (e.target.classList.contains('aeo-trigger-reaudit')) {
             e.preventDefault();
             if (pollTimer) return;
-            // Switch to overview tab so user sees progress bar.
+            // Switch to Discovery tab (position 0) so user sees the live progress.
             var tabs = wrap.querySelectorAll('.nav-tab');
             var panels = wrap.querySelectorAll('.aeo-tab-panel');
             tabs.forEach(function (t) { t.classList.remove('nav-tab-active'); });
@@ -1437,6 +1805,48 @@
             panels[0].style.display = '';
             triggerReaudit();
         }
+    });
+
+    // Delegated handler for Site Audit filter dropdowns.
+    wrap.addEventListener('change', function (e) {
+        var t = e.target;
+        if (t && t.getAttribute && t.getAttribute('data-aeo-filter')) {
+            var key = t.getAttribute('data-aeo-filter');
+            siteAuditFilters[key] = t.value;
+            refreshSiteAuditTableOnly();
+        }
+    });
+
+    // Delegated handler for Site Audit search input (live filter).
+    wrap.addEventListener('input', function (e) {
+        if (e.target && e.target.id === 'aeo-site-audit-search') {
+            siteAuditFilters.search = e.target.value || '';
+            refreshSiteAuditTableOnly();
+        }
+    });
+
+    // Delegated handler for clicking the AEO score (opens breakdown modal).
+    wrap.addEventListener('click', function (e) {
+        var trigger = e.target.closest && e.target.closest('.aeo-score-trigger');
+        if (trigger) {
+            e.preventDefault();
+            openScoreModal();
+        }
+        if (e.target && e.target.classList && e.target.classList.contains('aeo-modal-close')) {
+            closeScoreModal();
+        }
+    });
+
+    // Close modal on backdrop click.
+    document.addEventListener('click', function (e) {
+        if (e.target && e.target.classList && e.target.classList.contains('aeo-modal-backdrop')) {
+            closeScoreModal();
+        }
+    });
+
+    // Close modal on Escape.
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeScoreModal();
     });
 
     /* ── Util ─────────────────────────────────────────── */

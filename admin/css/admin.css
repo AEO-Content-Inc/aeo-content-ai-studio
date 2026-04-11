@@ -1144,6 +1144,341 @@
     font-weight: 600;
 }
 
+/* ── Site Audit tab ─────────────────────────────────── */
+
+.aeo-site-audit-header {
+    margin: 20px 0 16px;
+}
+
+.aeo-site-audit-header h2 {
+    margin: 0 0 4px;
+    font-size: 20px;
+}
+
+.aeo-site-audit-header .description {
+    margin: 0;
+    color: #50575e;
+}
+
+.aeo-site-audit-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: 16px 0 12px;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+}
+
+.aeo-site-audit-search {
+    flex: 1 1 260px;
+    min-width: 200px;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.aeo-site-audit-select {
+    height: 34px;
+    padding: 0 28px 0 10px;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    font-size: 13px;
+    background-color: #fff;
+}
+
+.aeo-site-audit-count {
+    margin-left: auto;
+    font-size: 12px;
+    color: #646970;
+    padding: 0 6px;
+}
+
+.aeo-site-audit-table {
+    margin-top: 0;
+}
+
+.aeo-site-audit-title {
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #1d2327;
+}
+
+.aeo-site-audit-url {
+    font-size: 11px;
+    max-width: 520px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
+}
+
+.aeo-site-audit-url a {
+    color: #646970;
+    text-decoration: none;
+}
+
+.aeo-site-audit-url a:hover {
+    color: #2271b1;
+}
+
+.aeo-site-audit-issue-row {
+    margin-top: 4px;
+}
+
+.aeo-site-audit-issues {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #fef7e0;
+    color: #a27200;
+    border: 1px solid #f5d76e;
+    border-radius: 10px;
+}
+
+.aeo-site-audit-empty {
+    padding: 32px 20px !important;
+    text-align: center;
+    color: #646970;
+    font-style: italic;
+}
+
+.aeo-site-audit-pending {
+    max-width: 640px;
+    margin: 20px auto;
+}
+
+/* ── Clickable score trigger ────────────────────────── */
+
+.aeo-score-trigger {
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+
+.aeo-score-trigger:hover .aeo-score-circle {
+    transform: scale(1.04);
+    transition: transform 0.15s ease-out;
+}
+
+.aeo-score-trigger .aeo-score-circle {
+    transition: transform 0.15s ease-out;
+}
+
+.aeo-score-trigger-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: #2271b1;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.aeo-score-trigger:hover .aeo-score-trigger-hint {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+/* ── Modal ──────────────────────────────────────────── */
+
+.aeo-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 20px;
+    overflow-y: auto;
+}
+
+.aeo-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 1;
+}
+
+.aeo-modal-dialog {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 820px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+    animation: aeo-modal-in 0.18s ease-out;
+}
+
+@keyframes aeo-modal-in {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.aeo-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 22px;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.aeo-modal-header h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.aeo-modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    color: #646970;
+    padding: 0 6px;
+}
+
+.aeo-modal-close:hover {
+    color: #1d2327;
+}
+
+.aeo-modal-body {
+    padding: 22px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.aeo-score-modal-hero {
+    display: flex;
+    gap: 22px;
+    align-items: center;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.aeo-score-modal-score {
+    flex-shrink: 0;
+}
+
+.aeo-score-modal-range {
+    flex: 1;
+}
+
+.aeo-score-modal-range-label {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.aeo-score-modal-range .description {
+    margin: 0;
+    font-size: 13px;
+    color: #50575e;
+    line-height: 1.5;
+}
+
+.aeo-score-modal-subhead {
+    margin: 22px 0 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d2327;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.aeo-score-modal-pillars {
+    display: grid;
+    gap: 14px;
+}
+
+.aeo-score-pillar-card {
+    background: #f9f9fa;
+    border: 1px solid #f0f0f1;
+    border-radius: 8px;
+    padding: 14px 16px;
+}
+
+.aeo-score-pillar-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.aeo-score-pillar-weight {
+    font-size: 11px;
+    color: #646970;
+}
+
+.aeo-score-pillar-avg {
+    margin-left: auto;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.aeo-score-pillar-bar {
+    height: 6px;
+    background: #e5e5e7;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.aeo-score-pillar-fill {
+    height: 100%;
+    transition: width 0.3s ease-out;
+}
+
+.aeo-score-pillar-criteria {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.aeo-score-pillar-criteria li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px dashed #f0f0f1;
+    font-size: 12px;
+}
+
+.aeo-score-pillar-criteria li:last-child {
+    border-bottom: none;
+}
+
+.aeo-score-pillar-crit-name {
+    color: #1d2327;
+    flex: 1;
+}
+
+.aeo-score-ranges-table {
+    margin-top: 6px;
+}
+
+.aeo-score-ranges-table th,
+.aeo-score-ranges-table td {
+    padding: 8px 10px;
+    font-size: 12px;
+}
+
 .aeo-discovery-header {
     margin: 20px 0 20px;
 }
