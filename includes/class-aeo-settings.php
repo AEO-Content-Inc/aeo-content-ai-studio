@@ -25,12 +25,15 @@ class AEOCAS_Settings {
      * @return array Modified action links.
      */
     public function add_settings_link( $links ) {
-        $settings_link = '<a href="' . esc_url( admin_url( 'admin.php?page=aeo-content-ai-studio' ) ) . '">' . esc_html__( 'Settings', 'aeo-content-ai-studio' ) . '</a>';
+        $settings_link = '<a href="' . esc_url( admin_url( 'admin.php?page=aeocas-audit-report&tab=connect' ) ) . '">' . esc_html__( 'Settings', 'aeo-content-ai-studio' ) . '</a>';
         array_unshift( $links, $settings_link );
         return $links;
     }
 
     public function add_menu() {
+        // Single top-level menu item. Everything is on the audit report page,
+        // organized into tabs (Discovery, Site Audit, Connect, Scoreboard,
+        // Opportunities, Rewrite Candidates, Activity Log).
         add_menu_page(
             __( 'AEO Content AI Studio', 'aeo-content-ai-studio' ),
             __( 'AEO Content', 'aeo-content-ai-studio' ),
@@ -39,33 +42,6 @@ class AEOCAS_Settings {
             array( $this, 'render_audit_report' ),
             AEOCAS_PLUGIN_URL . 'admin/images/icon.png',
             30
-        );
-
-        add_submenu_page(
-            'aeocas-audit-report',
-            __( 'AEO Audit Report', 'aeo-content-ai-studio' ),
-            __( 'Audit Report', 'aeo-content-ai-studio' ),
-            'manage_options',
-            'aeocas-audit-report',
-            array( $this, 'render_audit_report' )
-        );
-
-        add_submenu_page(
-            'aeocas-audit-report',
-            __( 'AEO Content AI Studio', 'aeo-content-ai-studio' ),
-            __( 'Settings', 'aeo-content-ai-studio' ),
-            'manage_options',
-            'aeo-content-ai-studio',
-            array( $this, 'render_page' )
-        );
-
-        add_submenu_page(
-            'aeocas-audit-report',
-            __( 'AEO Activity Log', 'aeo-content-ai-studio' ),
-            __( 'Activity Log', 'aeo-content-ai-studio' ),
-            'manage_options',
-            'aeocas-activity-log',
-            array( $this, 'render_activity_log' )
         );
     }
 
@@ -173,7 +149,7 @@ class AEOCAS_Settings {
             'intent'       => 'signin' === $intent ? 'signin' : 'start',
             'site_url'     => self::get_site_url(),
             'home_url'     => get_option( 'aeocas_real_home_url', home_url() ),
-            'return_url'   => admin_url( 'admin.php?page=aeo-content-ai-studio' ),
+            'return_url'   => admin_url( 'admin.php?page=aeocas-audit-report&tab=connect' ),
             'utm_source'   => 'wordpress-plugin',
             'utm_medium'   => 'plugin',
             'utm_campaign' => 'wp-admin',
@@ -216,7 +192,7 @@ class AEOCAS_Settings {
                 'site_url'     => self::get_site_url(),
                 'home_url'     => get_option( 'aeocas_real_home_url', home_url() ),
                 'plugin_token' => $plugin_token,
-                'return_url'   => admin_url( 'admin.php?page=aeo-content-ai-studio' ),
+                'return_url'   => admin_url( 'admin.php?page=aeocas-audit-report&tab=connect' ),
             ),
             trailingslashit( AEOCAS_STUDIO_URL ) . 'wp-connect'
         );
@@ -280,7 +256,8 @@ class AEOCAS_Settings {
 
         $redirect_url = add_query_arg(
             array(
-                'page'          => 'aeo-content-ai-studio',
+                'page'          => 'aeocas-audit-report',
+                'tab'           => 'connect',
                 'aeocas_notice' => 'disconnected',
             ),
             admin_url( 'admin.php' )
@@ -291,14 +268,10 @@ class AEOCAS_Settings {
     }
 
     public function enqueue_styles( $hook ) {
-        $aeocas_pages = array(
-            'toplevel_page_aeocas-audit-report',
-            'aeo-content_page_aeo-content-ai-studio',
-            'aeo-content_page_aeocas-activity-log',
-        );
-        if ( ! in_array( $hook, $aeocas_pages, true ) ) {
+        if ( 'toplevel_page_aeocas-audit-report' !== $hook ) {
             return;
         }
+
         $asset_ver = AEOCAS_VERSION . '.' . filemtime( AEOCAS_PLUGIN_DIR . 'admin/css/admin.css' );
         wp_enqueue_style(
             'aeocas-admin',
@@ -307,58 +280,46 @@ class AEOCAS_Settings {
             $asset_ver
         );
 
-        // Google connect JS (settings page, disconnected state only).
-        if ( 'aeo-content_page_aeo-content-ai-studio' === $hook ) {
-            $connected = ! empty( get_option( 'aeocas_site_token', '' ) ) && get_option( 'aeocas_connection_verified', false );
-            if ( ! $connected ) {
-                $gc_ver = AEOCAS_VERSION . '.' . filemtime( AEOCAS_PLUGIN_DIR . 'admin/js/google-connect.js' );
-                wp_enqueue_script( 'aeocas-google-connect', AEOCAS_PLUGIN_URL . 'admin/js/google-connect.js', array(), $gc_ver, true );
-                wp_localize_script( 'aeocas-google-connect', 'aeocasGoogle', array(
-                    'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
-                    'nonce'         => wp_create_nonce( 'aeocas_google_connect' ),
-                    'connectUrl'    => self::get_google_connect_url(),
-                    'accountOrigin' => esc_url_raw( rtrim( AEOCAS_STUDIO_URL, '/' ) ),
-                    'i18n'          => array(
-                        'waiting'    => __( 'Waiting for Google sign-in...', 'aeo-content-ai-studio' ),
-                        'connecting' => __( 'Connecting your site...', 'aeo-content-ai-studio' ),
-                        'success'    => __( 'Connected! Reloading...', 'aeo-content-ai-studio' ),
-                        'error'      => __( 'Connection failed. Please try again.', 'aeo-content-ai-studio' ),
-                    ),
-                ) );
-            }
+        // Google connect JS — needed on the audit page Connect tab when the
+        // site isn't connected yet.
+        $connected = ! empty( get_option( 'aeocas_site_token', '' ) ) && get_option( 'aeocas_connection_verified', false );
+        if ( ! $connected ) {
+            $gc_ver = AEOCAS_VERSION . '.' . filemtime( AEOCAS_PLUGIN_DIR . 'admin/js/google-connect.js' );
+            wp_enqueue_script( 'aeocas-google-connect', AEOCAS_PLUGIN_URL . 'admin/js/google-connect.js', array(), $gc_ver, true );
+            wp_localize_script( 'aeocas-google-connect', 'aeocasGoogle', array(
+                'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
+                'nonce'         => wp_create_nonce( 'aeocas_google_connect' ),
+                'connectUrl'    => self::get_google_connect_url(),
+                'accountOrigin' => esc_url_raw( rtrim( AEOCAS_STUDIO_URL, '/' ) ),
+                'i18n'          => array(
+                    'waiting'    => __( 'Waiting for Google sign-in...', 'aeo-content-ai-studio' ),
+                    'connecting' => __( 'Connecting your site...', 'aeo-content-ai-studio' ),
+                    'success'    => __( 'Connected! Reloading...', 'aeo-content-ai-studio' ),
+                    'error'      => __( 'Connection failed. Please try again.', 'aeo-content-ai-studio' ),
+                ),
+            ) );
         }
 
         // Audit page JS.
-        if ( 'toplevel_page_aeocas-audit-report' === $hook ) {
-            $js_ver = AEOCAS_VERSION . '.' . filemtime( AEOCAS_PLUGIN_DIR . 'admin/js/audit.js' );
-            wp_enqueue_script(
-                'aeocas-audit',
-                AEOCAS_PLUGIN_URL . 'admin/js/audit.js',
-                array(),
-                $js_ver,
-                true
-            );
-            wp_localize_script( 'aeocas-audit', 'aeocasAudit', array(
-                'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
-                'nonce'    => wp_create_nonce( 'aeocas_audit_nonce' ),
-                'favicon'  => get_site_icon_url( 48, '' ),
-            ) );
-        }
+        $js_ver = AEOCAS_VERSION . '.' . filemtime( AEOCAS_PLUGIN_DIR . 'admin/js/audit.js' );
+        wp_enqueue_script(
+            'aeocas-audit',
+            AEOCAS_PLUGIN_URL . 'admin/js/audit.js',
+            array(),
+            $js_ver,
+            true
+        );
+        wp_localize_script( 'aeocas-audit', 'aeocasAudit', array(
+            'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
+            'nonce'    => wp_create_nonce( 'aeocas_audit_nonce' ),
+            'favicon'  => get_site_icon_url( 48, '' ),
+        ) );
     }
 
-    public function render_page() {
-        if ( ! current_user_can( 'manage_options' ) ) {
-            return;
-        }
-        include AEOCAS_PLUGIN_DIR . 'admin/views/settings-page.php';
-    }
-
-    public function render_activity_log() {
-        if ( ! current_user_can( 'manage_options' ) ) {
-            return;
-        }
-        include AEOCAS_PLUGIN_DIR . 'admin/views/activity-log-page.php';
-    }
+    // The old render_page() (Settings) and render_activity_log() methods were
+    // removed when the plugin consolidated to a single page with tabs. Their
+    // content now lives inside admin/views/audit-page.php under the Connect
+    // and Activity Log tabs.
 
     public function render_audit_report() {
         if ( ! current_user_can( 'manage_options' ) ) {

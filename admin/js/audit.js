@@ -899,7 +899,10 @@
 
     /* ── Discovery Tab ────────────────────────────────── */
 
-    var AUDIT_TAB_IDS = ['site-audit', 'overview', 'scoreboard', 'opportunities', 'rewrite'];
+    // Tab IDs that are driven by audit JSON data (and thus get a loading /
+    // empty state when no audit is loaded). Connect and Activity have their
+    // own server-rendered content and are excluded.
+    var AUDIT_TAB_IDS = ['site-audit', 'scoreboard', 'opportunities', 'rewrite'];
     var discoveryPollTimer = null;
     var auditRetryTimer = null;
     var currentAuditData = null;
@@ -1303,11 +1306,17 @@
 
     function renderAudit(audit) {
         currentAuditData = audit;
-        document.getElementById('tab-overview').innerHTML      = renderOverview(audit);
         document.getElementById('tab-scoreboard').innerHTML    = renderScoreboard(audit);
         document.getElementById('tab-opportunities').innerHTML = renderOpportunities(audit);
         document.getElementById('tab-site-audit').innerHTML    = renderSiteAudit(audit);
         document.getElementById('tab-rewrite').innerHTML       = renderRewriteCandidates(audit);
+        // The Connect tab has server-rendered settings content; the audit
+        // overview is appended below it in a dedicated child div.
+        var connectAudit = document.getElementById('aeo-connect-audit-section');
+        if (connectAudit) {
+            connectAudit.innerHTML = '<div class="aeo-connect-audit-header"><h2>Your Latest Audit</h2></div>' + renderOverview(audit);
+            connectAudit.style.display = '';
+        }
         refreshSiteAuditCount();
     }
 
@@ -1871,6 +1880,28 @@
 
     initTabs();
     initAccordions();
+
+    // Honor ?tab=<slug> URL param: switch to that tab on load if it exists.
+    // Falls back to the data-requested-tab attribute written by the PHP
+    // template, which captures the same param server-side.
+    (function () {
+        var requested = wrap.getAttribute('data-requested-tab') || '';
+        if (!requested) {
+            try {
+                var params = new URLSearchParams(window.location.search);
+                requested = params.get('tab') || '';
+            } catch (e) { /* ignore */ }
+        }
+        if (!requested) return;
+        var target = wrap.querySelector('.nav-tab[data-tab="' + requested + '"]');
+        var panel  = document.getElementById('tab-' + requested);
+        if (!target || !panel) return;
+        wrap.querySelectorAll('.nav-tab').forEach(function (t) { t.classList.remove('nav-tab-active'); });
+        wrap.querySelectorAll('.aeo-tab-panel').forEach(function (p) { p.style.display = 'none'; });
+        target.classList.add('nav-tab-active');
+        panel.style.display = '';
+    })();
+
     loadDiscovery(false);
     loadAudit(false);
 
