@@ -61,7 +61,14 @@
 
             if (resp.success) {
                 setStatus(aeocasGoogle.i18n.success, 'success');
-                setTimeout(function () { window.location.reload(); }, 600);
+                var redirectUrl = resp.data && resp.data.redirect_url;
+                setTimeout(function () {
+                    if (redirectUrl) {
+                        window.location.href = redirectUrl;
+                    } else {
+                        window.location.reload();
+                    }
+                }, 600);
             } else {
                 var msg = (resp.data && resp.data.message) || aeocasGoogle.i18n.error;
                 setStatus(msg, 'error');

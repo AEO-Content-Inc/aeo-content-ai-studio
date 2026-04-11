@@ -44,7 +44,10 @@ if ( ! defined( 'ABSPATH' ) ) {
     <div id="aeo-audit-content" style="display: none;">
 
         <nav class="nav-tab-wrapper aeo-audit-tabs">
-            <a href="#" class="nav-tab nav-tab-active" data-tab="overview">
+            <a href="#" class="nav-tab nav-tab-active" data-tab="discovery">
+                <?php esc_html_e( 'Discovery', 'aeo-content-ai-studio' ); ?>
+            </a>
+            <a href="#" class="nav-tab" data-tab="overview">
                 <?php esc_html_e( 'Overview', 'aeo-content-ai-studio' ); ?>
             </a>
             <a href="#" class="nav-tab" data-tab="scoreboard">
@@ -61,7 +64,8 @@ if ( ! defined( 'ABSPATH' ) ) {
             </a>
         </nav>
 
-        <div class="aeo-tab-panel" id="tab-overview"></div>
+        <div class="aeo-tab-panel" id="tab-discovery"></div>
+        <div class="aeo-tab-panel" id="tab-overview" style="display: none;"></div>
         <div class="aeo-tab-panel" id="tab-scoreboard" style="display: none;"></div>
         <div class="aeo-tab-panel" id="tab-opportunities" style="display: none;"></div>
         <div class="aeo-tab-panel" id="tab-pages" style="display: none;"></div>

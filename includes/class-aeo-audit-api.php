@@ -15,8 +15,14 @@ class AEOCAS_Audit_Api {
     /** @var int Cache lifetime in seconds (1 hour). */
     const CACHE_TTL = HOUR_IN_SECONDS;
 
-    /** @var string Transient key prefix. */
+    /** @var int Short cache lifetime while a remote job is still running (60s). */
+    const SHORT_CACHE_TTL = MINUTE_IN_SECONDS;
+
+    /** @var string Transient key prefix for cached audit payloads. */
     const TRANSIENT_PREFIX = 'aeocas_audit_';
+
+    /** @var string Transient key prefix for cached discovery payloads. */
+    const DISCOVERY_TRANSIENT_PREFIX = 'aeocas_discovery_';
 
     /**
      * Get the audit slug for this site.
@@ -110,7 +116,81 @@ class AEOCAS_Audit_Api {
         $slug = self::get_site_slug();
         if ( $slug ) {
             delete_transient( self::TRANSIENT_PREFIX . $slug );
+            delete_transient( self::DISCOVERY_TRANSIENT_PREFIX . $slug );
         }
+    }
+
+    /**
+     * Fetch discovery data from the platform API.
+     *
+     * Discovery is populated the moment the remote `discovering` stage finishes,
+     * well before the full audit completes. While the job is still pending or
+     * early-discovering, the remote returns `discovery: null` and the plugin
+     * renders the progress UI instead.
+     *
+     * @param bool $force_refresh Skip cache and fetch fresh data.
+     * @return array|WP_Error Discovery payload wrapper or WP_Error on failure.
+     */
+    public static function get_discovery( $force_refresh = false ) {
+        $api_key = get_option( 'aeocas_site_token', '' );
+        if ( empty( $api_key ) ) {
+            return new WP_Error( 'aeocas_no_key', __( 'Site connection is not configured. Go to Settings to connect your site.', 'aeo-content-ai-studio' ) );
+        }
+
+        $slug = self::get_site_slug();
+        if ( empty( $slug ) ) {
+            return new WP_Error( 'aeocas_no_slug', __( 'Could not determine site slug.', 'aeo-content-ai-studio' ) );
+        }
+
+        $transient_key = self::DISCOVERY_TRANSIENT_PREFIX . $slug;
+
+        if ( ! $force_refresh ) {
+            $cached = get_transient( $transient_key );
+            if ( false !== $cached ) {
+                return $cached;
+            }
+        }
+
+        $url = trailingslashit( AEOCAS_PLATFORM_URL ) . 'api/v1/audits/' . $slug . '/discovery';
+
+        $response = wp_remote_get( $url, array(
+            'headers' => array(
+                'Authorization' => 'Bearer ' . $api_key,
+                'Accept'        => 'application/json',
+            ),
+            'timeout' => 20,
+        ) );
+
+        if ( is_wp_error( $response ) ) {
+            return new WP_Error( 'aeocas_api_error', $response->get_error_message() );
+        }
+
+        $status = wp_remote_retrieve_response_code( $response );
+        $body   = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( 404 === $status ) {
+            return new WP_Error( 'aeocas_no_discovery', __( 'No audit job found for this site yet. Connect the site and run the first audit to populate Discovery.', 'aeo-content-ai-studio' ) );
+        }
+
+        if ( 401 === $status || 403 === $status ) {
+            return new WP_Error( 'aeocas_auth_error', __( 'Site credential is invalid or does not have read permission.', 'aeo-content-ai-studio' ) );
+        }
+
+        if ( 200 !== $status || empty( $body['data'] ) ) {
+            $message = isset( $body['error']['message'] ) ? $body['error']['message'] : __( 'Unexpected API response.', 'aeo-content-ai-studio' );
+            return new WP_Error( 'aeocas_api_error', $message );
+        }
+
+        $payload = $body['data'];
+
+        // While the remote job is still running, cache briefly so the UI can keep polling.
+        // Once the job has settled (completed or discovery populated with no more work expected), cache longer.
+        $is_settled = ! empty( $payload['discovery'] ) && in_array( $payload['status'] ?? '', array( 'completed', 'failed' ), true );
+        $ttl        = $is_settled ? self::CACHE_TTL : self::SHORT_CACHE_TTL;
+
+        set_transient( $transient_key, $payload, $ttl );
+
+        return $payload;
     }
 
     /**
@@ -181,6 +261,53 @@ class AEOCAS_Audit_Api {
     }
 
     /**
+     * Trigger the onboarding audit for a freshly connected site.
+     *
+     * Posts to /api/v1/plugin/onboard which enqueues Discovery + Full Site Audit
+     * for the calling site. Idempotent on the platform side — safe to call more
+     * than once; subsequent calls return the current job state instead of
+     * queuing a duplicate.
+     *
+     * @return array|WP_Error Response data or error.
+     */
+    public static function trigger_onboarding() {
+        $api_key = get_option( 'aeocas_site_token', '' );
+        if ( empty( $api_key ) ) {
+            return new WP_Error( 'aeocas_no_key', __( 'Site connection is not configured.', 'aeo-content-ai-studio' ) );
+        }
+
+        $url = trailingslashit( AEOCAS_PLATFORM_URL ) . 'api/v1/plugin/onboard';
+
+        $response = wp_remote_post( $url, array(
+            'headers' => array(
+                'Authorization' => 'Bearer ' . $api_key,
+                'Content-Type'  => 'application/json',
+            ),
+            'body'    => wp_json_encode( array( 'site_url' => get_home_url() ) ),
+            'timeout' => 20,
+        ) );
+
+        if ( is_wp_error( $response ) ) {
+            return new WP_Error( 'aeocas_api_error', $response->get_error_message() );
+        }
+
+        $status = wp_remote_retrieve_response_code( $response );
+        $body   = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( $status >= 400 ) {
+            $message = isset( $body['error']['message'] ) ? $body['error']['message'] : ( isset( $body['message'] ) ? $body['message'] : __( 'Failed to start onboarding audit.', 'aeo-content-ai-studio' ) );
+            return new WP_Error( 'aeocas_onboard_error', $message );
+        }
+
+        // Clear any stale caches so the audit page fetches fresh data.
+        self::clear_cache();
+
+        AEOCAS_Activity_Log::log( 'onboard', 'success', array( 'message' => 'Onboarding audit triggered.', 'response' => $body['data'] ?? null ) );
+
+        return $body;
+    }
+
+    /**
      * Get audit job status from platform.
      *
      * @return array|WP_Error Status data or error.
@@ -234,6 +361,26 @@ class AEOCAS_Audit_Api {
     }
 
     /**
+     * AJAX handler for fetching discovery data.
+     */
+    public static function ajax_get_discovery() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
+        }
+
+        check_ajax_referer( 'aeocas_audit_nonce', 'nonce' );
+
+        $force     = ! empty( $_POST['refresh'] ) && sanitize_text_field( wp_unslash( $_POST['refresh'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified above.
+        $discovery = self::get_discovery( $force );
+
+        if ( is_wp_error( $discovery ) ) {
+            wp_send_json_error( array( 'message' => $discovery->get_error_message(), 'code' => $discovery->get_error_code() ) );
+        }
+
+        wp_send_json_success( $discovery );
+    }
+
+    /**
      * AJAX handler for polling audit status.
      */
     public static function ajax_audit_status() {
@@ -259,5 +406,6 @@ class AEOCAS_Audit_Api {
         add_action( 'wp_ajax_aeocas_get_audit', array( __CLASS__, 'ajax_get_audit' ) );
         add_action( 'wp_ajax_aeocas_reaudit', array( __CLASS__, 'ajax_reaudit' ) );
         add_action( 'wp_ajax_aeocas_audit_status', array( __CLASS__, 'ajax_audit_status' ) );
+        add_action( 'wp_ajax_aeocas_get_discovery', array( __CLASS__, 'ajax_get_discovery' ) );
     }
 }

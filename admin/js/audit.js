@@ -737,6 +737,273 @@
         return html;
     }
 
+    /* ── Discovery Tab ────────────────────────────────── */
+
+    var AUDIT_TAB_IDS = ['overview', 'scoreboard', 'opportunities', 'pages', 'rewrite'];
+    var discoveryPollTimer = null;
+
+    function renderDiscoveryLoading() {
+        return '<div class="aeo-tab-loading"><span class="spinner is-active" style="float:none;margin:0 8px 0 0;"></span>Loading discovery findings...</div>';
+    }
+
+    function renderAuditLoading() {
+        return '<div class="aeo-tab-loading"><span class="spinner is-active" style="float:none;margin:0 8px 0 0;"></span>Loading audit data...</div>';
+    }
+
+    function renderAuditEmpty(message) {
+        return ''
+            + '<div class="aeo-tab-empty">'
+            +   '<p>' + esc(message || 'No audit data yet.') + '</p>'
+            +   '<p><a href="#" class="button button-primary aeo-trigger-reaudit">Run Full Site Audit</a></p>'
+            + '</div>';
+    }
+
+    function setAuditTabsLoading() {
+        AUDIT_TAB_IDS.forEach(function (id) {
+            var el = document.getElementById('tab-' + id);
+            if (el) el.innerHTML = renderAuditLoading();
+        });
+    }
+
+    function setAuditTabsEmpty(message) {
+        AUDIT_TAB_IDS.forEach(function (id) {
+            var el = document.getElementById('tab-' + id);
+            if (el) el.innerHTML = renderAuditEmpty(message);
+        });
+    }
+
+    function firstNonEmpty() {
+        for (var i = 0; i < arguments.length; i++) {
+            var v = arguments[i];
+            if (v === undefined || v === null) continue;
+            if (typeof v === 'string' && v.trim() === '') continue;
+            if (Array.isArray(v) && v.length === 0) continue;
+            return v;
+        }
+        return null;
+    }
+
+    function mergeArrays() {
+        var seen = {};
+        var out = [];
+        for (var i = 0; i < arguments.length; i++) {
+            var arr = arguments[i];
+            if (!Array.isArray(arr)) continue;
+            for (var j = 0; j < arr.length; j++) {
+                var v = arr[j];
+                if (v == null) continue;
+                var key = typeof v === 'string' ? v.toLowerCase().trim() : JSON.stringify(v);
+                if (!key || seen[key]) continue;
+                seen[key] = true;
+                out.push(v);
+            }
+        }
+        return out;
+    }
+
+    function fieldRow(label, value) {
+        if (value === undefined || value === null || value === '') return '';
+        return ''
+            + '<div class="aeo-discovery-field">'
+            +   '<div class="aeo-discovery-label">' + esc(label) + '</div>'
+            +   '<div class="aeo-discovery-value">' + esc(String(value)) + '</div>'
+            + '</div>';
+    }
+
+    function chipList(label, items) {
+        if (!items || !items.length) return '';
+        var chips = items.map(function (item) {
+            return '<span class="aeo-discovery-chip">' + esc(String(item)) + '</span>';
+        }).join('');
+        return ''
+            + '<div class="aeo-discovery-field">'
+            +   '<div class="aeo-discovery-label">' + esc(label) + '</div>'
+            +   '<div class="aeo-discovery-chips">' + chips + '</div>'
+            + '</div>';
+    }
+
+    function bulletList(label, items) {
+        if (!items || !items.length) return '';
+        var lis = items.map(function (item) {
+            return '<li>' + esc(String(item)) + '</li>';
+        }).join('');
+        return ''
+            + '<div class="aeo-discovery-field">'
+            +   '<div class="aeo-discovery-label">' + esc(label) + '</div>'
+            +   '<ul class="aeo-discovery-bullets">' + lis + '</ul>'
+            + '</div>';
+    }
+
+    function card(title, inner) {
+        if (!inner || !inner.trim()) return '';
+        return ''
+            + '<section class="aeo-discovery-card">'
+            +   '<h3 class="aeo-discovery-card-title">' + esc(title) + '</h3>'
+            +   inner
+            + '</section>';
+    }
+
+    function formatDate(iso) {
+        if (!iso) return '';
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso);
+        try {
+            return d.toLocaleString();
+        } catch (e) {
+            return d.toISOString();
+        }
+    }
+
+    function renderIdentityCard(d, dp) {
+        var inner = ''
+            + fieldRow('Domain', firstNonEmpty(d.target_domain, dp.company_name))
+            + fieldRow('Business name', firstNonEmpty(d.business_name, dp.company_name))
+            + fieldRow('Niche', d.niche)
+            + fieldRow('Search term', d.search_term)
+            + fieldRow('Meta description', dp.meta_description)
+            + fieldRow('Business description', d.business_description);
+        return card('Identity', inner);
+    }
+
+    function renderOfferingCard(d, dp) {
+        var services = mergeArrays(d.services, d.priority_services, dp.services);
+        var inner = ''
+            + fieldRow('Value proposition', firstNonEmpty(d.value_proposition, dp.value_proposition))
+            + chipList('Services', services)
+            + chipList('Differentiators', d.differentiators || [])
+            + chipList('Content themes', d.content_themes || [])
+            + chipList('Primary CTAs', mergeArrays(d.primary_ctas, dp.primary_ctas));
+        return card('Offering', inner);
+    }
+
+    function renderAudienceCard(d, dp) {
+        var inner = ''
+            + fieldRow('Target audience', d.target_audience)
+            + bulletList('Pain points', mergeArrays(d.pain_points, dp.pain_points))
+            + bulletList('Objections', d.objections || [])
+            + bulletList('Proof points', mergeArrays((d.proof_points || []).map(function (p) {
+                if (typeof p === 'string') return p;
+                return p && (p.claim || p.text || p.name) ? (p.claim || p.text || p.name) : JSON.stringify(p);
+            }), dp.proof_points))
+            + chipList('Preferred terms', d.preferred_terms || [])
+            + chipList('Avoid terms', d.avoid_terms || []);
+        return card('Audience & Positioning', inner);
+    }
+
+    function renderContentSignalsCard(d, dp) {
+        var inner = ''
+            + chipList('Topic phrases', mergeArrays(d.topic_phrases, dp.topic_phrases))
+            + chipList('Entities', mergeArrays(d.entities, dp.entities))
+            + chipList('Content gaps', mergeArrays(d.content_gaps, dp.content_gaps))
+            + chipList('Content formats', dp.content_formats || [])
+            + bulletList('FAQ questions', dp.faq_questions || [])
+            + bulletList('Page titles (sample)', (dp.page_titles || []).slice(0, 20))
+            + bulletList('Headings (sample)', (dp.headings || []).slice(0, 20));
+        return card('Content Signals', inner);
+    }
+
+    function renderSiteStructureCard(d, dp) {
+        var inner = ''
+            + fieldRow('Sitemap URL count', dp.sitemap_url_count)
+            + fieldRow('Blog post count', dp.blog_post_count)
+            + fieldRow('Publishing frequency', dp.publishing_frequency)
+            + chipList('Nav links', (dp.nav_links || []).slice(0, 30));
+        return card('Site Structure', inner);
+    }
+
+    function renderVoiceCard(d, dp) {
+        var vp = d.voice_profile || {};
+        var vs = dp.voice_signals || {};
+        var inner = ''
+            + fieldRow('Person', firstNonEmpty(vp.person, vs.person))
+            + fieldRow('Formality', firstNonEmpty(vp.formality, vs.formality))
+            + fieldRow('Tone', vp.tone)
+            + fieldRow('Avg sentence length', vs.avg_sentence_length)
+            + fieldRow('Contraction rate', vs.contraction_rate);
+        return card('Voice & Style', inner);
+    }
+
+    function renderCompetitorsCard(d) {
+        var comps = d.competitors || [];
+        if (!comps.length) return '';
+        var rows = comps.map(function (c) {
+            return ''
+                + '<li class="aeo-discovery-competitor">'
+                +   '<div class="aeo-discovery-competitor-name"><strong>' + esc(c.name || c.domain || '') + '</strong>'
+                +     (c.domain ? ' <span class="aeo-discovery-competitor-domain">' + esc(c.domain) + '</span>' : '')
+                +   '</div>'
+                +   (c.why ? '<div class="aeo-discovery-competitor-why">' + esc(c.why) + '</div>' : '')
+                + '</li>';
+        }).join('');
+        return card('Competitors', '<ul class="aeo-discovery-competitors">' + rows + '</ul>');
+    }
+
+    function renderQueriesCard(d) {
+        var inner = ''
+            + bulletList('Solution queries', d.solution_queries || [])
+            + bulletList('Excluded queries', d.excluded_queries || [])
+            + bulletList('Compliance constraints', d.compliance_constraints || []);
+        var clusters = d.intent_clusters || [];
+        if (clusters.length) {
+            var rows = clusters.map(function (c) {
+                var qs = (c.queries || c.examples || []).map(function (q) { return '<li>' + esc(String(q)) + '</li>'; }).join('');
+                return ''
+                    + '<div class="aeo-discovery-cluster">'
+                    +   '<div class="aeo-discovery-label">' + esc(c.name || c.intent || 'Cluster') + '</div>'
+                    +   (qs ? '<ul class="aeo-discovery-bullets">' + qs + '</ul>' : '')
+                    + '</div>';
+            }).join('');
+            inner += '<div class="aeo-discovery-field"><div class="aeo-discovery-label">Intent clusters</div>' + rows + '</div>';
+        }
+        return card('Search Intent', inner);
+    }
+
+    function renderDiscoveryPending(payload) {
+        var status = payload && payload.status ? payload.status : 'pending';
+        var stage  = (payload && payload.current_stage) || STAGE_LABELS[status] || 'Waiting for audit worker...';
+        var pct    = STAGE_PROGRESS[status] || 5;
+        return ''
+            + '<div class="aeo-discovery-pending">'
+            +   '<h2>Discovery is running…</h2>'
+            +   '<p>We kick off a full site audit the moment you connect. The deterministic Discovery layer finishes in under a minute and its findings appear here automatically.</p>'
+            +   '<div class="aeo-reaudit-track"><div class="aeo-reaudit-fill" style="width:' + pct + '%;background:#4285f4;"></div></div>'
+            +   '<p class="aeo-discovery-stage">' + esc(stage) + '</p>'
+            + '</div>';
+    }
+
+    function renderDiscovery(payload) {
+        if (!payload || !payload.discovery) {
+            return renderDiscoveryPending(payload);
+        }
+        var d  = payload.discovery || {};
+        var dp = d.deterministic_profile || {};
+
+        var extracted = firstNonEmpty(d.topics_extracted_at, dp.extracted_at);
+        var meta = ''
+            + '<div class="aeo-discovery-meta">'
+            +   '<span><strong>Status:</strong> ' + esc(payload.status || '—') + '</span>'
+            +   (extracted ? '<span><strong>Extracted:</strong> ' + esc(formatDate(extracted)) + '</span>' : '')
+            + '</div>';
+
+        var cards = ''
+            + renderIdentityCard(d, dp)
+            + renderOfferingCard(d, dp)
+            + renderAudienceCard(d, dp)
+            + renderContentSignalsCard(d, dp)
+            + renderSiteStructureCard(d, dp)
+            + renderVoiceCard(d, dp)
+            + renderCompetitorsCard(d)
+            + renderQueriesCard(d);
+
+        return ''
+            + '<div class="aeo-discovery-header">'
+            +   '<h2>Discovery findings</h2>'
+            +   '<p class="description">Everything the platform extracted about your site during the deterministic Discovery stage.</p>'
+            +   meta
+            + '</div>'
+            + '<div class="aeo-discovery-grid">' + cards + '</div>';
+    }
+
     /* ── Render All ───────────────────────────────────── */
 
     function renderAudit(audit) {
@@ -745,16 +1012,12 @@
         document.getElementById('tab-opportunities').innerHTML = renderOpportunities(audit);
         document.getElementById('tab-pages').innerHTML         = renderPages(audit);
         document.getElementById('tab-rewrite').innerHTML       = renderRewriteCandidates(audit);
-
-        loading.style.display = 'none';
-        content.style.display = '';
     }
 
     /* ── Load Audit Data ──────────────────────────────── */
 
     function loadAudit(refresh) {
-        loading.style.display = '';
-        content.style.display = 'none';
+        setAuditTabsLoading();
         errorBox.innerHTML = '';
 
         var data = new FormData();
@@ -768,22 +1031,72 @@
                 if (res.success) {
                     renderAudit(res.data);
                 } else {
-                    var msg = 'Failed to load audit.';
+                    var msg = 'No audit yet — your first site audit may still be running.';
                     if (res.data) {
                         if (typeof res.data === 'string') msg = res.data;
                         else if (res.data.message) msg = res.data.message;
                     }
-                    showError(msg);
+                    setAuditTabsEmpty(msg);
                 }
             })
             .catch(function (err) {
-                showError('Network error: ' + (err.message || 'Please try again.'));
+                setAuditTabsEmpty('Network error: ' + (err.message || 'Please try again.'));
+            });
+    }
+
+    /* ── Load Discovery Data ──────────────────────────── */
+
+    function stopDiscoveryPolling() {
+        if (discoveryPollTimer) {
+            clearInterval(discoveryPollTimer);
+            discoveryPollTimer = null;
+        }
+    }
+
+    function startDiscoveryPolling() {
+        stopDiscoveryPolling();
+        discoveryPollTimer = setInterval(function () { loadDiscovery(true); }, 10000);
+    }
+
+    function loadDiscovery(refresh) {
+        var tab = document.getElementById('tab-discovery');
+        if (!tab) return;
+        if (!refresh && !tab.innerHTML.trim()) {
+            tab.innerHTML = renderDiscoveryLoading();
+        }
+
+        var data = new FormData();
+        data.append('action', 'aeocas_get_discovery');
+        data.append('nonce', aeocasAudit.nonce);
+        if (refresh) data.append('refresh', '1');
+
+        fetch(aeocasAudit.ajaxUrl, { method: 'POST', body: data })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success) {
+                    tab.innerHTML = renderDiscovery(res.data);
+                    if (res.data && res.data.discovery) {
+                        stopDiscoveryPolling();
+                    } else {
+                        startDiscoveryPolling();
+                    }
+                } else {
+                    var msg = (res.data && res.data.message) ? res.data.message : 'Failed to load discovery.';
+                    var code = (res.data && res.data.code) || '';
+                    if (code === 'aeocas_no_discovery') {
+                        tab.innerHTML = renderDiscoveryPending({ status: 'pending', current_stage: 'No audit job yet. Click "Run Full Site Audit" to start.' });
+                    } else {
+                        tab.innerHTML = '<div class="notice notice-error" style="padding:12px 16px;"><p>' + esc(msg) + '</p></div>';
+                    }
+                    stopDiscoveryPolling();
+                }
+            })
+            .catch(function () {
+                // Network error — keep polling silently.
             });
     }
 
     function showError(msg) {
-        loading.style.display = 'none';
-        content.style.display = 'none';
         errorBox.innerHTML = '<div class="notice notice-error" style="padding:12px 16px;"><p style="font-size:14px;margin:0;">' + esc(msg) + '</p></div>';
     }
 
@@ -857,6 +1170,9 @@
         reauditBtn.textContent = 'Re-audit';
     }
 
+    var lastPolledStatus = null;
+    var STAGES_WITH_DISCOVERY = { auditing: 1, seeding: 1, visibility: 1, completed: 1 };
+
     function pollAuditStatus() {
         var data = new FormData();
         data.append('action', 'aeocas_audit_status');
@@ -876,11 +1192,21 @@
 
                 showReauditProgress(status);
 
+                // The moment the remote job crosses from "discovering" into a later
+                // stage, the discovery JSONB column has been populated. Refresh the
+                // Discovery tab once so users see findings as soon as they're ready,
+                // even though the audit itself is still running.
+                if (STAGES_WITH_DISCOVERY[status] && !STAGES_WITH_DISCOVERY[lastPolledStatus]) {
+                    loadDiscovery(true);
+                }
+                lastPolledStatus = status;
+
                 if (status === 'completed') {
                     stopPolling();
                     setTimeout(function () {
                         hideReauditProgress();
                         loadAudit(true);
+                        loadDiscovery(true);
                     }, 1500);
                 } else if (status === 'failed') {
                     stopPolling();
@@ -898,10 +1224,12 @@
     function triggerReaudit() {
         reauditBtn.disabled = true;
         reauditBtn.textContent = 'Running...';
-        loading.style.display = 'none';
-        content.style.display = 'none';
+        lastPolledStatus = null;
         errorBox.innerHTML = '';
+        // Keep the tab container visible so users watch Discovery populate live.
         showReauditProgress('queued');
+        // Kick Discovery into "pending" state immediately.
+        loadDiscovery(true);
 
         var data = new FormData();
         data.append('action', 'aeocas_reaudit');
@@ -968,8 +1296,14 @@
 
     /* ── Init ─────────────────────────────────────────── */
 
+    // Show the tab container immediately — Discovery and each audit tab render
+    // their own loading/empty states so the shell is always visible.
+    loading.style.display = 'none';
+    content.style.display = '';
+
     initTabs();
     initAccordions();
+    loadDiscovery(false);
     loadAudit(false);
 
 })();

@@ -1029,3 +1029,188 @@
     font-size: 14px;
     line-height: 1.6;
 }
+
+/* ── Discovery tab ──────────────────────────────────── */
+
+.aeo-tab-loading,
+.aeo-tab-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: #50575e;
+    font-size: 14px;
+}
+
+.aeo-tab-empty p {
+    margin: 0 0 12px;
+}
+
+.aeo-discovery-pending {
+    max-width: 640px;
+    margin: 40px auto;
+    padding: 28px 32px;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.aeo-discovery-pending h2 {
+    margin: 0 0 8px;
+    font-size: 18px;
+}
+
+.aeo-discovery-pending p {
+    margin: 0 0 16px;
+    color: #50575e;
+}
+
+.aeo-discovery-pending .aeo-reaudit-track {
+    margin: 16px 0 8px;
+}
+
+.aeo-discovery-stage {
+    font-size: 13px;
+    color: #1d2327;
+    font-weight: 500;
+}
+
+.aeo-discovery-header {
+    margin: 20px 0 20px;
+}
+
+.aeo-discovery-header h2 {
+    margin: 0 0 4px;
+    font-size: 20px;
+}
+
+.aeo-discovery-header .description {
+    margin: 0 0 10px;
+    color: #50575e;
+}
+
+.aeo-discovery-meta {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: #50575e;
+    padding: 8px 12px;
+    background: #f6f7f7;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+}
+
+.aeo-discovery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.aeo-discovery-card {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    padding: 18px 20px;
+}
+
+.aeo-discovery-card-title {
+    margin: 0 0 14px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1d2327;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.aeo-discovery-field {
+    margin-bottom: 14px;
+}
+
+.aeo-discovery-field:last-child {
+    margin-bottom: 0;
+}
+
+.aeo-discovery-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #646970;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+}
+
+.aeo-discovery-value {
+    font-size: 13px;
+    color: #1d2327;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.aeo-discovery-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.aeo-discovery-chip {
+    display: inline-block;
+    padding: 4px 10px;
+    background: #f0f6fc;
+    border: 1px solid #c6dcf4;
+    border-radius: 12px;
+    font-size: 12px;
+    color: #135e96;
+    line-height: 1.4;
+}
+
+.aeo-discovery-bullets {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 13px;
+    color: #1d2327;
+    line-height: 1.5;
+}
+
+.aeo-discovery-bullets li {
+    margin-bottom: 4px;
+}
+
+.aeo-discovery-competitors {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.aeo-discovery-competitor {
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.aeo-discovery-competitor:last-child {
+    border-bottom: none;
+}
+
+.aeo-discovery-competitor-name {
+    font-size: 13px;
+    color: #1d2327;
+}
+
+.aeo-discovery-competitor-domain {
+    color: #646970;
+    font-weight: 400;
+    font-size: 12px;
+}
+
+.aeo-discovery-competitor-why {
+    font-size: 12px;
+    color: #50575e;
+    margin-top: 4px;
+    line-height: 1.5;
+}
+
+.aeo-discovery-cluster {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #f0f0f1;
+}
