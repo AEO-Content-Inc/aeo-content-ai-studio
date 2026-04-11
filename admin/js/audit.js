@@ -1194,9 +1194,9 @@
         stopDiscoveryTicker();
         discoveryUiState.tickTimer = setInterval(function () {
             discoveryUiState.tickCounter++;
-            // Rotate the verb every 3 ticks (~3s) — frequent enough to feel alive,
-            // slow enough to actually read each word.
-            if (discoveryUiState.tickCounter % 3 === 0) {
+            // Rotate the verb every 6 ticks (~6s) — slow enough to read each
+            // word comfortably without feeling static.
+            if (discoveryUiState.tickCounter % 6 === 0) {
                 discoveryUiState.verbIdx++;
             }
             updateDiscoveryPendingDynamic();
