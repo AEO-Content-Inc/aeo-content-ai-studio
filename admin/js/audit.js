@@ -555,11 +555,50 @@
         return 0;
     }
 
+    function normalizeUrlKey(url) {
+        if (!url) return '';
+        return String(url).replace(/\/+$/, '').replace(/^https?:\/\//, '').replace(/^www\./, '').toLowerCase();
+    }
+
     function buildInLinksMap(audit) {
         var m = {};
-        var g = audit && audit.link_graph ? audit.link_graph : {};
-        (g.nodes || []).forEach(function (n) { m[n.url] = n.inDegree || 0; });
+        var g = (audit && audit.link_graph) || (audit && audit.linkGraph) || {};
+        var nodes = g.nodes || g.Nodes || [];
+        var edges = g.edges || g.Edges || [];
+
+        // First pass: read inDegree/in_degree directly from nodes if present.
+        var anyInDegree = false;
+        nodes.forEach(function (n) {
+            if (!n) return;
+            var url = n.url || n.URL || n.href || '';
+            var deg = n.inDegree;
+            if (deg == null) deg = n.in_degree;
+            if (deg == null) deg = n.inbound;
+            if (deg == null) deg = n.inboundCount;
+            if (typeof deg === 'number') {
+                m[normalizeUrlKey(url)] = deg;
+                if (deg > 0) anyInDegree = true;
+            }
+        });
+
+        // Second pass: if nothing looked like a degree field, compute from
+        // edges by counting incoming hits per target URL. Handles snake_case
+        // and different shapes.
+        if (!anyInDegree && edges.length) {
+            edges.forEach(function (e) {
+                if (!e) return;
+                var target = e.target || e.to || e.dst || e.destination || '';
+                if (!target) return;
+                var key = normalizeUrlKey(target);
+                m[key] = (m[key] || 0) + 1;
+            });
+        }
+
         return m;
+    }
+
+    function lookupInLinks(map, url) {
+        return map[normalizeUrlKey(url)] || 0;
     }
 
     function collectPageCategories(pages) {
@@ -604,7 +643,7 @@
                 case 'issues-desc': return getPageIssueCount(b) - getPageIssueCount(a);
                 case 'words-desc':  return (b.wordCount || 0) - (a.wordCount || 0);
                 case 'words-asc':   return (a.wordCount || 0) - (b.wordCount || 0);
-                case 'links-desc':  return (inLinks[b.url] || 0) - (inLinks[a.url] || 0);
+                case 'links-desc':  return lookupInLinks(inLinks, b.url) - lookupInLinks(inLinks, a.url);
                 case 'url-asc':     return (a.url || '').localeCompare(b.url || '');
                 default:            return getPageScore(b) - getPageScore(a);
             }
@@ -684,12 +723,16 @@
             var bg    = scoreBg100(score);
             var cat   = page.category || '';
             var words = page.wordCount || 0;
-            var il    = inLinks[page.url] || 0;
+            var il    = lookupInLinks(inLinks, page.url);
             var shortUrl = (page.url || '').replace(/^https?:\/\/[^/]+/, '');
             var issueCount = getPageIssueCount(page);
             var issueHtml = issueCount > 0
                 ? '<span class="aeo-site-audit-issues">' + issueCount + ' issue' + (issueCount === 1 ? '' : 's') + '</span>'
                 : '';
+
+            var scoreCell = score > 0
+                ? '<button type="button" class="aeo-score-badge-pill aeo-page-score-trigger" data-page-url="' + esc(page.url) + '" style="background:' + bg + ';color:' + color + ';" title="Click for breakdown">' + score + '</button>'
+                : '<span class="aeo-score-badge-pill" style="background:#f0f0f1;color:#646970;">—</span>';
 
             return ''
                 + '<tr>'
@@ -699,7 +742,7 @@
                 +     (issueHtml ? '<div class="aeo-site-audit-issue-row">' + issueHtml + '</div>' : '')
                 +   '</td>'
                 +   '<td><span class="aeo-log-command">' + esc(cat) + '</span></td>'
-                +   '<td><span class="aeo-score-badge-pill" style="background:' + bg + ';color:' + color + ';">' + (score > 0 ? score : '—') + '</span></td>'
+                +   '<td>' + scoreCell + '</td>'
                 +   '<td style="color:#646970;">' + (words > 0 ? words.toLocaleString() : '—') + '</td>'
                 +   '<td style="color:#646970;">' + il + '</td>'
                 + '</tr>';
@@ -1296,7 +1339,10 @@
 
         return ''
             + '<div class="aeo-discovery-header">'
-            +   '<h2>Discovery findings</h2>'
+            +   '<div class="aeo-discovery-header-row">'
+            +     '<h2>Discovery findings</h2>'
+            +     '<a href="#" class="button button-primary aeo-rerun-discovery">&#8635; Re-run Discovery</a>'
+            +   '</div>'
             +   '<p class="description">Everything the platform extracted about your site during the deterministic Discovery stage.</p>'
             +   meta
             + '</div>'
@@ -1421,12 +1467,148 @@
         return html;
     }
 
-    function openScoreModal() {
+    var PAGE_RANK_PILLAR_LABELS = [
+        { key: 'contentOriginality',  label: 'Content Originality',  weight: '25%' },
+        { key: 'contentUniqueness',   label: 'Content Uniqueness',   weight: '25%' },
+        { key: 'extractability',      label: 'Extractability',       weight: '25%' },
+        { key: 'entityDataRichness',  label: 'Entity & Data Richness', weight: '15%' },
+        { key: 'structuralSignals',   label: 'Structural Signals',   weight: '10%' }
+    ];
+
+    function findPageByUrl(url) {
+        if (!currentAuditData || !url) return null;
+        var pages = currentAuditData.pages_reviewed || [];
+        for (var i = 0; i < pages.length; i++) {
+            if (pages[i] && pages[i].url === url) return pages[i];
+        }
+        return null;
+    }
+
+    function renderPageScoreBreakdown(page) {
+        if (!page) return '<p>Page data not found.</p>';
+        var score = getPageScore(page);
+        var range = getScoreRangeLabel(score);
+        var grade = page.pageRankGrade || '';
+        var shortUrl = (page.url || '').replace(/^https?:\/\/[^/]+/, '') || (page.url || '');
+
+        var html = '';
+
+        // Header: URL + title + score + range
+        html += '<div class="aeo-score-modal-hero">';
+        html +=   '<div class="aeo-score-modal-score">';
+        html +=     renderScoreCircle(score || 0, 100, 120);
+        html +=   '</div>';
+        html +=   '<div class="aeo-score-modal-range">';
+        html +=     '<div class="aeo-score-modal-range-label" style="color:' + range.color + ';">' + esc(range.label) + (grade ? ' — Grade ' + esc(grade) : '') + '</div>';
+        html +=     '<div style="font-weight:600;margin:6px 0 2px;font-size:14px;color:#1d2327;">' + esc(page.title || shortUrl) + '</div>';
+        html +=     '<div style="font-size:12px;"><a href="' + esc(page.url) + '" target="_blank" rel="noopener" style="color:#646970;">' + esc(shortUrl) + ' &#8599;</a></div>';
+        html +=   '</div>';
+        html += '</div>';
+
+        // Pillar breakdown — AEO Page Rank uses 5 pillars (see studio
+        // PAGE_RANK_PILLAR_LABELS). Only show if data is present.
+        var pillars = page.pageRankPillars || {};
+        var hasPillars = PAGE_RANK_PILLAR_LABELS.some(function (p) { return pillars[p.key]; });
+        if (hasPillars) {
+            html += '<h3 class="aeo-score-modal-subhead">Pillar breakdown</h3>';
+            html += '<div class="aeo-score-modal-pillars">';
+            PAGE_RANK_PILLAR_LABELS.forEach(function (p) {
+                var pillar = pillars[p.key];
+                if (!pillar) return;
+                var pScore = typeof pillar.score === 'number' ? pillar.score : 0;
+                var pct = Math.max(0, Math.min(100, Math.round(pScore)));
+                html += '<section class="aeo-score-pillar-card">';
+                html +=   '<div class="aeo-score-pillar-head">';
+                html +=     '<span class="aeo-cat-badge" style="background:#e8f0fe;color:#1967d2;">' + esc(p.label).toUpperCase() + '</span>';
+                html +=     '<span class="aeo-score-pillar-weight">' + esc(p.weight) + ' of score</span>';
+                html +=     '<span class="aeo-score-pillar-avg" style="color:' + scoreColor100(pct) + ';">' + pct + '/100</span>';
+                html +=   '</div>';
+                html +=   '<div class="aeo-score-pillar-bar"><div class="aeo-score-pillar-fill" style="width:' + pct + '%;background:' + scoreColor100(pct) + ';"></div></div>';
+                var checks = Array.isArray(pillar.checks) ? pillar.checks : [];
+                if (checks.length) {
+                    html += '<ul class="aeo-score-pillar-criteria">';
+                    checks.forEach(function (c) {
+                        var cScore = typeof c.score === 'number' ? c.score : 0;
+                        var clr = scoreColor10(cScore);
+                        var bg  = scoreBg10(cScore);
+                        var label = c.label || c.criterion || c.name || 'Check';
+                        html += '<li>';
+                        html +=   '<span class="aeo-score-pillar-crit-name">' + esc(label) + '</span>';
+                        html +=   '<span class="aeo-score-badge-pill" style="background:' + bg + ';color:' + clr + ';">' + cScore + '/10</span>';
+                        html += '</li>';
+                    });
+                    html += '</ul>';
+                }
+                html += '</section>';
+            });
+            html += '</div>';
+        }
+
+        // Criterion scores fallback (flat list, no pillar grouping)
+        var critScores = Array.isArray(page.criterionScores) ? page.criterionScores : [];
+        if (critScores.length && !hasPillars) {
+            html += '<h3 class="aeo-score-modal-subhead">Criterion scores</h3>';
+            html += '<ul class="aeo-score-pillar-criteria" style="background:#f9f9fa;padding:14px 18px;border-radius:8px;border:1px solid #f0f0f1;">';
+            critScores.forEach(function (c) {
+                var cScore = typeof c.score === 'number' ? c.score : 0;
+                var clr = scoreColor10(cScore);
+                var bg  = scoreBg10(cScore);
+                html += '<li>';
+                html +=   '<span class="aeo-score-pillar-crit-name">' + esc(c.criterion_label || c.criterion || 'Criterion') + '</span>';
+                html +=   '<span class="aeo-score-badge-pill" style="background:' + bg + ';color:' + clr + ';">' + cScore + '/10</span>';
+                html += '</li>';
+            });
+            html += '</ul>';
+        }
+
+        // Issues list
+        var issues = Array.isArray(page.issues) ? page.issues : [];
+        if (issues.length) {
+            html += '<h3 class="aeo-score-modal-subhead">Issues (' + issues.length + ')</h3>';
+            html += '<ul class="aeo-score-pillar-criteria" style="background:#fef7e0;padding:12px 18px;border-radius:8px;border:1px solid #f5d76e;">';
+            issues.forEach(function (iss) {
+                var sev = (iss.severity || '').toLowerCase();
+                var sevColor = sev === 'high' || sev === 'critical' ? '#ea4335' : sev === 'medium' ? '#c5a200' : '#50575e';
+                html += '<li>';
+                html +=   '<span class="aeo-score-pillar-crit-name">' + esc(iss.label || iss.check || '') + '</span>';
+                html +=   '<span class="aeo-score-badge-pill" style="background:#fff;color:' + sevColor + ';border:1px solid ' + sevColor + '66;">' + esc(iss.severity || 'issue') + '</span>';
+                html += '</li>';
+            });
+            html += '</ul>';
+        }
+
+        // Strengths list
+        var strengths = Array.isArray(page.strengths) ? page.strengths : [];
+        if (strengths.length) {
+            html += '<h3 class="aeo-score-modal-subhead">Strengths (' + strengths.length + ')</h3>';
+            html += '<ul class="aeo-score-pillar-criteria" style="background:#e6f4ea;padding:12px 18px;border-radius:8px;border:1px solid #aedcbc;">';
+            strengths.forEach(function (s) {
+                html += '<li>';
+                html +=   '<span class="aeo-score-pillar-crit-name">' + esc(s.label || s.check || '') + '</span>';
+                html +=   '<span class="aeo-score-badge-pill" style="background:#fff;color:#137333;border:1px solid #34a85366;">ok</span>';
+                html += '</li>';
+            });
+            html += '</ul>';
+        }
+
+        return html;
+    }
+
+    function openScoreModal(page) {
         if (!currentAuditData) return;
         var modal = document.getElementById('aeo-score-modal');
         var body  = document.getElementById('aeo-score-modal-body');
+        var title = document.getElementById('aeo-score-modal-title');
         if (!modal || !body) return;
-        body.innerHTML = renderScoreBreakdown(currentAuditData);
+
+        if (page) {
+            if (title) title.textContent = 'Page Score Breakdown — ' + (page.title || page.url || '');
+            body.innerHTML = renderPageScoreBreakdown(page);
+        } else {
+            if (title) title.textContent = 'AEO Page Rank — Score Breakdown';
+            body.innerHTML = renderScoreBreakdown(currentAuditData);
+        }
+
         modal.style.display = '';
         document.body.style.overflow = 'hidden';
     }
@@ -1801,23 +1983,35 @@
         });
     }
 
-    // Delegated handler for "Run Full Site Re-Audit" buttons inside tab panels.
+    // Delegated handler for "Run Full Site Re-Audit" and "Re-run Discovery"
+    // buttons inside tab panels. Both share the same backend trigger since
+    // Discovery is a stage of the full audit pipeline.
+    //
+    // We deliberately do NOT switch the active tab — the user stays on
+    // whatever tab they clicked from. The global progress bar at the top of
+    // the wrap (#aeo-reaudit-progress) shows live stage updates, and the
+    // Discovery tab's own pending card is repainted in the background so
+    // it's ready when the user navigates there.
     wrap.addEventListener('click', function (e) {
-        if (e.target.classList.contains('aeo-trigger-reaudit')) {
-            e.preventDefault();
-            if (pollTimer) return;
-            // Switch to the Discovery tab (by slug, not by position) so user
-            // sees the live rotating-verb progress card.
-            var tabs = wrap.querySelectorAll('.nav-tab');
-            var panels = wrap.querySelectorAll('.aeo-tab-panel');
-            tabs.forEach(function (t) { t.classList.remove('nav-tab-active'); });
-            panels.forEach(function (p) { p.style.display = 'none'; });
-            var discoveryTab = wrap.querySelector('.nav-tab[data-tab="discovery"]');
-            var discoveryPanel = document.getElementById('tab-discovery');
-            if (discoveryTab) discoveryTab.classList.add('nav-tab-active');
-            if (discoveryPanel) discoveryPanel.style.display = '';
-            triggerReaudit();
+        var target = e.target.closest && e.target.closest('.aeo-trigger-reaudit, .aeo-rerun-discovery');
+        if (!target) return;
+        e.preventDefault();
+        if (pollTimer) return;
+
+        // Force Discovery UI back into its "running" state so the pending
+        // card paints immediately and the elapsed counter starts from zero.
+        stopDiscoveryTicker();
+        stopDiscoveryPolling();
+        discoveryUiState.phase = 'idle';
+
+        // Paint the pending card in the background (Discovery tab won't be
+        // visible right now unless the user was already there).
+        var discTab = document.getElementById('tab-discovery');
+        if (discTab) {
+            renderPendingFresh(discTab, { status: 'pending', current_stage: 'Waiting for the audit worker…' });
         }
+
+        triggerReaudit();
     });
 
     // Delegated handler for Site Audit filter dropdowns.
@@ -1839,11 +2033,22 @@
     });
 
     // Delegated handler for clicking the AEO score (opens breakdown modal).
+    // Covers both the overall-score circle (Connect/Overview) and per-page
+    // score badges in the Pages Audit table.
     wrap.addEventListener('click', function (e) {
-        var trigger = e.target.closest && e.target.closest('.aeo-score-trigger');
-        if (trigger) {
+        var overall = e.target.closest && e.target.closest('.aeo-score-trigger');
+        if (overall) {
             e.preventDefault();
             openScoreModal();
+            return;
+        }
+        var pageBtn = e.target.closest && e.target.closest('.aeo-page-score-trigger');
+        if (pageBtn) {
+            e.preventDefault();
+            var url = pageBtn.getAttribute('data-page-url');
+            var page = findPageByUrl(url);
+            if (page) openScoreModal(page);
+            return;
         }
         if (e.target && e.target.classList && e.target.classList.contains('aeo-modal-close')) {
             closeScoreModal();

@@ -87,11 +87,11 @@ $aeocas_log_base = admin_url( 'admin.php?page=aeocas-audit-report' );
             <a href="#" class="nav-tab" data-tab="discovery">
                 <?php esc_html_e( 'Discovery', 'aeo-content-ai-studio' ); ?>
             </a>
-            <a href="#" class="nav-tab" data-tab="site-audit">
-                <?php esc_html_e( 'Pages Audit', 'aeo-content-ai-studio' ); ?>
-            </a>
             <a href="#" class="nav-tab" data-tab="scoreboard">
                 <?php esc_html_e( 'Site Audit', 'aeo-content-ai-studio' ); ?>
+            </a>
+            <a href="#" class="nav-tab" data-tab="site-audit">
+                <?php esc_html_e( 'Pages Audit', 'aeo-content-ai-studio' ); ?>
             </a>
             <a href="#" class="nav-tab" data-tab="opportunities">
                 <?php esc_html_e( 'Opportunities', 'aeo-content-ai-studio' ); ?>
