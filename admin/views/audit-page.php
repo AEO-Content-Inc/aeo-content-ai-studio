@@ -81,17 +81,17 @@ $aeocas_log_base = admin_url( 'admin.php?page=aeocas-audit-report' );
     <div id="aeo-audit-content" style="display: none;">
 
         <nav class="nav-tab-wrapper aeo-audit-tabs">
-            <a href="#" class="nav-tab nav-tab-active" data-tab="discovery">
+            <a href="#" class="nav-tab nav-tab-active" data-tab="connect">
+                <?php esc_html_e( 'Connect', 'aeo-content-ai-studio' ); ?>
+            </a>
+            <a href="#" class="nav-tab" data-tab="discovery">
                 <?php esc_html_e( 'Discovery', 'aeo-content-ai-studio' ); ?>
             </a>
             <a href="#" class="nav-tab" data-tab="site-audit">
-                <?php esc_html_e( 'Site Audit', 'aeo-content-ai-studio' ); ?>
-            </a>
-            <a href="#" class="nav-tab" data-tab="connect">
-                <?php esc_html_e( 'Connect', 'aeo-content-ai-studio' ); ?>
+                <?php esc_html_e( 'Pages Audit', 'aeo-content-ai-studio' ); ?>
             </a>
             <a href="#" class="nav-tab" data-tab="scoreboard">
-                <?php esc_html_e( 'Scoreboard', 'aeo-content-ai-studio' ); ?>
+                <?php esc_html_e( 'Site Audit', 'aeo-content-ai-studio' ); ?>
             </a>
             <a href="#" class="nav-tab" data-tab="opportunities">
                 <?php esc_html_e( 'Opportunities', 'aeo-content-ai-studio' ); ?>
@@ -104,10 +104,7 @@ $aeocas_log_base = admin_url( 'admin.php?page=aeocas-audit-report' );
             </a>
         </nav>
 
-        <div class="aeo-tab-panel" id="tab-discovery"></div>
-        <div class="aeo-tab-panel" id="tab-site-audit" style="display: none;"></div>
-
-        <div class="aeo-tab-panel" id="tab-connect" style="display: none;">
+        <div class="aeo-tab-panel" id="tab-connect">
             <?php if ( 'disconnected' === $aeocas_notice ) : ?>
                 <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'This site has been disconnected from AEO Content.', 'aeo-content-ai-studio' ); ?></p></div>
             <?php endif; ?>
@@ -229,6 +226,8 @@ $aeocas_log_base = admin_url( 'admin.php?page=aeocas-audit-report' );
             <div id="aeo-connect-audit-section" style="display:none;"></div>
         </div>
 
+        <div class="aeo-tab-panel" id="tab-discovery" style="display: none;"></div>
+        <div class="aeo-tab-panel" id="tab-site-audit" style="display: none;"></div>
         <div class="aeo-tab-panel" id="tab-scoreboard" style="display: none;"></div>
         <div class="aeo-tab-panel" id="tab-opportunities" style="display: none;"></div>
         <div class="aeo-tab-panel" id="tab-rewrite" style="display: none;"></div>

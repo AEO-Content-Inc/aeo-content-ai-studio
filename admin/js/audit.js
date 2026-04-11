@@ -716,8 +716,9 @@
 
         return ''
             + '<div class="aeo-site-audit-header">'
-            +   '<h2>Site Audit</h2>'
+            +   '<h2>Pages Audit</h2>'
             +   '<p class="description">Every page the platform crawled, scored against the full AEO criteria set.</p>'
+            +   '<p><a href="#" class="button button-primary aeo-trigger-reaudit">Run Full Site Re-Audit</a></p>'
             + '</div>'
             + renderSiteAuditStats(audit)
             + renderSiteAuditToolbar(audit)
@@ -758,7 +759,7 @@
         var pct    = STAGE_PROGRESS[status] || 5;
         return ''
             + '<div class="aeo-discovery-pending aeo-site-audit-pending">'
-            +   '<h2>Site audit is running…</h2>'
+            +   '<h2>Pages audit is running…</h2>'
             +   '<p class="description">We\'re crawling every page on your site and scoring it against the full AEO criteria set. This page will update automatically as soon as results are in.</p>'
             +   '<div class="aeo-reaudit-track">'
             +     '<div class="aeo-reaudit-fill aeo-disc-fill" style="width:' + pct + '%;"></div>'
@@ -1800,18 +1801,21 @@
         });
     }
 
-    // Delegated handler for "Run Full Site Audit" buttons inside tab panels.
+    // Delegated handler for "Run Full Site Re-Audit" buttons inside tab panels.
     wrap.addEventListener('click', function (e) {
         if (e.target.classList.contains('aeo-trigger-reaudit')) {
             e.preventDefault();
             if (pollTimer) return;
-            // Switch to Discovery tab (position 0) so user sees the live progress.
+            // Switch to the Discovery tab (by slug, not by position) so user
+            // sees the live rotating-verb progress card.
             var tabs = wrap.querySelectorAll('.nav-tab');
             var panels = wrap.querySelectorAll('.aeo-tab-panel');
             tabs.forEach(function (t) { t.classList.remove('nav-tab-active'); });
             panels.forEach(function (p) { p.style.display = 'none'; });
-            tabs[0].classList.add('nav-tab-active');
-            panels[0].style.display = '';
+            var discoveryTab = wrap.querySelector('.nav-tab[data-tab="discovery"]');
+            var discoveryPanel = document.getElementById('tab-discovery');
+            if (discoveryTab) discoveryTab.classList.add('nav-tab-active');
+            if (discoveryPanel) discoveryPanel.style.display = '';
             triggerReaudit();
         }
     });

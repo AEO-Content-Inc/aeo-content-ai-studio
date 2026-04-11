@@ -234,7 +234,7 @@ class AEOCAS_Settings {
 
         wp_send_json_success( array(
             'message'      => __( 'Connected successfully.', 'aeo-content-ai-studio' ),
-            'redirect_url' => admin_url( 'admin.php?page=aeocas-audit-report' ),
+            'redirect_url' => admin_url( 'admin.php?page=aeocas-audit-report&tab=discovery' ),
             'warning'      => $onboard_warning,
         ) );
     }
