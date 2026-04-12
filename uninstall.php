@@ -5,22 +5,22 @@
  */
 
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
-    exit;
+	exit;
 }
 
 // Remove plugin options.
 $aeocas_options = array(
-    'aeocas_site_token',
-    'aeocas_plugin_token',
-    'aeocas_connection_verified',
-    'aeocas_enabled_features',
-    'aeocas_activity_log_db_version',
-    'aeocas_real_site_url',
-    'aeocas_real_home_url',
+	'aeocas_site_token',
+	'aeocas_plugin_token',
+	'aeocas_connection_verified',
+	'aeocas_enabled_features',
+	'aeocas_activity_log_db_version',
+	'aeocas_real_site_url',
+	'aeocas_real_home_url',
 );
 
 foreach ( $aeocas_options as $aeocas_option ) {
-    delete_option( $aeocas_option );
+	delete_option( $aeocas_option );
 }
 
 // Drop activity log table.
@@ -39,11 +39,11 @@ $aeocas_like_transient = $wpdb->esc_like( '_transient_aeocas_audit_' ) . '%';
 $aeocas_like_timeout   = $wpdb->esc_like( '_transient_timeout_aeocas_audit_' ) . '%';
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $wpdb->query(
-    $wpdb->prepare(
-        "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
-        $aeocas_like_transient,
-        $aeocas_like_timeout
-    )
+	$wpdb->prepare(
+		"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+		$aeocas_like_transient,
+		$aeocas_like_timeout
+	)
 );
 
 // Clear all scheduled cron events.

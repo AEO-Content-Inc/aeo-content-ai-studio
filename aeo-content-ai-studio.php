@@ -14,7 +14,7 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit;
+	exit;
 }
 
 define( 'AEOCAS_VERSION', '1.2.2' );
@@ -32,13 +32,16 @@ require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-plugin.php';
  * Returns the main plugin instance.
  */
 function aeocas_plugin() {
-    return AEOCAS_Plugin::get_instance();
+	return AEOCAS_Plugin::get_instance();
 }
 
 // Register activation hook.
-register_activation_hook( __FILE__, function () {
-    aeocas_plugin()->on_activate();
-} );
+register_activation_hook(
+	__FILE__,
+	function () {
+		aeocas_plugin()->on_activate();
+	}
+);
 
 // Boot the plugin.
 aeocas_plugin();
