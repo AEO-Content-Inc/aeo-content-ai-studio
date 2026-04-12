@@ -27,9 +27,11 @@ $aeocas_module_labels = array(
     'content' => array( 'label' => 'Content Publishing', 'desc' => 'Allow the AEO Content platform to read, create, and update posts on this site.' ),
 );
 
-$aeocas_log_base     = admin_url( 'admin.php?page=aeocas-audit-report' );
-$aeocas_wordmark_url = AEOCAS_PLUGIN_URL . 'admin/images/logo.svg';
-$aeocas_admin_url    = AEOCAS_Settings::get_admin_plugin_url();
+$aeocas_log_base         = admin_url( 'admin.php?page=aeocas-audit-report' );
+$aeocas_wordmark_path    = AEOCAS_PLUGIN_DIR . 'admin/images/logo.png';
+$aeocas_wordmark_version = file_exists( $aeocas_wordmark_path ) ? (string) filemtime( $aeocas_wordmark_path ) : AEOCAS_VERSION;
+$aeocas_wordmark_url     = AEOCAS_PLUGIN_URL . 'admin/images/logo.png?ver=' . rawurlencode( $aeocas_wordmark_version );
+$aeocas_admin_url        = AEOCAS_Settings::get_admin_plugin_url();
 $aeocas_valid_tabs = array( 'connect', 'discovery', 'scoreboard', 'site-audit', 'opportunities', 'rewrite', 'visibility-overview', 'visibility-citations', 'visibility-competitors', 'visibility-trends', 'visibility', 'activity' );
 $aeocas_stage_by_tab = array(
     'connect'                 => 'connect',
