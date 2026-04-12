@@ -272,17 +272,12 @@ class AEOCAS_Audit_Api {
         $audit = self::get_audit( $force );
 
         if ( is_wp_error( $audit ) ) {
-            wp_send_json_error( array( 'message' => $audit->get_error_message() ) );
+            wp_send_json_error( array( 'message' => $audit->get_error_message(), 'code' => $audit->get_error_code() ) );
         }
 
         wp_send_json_success( $audit );
     }
 
-    /**
-     * Trigger a re-audit on the platform.
-     *
-     * @return array|WP_Error Response data or error.
-     */
     /**
      * Dispatch a Discovery + Full Site Audit via /api/v1/plugin/onboard.
      *
@@ -384,6 +379,11 @@ class AEOCAS_Audit_Api {
             return new WP_Error( 'aeocas_api_error', $response->get_error_message() );
         }
 
+        $status = wp_remote_retrieve_response_code( $response );
+        if ( 401 === $status || 403 === $status ) {
+            return self::handle_auth_failure();
+        }
+
         $body = json_decode( wp_remote_retrieve_body( $response ), true );
         return $body;
     }
@@ -398,10 +398,10 @@ class AEOCAS_Audit_Api {
 
         check_ajax_referer( 'aeocas_audit_nonce', 'nonce' );
 
-        $result = self::trigger_reaudit();
+        $result = self::dispatch_audit( true );
 
         if ( is_wp_error( $result ) ) {
-            wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+            wp_send_json_error( array( 'message' => $result->get_error_message(), 'code' => $result->get_error_code() ) );
         }
 
         wp_send_json_success( $result );
