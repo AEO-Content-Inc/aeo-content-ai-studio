@@ -2154,7 +2154,9 @@
                 engines.push({
                     id: firstNonEmpty(item.id, 'engine-' + index),
                     name: name,
-                    count: firstNumber(item.count, item.citations, item.mentions, item.total, engineMap[name]) || 0
+                    count: firstNumber(item.count, item.citations, item.mentions, item.total, engineMap[name]) || 0,
+                    visibility_pct: firstNumber(item.visibility_pct, item.visibilityPct, item.score, item.percent),
+                    tested_queries: firstNumber(item.tested_queries, item.testedQueries, item.total_queries)
                 });
             });
         }
@@ -2183,7 +2185,8 @@
                 name: firstNonEmpty(item.name, item.domain, item.site, item.competitor, 'Competitor ' + (index + 1)),
                 visibilityScore: firstNumber(item.visibility_score, item.score, item.ai_visibility_score),
                 delta30: firstNumber(item.delta_30d, item.score_delta_30d, item.delta, item.change),
-                citationShare: firstNumber(item.citation_share, item.share, item.share_pct, item.percentage)
+                citationShare: firstNumber(item.citation_share, item.share, item.share_pct, item.percentage),
+                mention_count: firstNumber(item.mention_count, item.mentions, item.count)
             });
         });
 
@@ -2722,16 +2725,23 @@
         }
 
         var max = snapshot.engines.reduce(function (largest, engine) {
-            return Math.max(largest, engine.count || 0);
+            var value = hasNumber(engine.visibility_pct) ? toNumber(engine.visibility_pct) : (engine.count || 0);
+            return Math.max(largest, value || 0);
         }, 1);
 
         return '<div class="aeo-visibility-engine-list">' + snapshot.engines.slice(0, 6).map(function (engine) {
-            var pct = clampNumber(((engine.count || 0) / max) * 100, 0, 100);
+            var value = hasNumber(engine.visibility_pct) ? toNumber(engine.visibility_pct) : (engine.count || 0);
+            var pct = hasNumber(engine.visibility_pct)
+                ? clampNumber(engine.visibility_pct, 0, 100)
+                : clampNumber((value / max) * 100, 0, 100);
+            var label = hasNumber(engine.visibility_pct)
+                ? Math.round(toNumber(engine.visibility_pct)) + '%'
+                : formatCompactNumber(engine.count || 0);
             return ''
                 + '<div class="aeo-visibility-engine-row">'
                 +   '<div class="aeo-visibility-engine-head">'
                 +     '<strong>' + esc(engine.name || 'Engine') + '</strong>'
-                +     '<span>' + esc(formatCompactNumber(engine.count || 0)) + '</span>'
+                +     '<span>' + esc(label) + '</span>'
                 +   '</div>'
                 +   '<div class="aeo-visibility-engine-bar"><span style="width:' + pct + '%;"></span></div>'
                 + '</div>';
@@ -2835,7 +2845,10 @@
             var scoreValue = hasNumber(competitor.visibilityScore) ? Math.round(competitor.visibilityScore) : '—';
             var deltaValue = competitor.delta30 !== null ? formatSignedDelta(competitor.delta30) : '—';
             var shareValue = competitor.citationShare !== null ? Math.round(competitor.citationShare) + '%' : '—';
+            var mentionValue = hasNumber(competitor.mention_count) ? formatCompactNumber(competitor.mention_count) : '—';
             var tone = (hasNumber(snapshot.score) && hasNumber(competitor.visibilityScore) && competitor.visibilityScore >= snapshot.score + 10) ? 'critical' : 'neutral';
+            var primaryLabel = hasNumber(competitor.visibilityScore) ? 'Visibility' : 'Mentions';
+            var primaryValue = hasNumber(competitor.visibilityScore) ? scoreValue : mentionValue;
 
             return ''
                 + '<article class="aeo-visibility-competitor-card">'
@@ -2844,7 +2857,7 @@
                 +     '<span class="aeo-status-chip aeo-status-chip-' + esc(tone) + '">' + (tone === 'critical' ? 'Ahead' : 'Observed') + '</span>'
                 +   '</div>'
                 +   '<div class="aeo-visibility-competitor-metrics">'
-                +     '<div><span>Visibility</span><strong>' + esc(String(scoreValue)) + '</strong></div>'
+                +     '<div><span>' + esc(primaryLabel) + '</span><strong>' + esc(String(primaryValue)) + '</strong></div>'
                 +     '<div><span>30d delta</span><strong>' + esc(String(deltaValue)) + '</strong></div>'
                 +     '<div><span>Citation share</span><strong>' + esc(String(shareValue)) + '</strong></div>'
                 +   '</div>'

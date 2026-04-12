@@ -123,6 +123,10 @@ class AEOCAS_Audit_Api {
             return null;
         }
 
+        if ( isset( $payload['engines'] ) && isset( $payload['citations_count'] ) ) {
+            return $payload;
+        }
+
         if ( ! empty( $payload['visibility'] ) && is_array( $payload['visibility'] ) ) {
             return $payload['visibility'];
         }
@@ -132,6 +136,323 @@ class AEOCAS_Audit_Api {
         }
 
         return null;
+    }
+
+    /**
+     * Convert internal engine keys into user-facing labels.
+     *
+     * @param string $engine Engine key.
+     * @return string
+     */
+    private static function visibility_engine_label( $engine ) {
+        $engine = sanitize_key( $engine );
+
+        switch ( $engine ) {
+            case 'chatgpt':
+                return 'ChatGPT';
+            case 'perplexity':
+                return 'Perplexity';
+            case 'claude':
+                return 'Claude';
+            case 'gemini':
+                return 'Gemini';
+            case 'google_aio':
+            case 'google-ai-overview':
+            case 'google_ai_overview':
+                return 'Google AI Overview';
+            default:
+                return ucwords( str_replace( array( '-', '_' ), ' ', $engine ) );
+        }
+    }
+
+    /**
+     * Normalize the public /api/v1/visibility response into the compact
+     * snapshot shape used by the WordPress plugin UI.
+     *
+     * @param mixed $payload Raw visibility API response.
+     * @return array|null
+     */
+    private static function normalize_visibility_payload( $payload ) {
+        if ( ! is_array( $payload ) ) {
+            return null;
+        }
+
+        $reports = array();
+        if ( isset( $payload['data'] ) ) {
+            if ( is_array( $payload['data'] ) && isset( $payload['data'][0] ) ) {
+                $reports = $payload['data'];
+            } elseif ( is_array( $payload['data'] ) ) {
+                $reports = array( $payload['data'] );
+            }
+        } elseif ( isset( $payload[0] ) && is_array( $payload[0] ) ) {
+            $reports = $payload;
+        } elseif ( isset( $payload['engine'] ) ) {
+            $reports = array( $payload );
+        }
+
+        if ( empty( $reports ) ) {
+            return null;
+        }
+
+        $total_visible       = 0;
+        $total_queries       = 0;
+        $engines             = array();
+        $alerts              = array();
+        $citations           = array();
+        $competitors         = array();
+        $trend_points        = array();
+        $latest_synced_at    = '';
+        $competitor_mentions = array();
+        $seen_alerts         = array();
+
+        foreach ( $reports as $report ) {
+            if ( ! is_array( $report ) ) {
+                continue;
+            }
+
+            $engine_key   = isset( $report['engine'] ) ? (string) $report['engine'] : 'unknown';
+            $engine_label = self::visibility_engine_label( $engine_key );
+            $visible_count = isset( $report['visibility_score'] ) ? (int) $report['visibility_score'] : 0;
+            $query_total   = isset( $report['visibility_total'] ) ? (int) $report['visibility_total'] : 0;
+            $engine_pct    = $query_total > 0 ? (int) round( ( $visible_count / $query_total ) * 100 ) : null;
+            $domain        = isset( $report['domain'] ) ? preg_replace( '/^www\./', '', (string) $report['domain'] ) : '';
+            $page_url      = $domain ? 'https://' . ltrim( $domain, '/' ) : '';
+            $created_at    = isset( $report['created_at'] ) ? (string) $report['created_at'] : '';
+
+            $engines[] = array(
+                'name'          => $engine_label,
+                'engine'        => sanitize_key( $engine_key ),
+                'count'         => $visible_count,
+                'visibility_pct'=> $engine_pct,
+                'tested_queries'=> $query_total,
+            );
+
+            $total_visible += $visible_count;
+            $total_queries += $query_total;
+
+            if ( $created_at && ( empty( $latest_synced_at ) || strtotime( $created_at ) > strtotime( $latest_synced_at ) ) ) {
+                $latest_synced_at = $created_at;
+            }
+
+            $key_findings = isset( $report['key_findings'] ) && is_array( $report['key_findings'] ) ? $report['key_findings'] : array();
+            foreach ( $key_findings as $finding ) {
+                if ( ! is_array( $finding ) ) {
+                    continue;
+                }
+
+                $text = isset( $finding['text'] ) ? wp_strip_all_tags( (string) $finding['text'] ) : '';
+                if ( '' === $text ) {
+                    continue;
+                }
+
+                $finding_type = isset( $finding['type'] ) ? sanitize_key( (string) $finding['type'] ) : 'finding';
+                $severity     = 'warning' === $finding_type ? 'warning' : 'neutral';
+                $alert_key    = md5( $severity . '|' . $text );
+                if ( isset( $seen_alerts[ $alert_key ] ) ) {
+                    continue;
+                }
+
+                $seen_alerts[ $alert_key ] = true;
+                $alerts[] = array(
+                    'severity' => $severity,
+                    'title'    => $text,
+                    'detail'   => $engine_label . ' finding',
+                    'category' => 'finding',
+                    'engine'   => $engine_label,
+                );
+            }
+
+            $action_plan = isset( $report['action_plan'] ) && is_array( $report['action_plan'] ) ? $report['action_plan'] : array();
+            foreach ( array_slice( $action_plan, 0, 4 ) as $action_item ) {
+                if ( ! is_array( $action_item ) ) {
+                    continue;
+                }
+
+                $title = isset( $action_item['action'] ) ? wp_strip_all_tags( (string) $action_item['action'] ) : '';
+                if ( '' === $title ) {
+                    continue;
+                }
+
+                $priority = isset( $action_item['priority'] ) ? strtoupper( (string) $action_item['priority'] ) : '';
+                $severity = 'warning';
+                if ( 'P0' === $priority ) {
+                    $severity = 'critical';
+                } elseif ( ! in_array( $priority, array( 'P0', 'P1' ), true ) ) {
+                    $severity = 'neutral';
+                }
+
+                $detail = '';
+                if ( ! empty( $action_item['impact'] ) ) {
+                    $detail = wp_strip_all_tags( (string) $action_item['impact'] );
+                } elseif ( ! empty( $action_item['notes'] ) ) {
+                    $detail = wp_strip_all_tags( (string) $action_item['notes'] );
+                }
+
+                $alert_key = md5( 'action|' . $severity . '|' . $title );
+                if ( isset( $seen_alerts[ $alert_key ] ) ) {
+                    continue;
+                }
+
+                $seen_alerts[ $alert_key ] = true;
+                $alerts[] = array(
+                    'severity' => $severity,
+                    'title'    => $title,
+                    'detail'   => $detail,
+                    'category' => 'action',
+                    'engine'   => $engine_label,
+                );
+            }
+
+            $variants = isset( $report['query_variants'] ) && is_array( $report['query_variants'] ) ? $report['query_variants'] : array();
+            foreach ( $variants as $variant ) {
+                if ( ! is_array( $variant ) || empty( $variant['query'] ) ) {
+                    continue;
+                }
+
+                $query          = wp_strip_all_tags( (string) $variant['query'] );
+                $target_visible = ! empty( $variant['target_visible'] );
+                $snippet        = ! empty( $variant['what_llm_returns'] ) ? wp_strip_all_tags( (string) $variant['what_llm_returns'] ) : '';
+
+                if ( $target_visible ) {
+                    $citations[] = array(
+                        'engine'    => $engine_label,
+                        'query'     => $query,
+                        'page_url'  => $page_url,
+                        'page_title'=> $domain ? $domain : $engine_label,
+                        'cited_at'  => $created_at,
+                        'snippet'   => $snippet,
+                        'severity'  => 'neutral',
+                    );
+                }
+
+                if ( ! empty( $variant['competitor_visibility'] ) && is_array( $variant['competitor_visibility'] ) ) {
+                    foreach ( $variant['competitor_visibility'] as $competitor_domain => $is_visible ) {
+                        if ( ! $is_visible ) {
+                            continue;
+                        }
+
+                        $competitor_key = preg_replace( '/^www\./', '', strtolower( (string) $competitor_domain ) );
+                        if ( '' === $competitor_key || $competitor_key === $domain ) {
+                            continue;
+                        }
+
+                        if ( ! isset( $competitor_mentions[ $competitor_key ] ) ) {
+                            $competitor_mentions[ $competitor_key ] = 0;
+                        }
+                        $competitor_mentions[ $competitor_key ]++;
+                    }
+                }
+            }
+
+            $llm_entries = isset( $report['llm_response_analysis'] ) && is_array( $report['llm_response_analysis'] ) ? $report['llm_response_analysis'] : array();
+            foreach ( $llm_entries as $entry ) {
+                if ( ! is_array( $entry ) || empty( $entry['domain'] ) ) {
+                    continue;
+                }
+
+                $competitor_key = preg_replace( '/^www\./', '', strtolower( (string) $entry['domain'] ) );
+                if ( '' === $competitor_key || $competitor_key === $domain ) {
+                    continue;
+                }
+
+                if ( ! isset( $competitor_mentions[ $competitor_key ] ) ) {
+                    $competitor_mentions[ $competitor_key ] = 0;
+                }
+                $competitor_mentions[ $competitor_key ]++;
+            }
+
+            $comparison_rows = isset( $report['competitor_comparison'] ) && is_array( $report['competitor_comparison'] ) ? $report['competitor_comparison'] : array();
+            foreach ( $comparison_rows as $row ) {
+                if ( empty( $row['competitors'] ) || ! is_array( $row['competitors'] ) ) {
+                    continue;
+                }
+
+                foreach ( $row['competitors'] as $competitor ) {
+                    if ( ! is_array( $competitor ) || empty( $competitor['name'] ) ) {
+                        continue;
+                    }
+
+                    $competitor_key = strtolower( trim( (string) $competitor['name'] ) );
+                    if ( '' === $competitor_key ) {
+                        continue;
+                    }
+
+                    if ( ! isset( $competitor_mentions[ $competitor_key ] ) ) {
+                        $competitor_mentions[ $competitor_key ] = 0;
+                    }
+                    $competitor_mentions[ $competitor_key ]++;
+                }
+            }
+        }
+
+        $timeline = isset( $payload['timeline'] ) && is_array( $payload['timeline'] ) ? $payload['timeline'] : array();
+        foreach ( $timeline as $point ) {
+            if ( ! is_array( $point ) || ! isset( $point['score'] ) ) {
+                continue;
+            }
+
+            $trend_points[] = array(
+                'date'  => isset( $point['published_at'] ) ? (string) $point['published_at'] : '',
+                'score' => (int) $point['score'],
+            );
+        }
+
+        $delta_7d  = null;
+        $delta_30d = null;
+        if ( count( $trend_points ) >= 2 ) {
+            $last_index = count( $trend_points ) - 1;
+            $delta_7d   = (int) $trend_points[ $last_index ]['score'] - (int) $trend_points[ $last_index - 1 ]['score'];
+            $delta_30d  = (int) $trend_points[ $last_index ]['score'] - (int) $trend_points[0]['score'];
+        }
+
+        $query_deltas = isset( $payload['query_deltas'] ) && is_array( $payload['query_deltas'] ) ? $payload['query_deltas'] : array();
+        foreach ( $query_deltas as $delta ) {
+            if ( ! is_array( $delta ) || empty( $delta['query'] ) || empty( $delta['change'] ) ) {
+                continue;
+            }
+
+            $change = sanitize_key( (string) $delta['change'] );
+            if ( ! in_array( $change, array( 'gained', 'lost' ), true ) ) {
+                continue;
+            }
+
+            $query = wp_strip_all_tags( (string) $delta['query'] );
+            $severity = 'lost' === $change ? 'critical' : 'healthy';
+            $alerts[] = array(
+                'severity' => $severity,
+                'title'    => ( 'lost' === $change ? 'Lost visibility for' : 'Gained visibility for' ) . ' "' . $query . '"',
+                'detail'   => 'Derived from recent visibility version changes.',
+                'category' => 'delta',
+                'engine'   => '',
+            );
+        }
+
+        arsort( $competitor_mentions );
+        $top_competitor_count = ! empty( $competitor_mentions ) ? (int) reset( $competitor_mentions ) : 0;
+        foreach ( array_slice( $competitor_mentions, 0, 8, true ) as $competitor_name => $mention_count ) {
+            $competitors[] = array(
+                'name'            => $competitor_name,
+                'visibility_score'=> null,
+                'delta_30d'       => null,
+                'citation_share'  => $total_visible > 0 ? (int) round( ( $mention_count / $total_visible ) * 100 ) : null,
+                'mention_count'   => (int) $mention_count,
+                'relative_score'  => $top_competitor_count > 0 ? (int) round( ( $mention_count / $top_competitor_count ) * 100 ) : null,
+            );
+        }
+
+        return array(
+            'status'            => 'ready',
+            'visibility_score'  => $total_queries > 0 ? (int) round( ( $total_visible / $total_queries ) * 100 ) : null,
+            'delta_7d'          => $delta_7d,
+            'delta_30d'         => $delta_30d,
+            'citations_count'   => $total_visible,
+            'engines'           => $engines,
+            'top_citations'     => array_slice( $citations, 0, 20 ),
+            'competitors'       => $competitors,
+            'alerts'            => array_slice( $alerts, 0, 20 ),
+            'trend_points_30d'  => $trend_points,
+            'last_synced_at'    => $latest_synced_at,
+        );
     }
 
     /**
@@ -320,7 +641,7 @@ class AEOCAS_Audit_Api {
             return $cached_visibility;
         }
 
-        $url = trailingslashit( AEOCAS_PLATFORM_URL ) . 'api/v1/audits/' . $slug . '/visibility';
+        $url = trailingslashit( AEOCAS_PLATFORM_URL ) . 'api/v1/visibility/' . $slug . '?include=timeline';
 
         $response = wp_remote_get( $url, array(
             'headers' => array(
@@ -358,10 +679,10 @@ class AEOCAS_Audit_Api {
             return new WP_Error( 'aeocas_api_error', $message );
         }
 
-        $payload = isset( $body['data'] ) ? $body['data'] : $body;
+        $payload    = $body;
         $visibility = self::extract_visibility_payload( $payload );
-        if ( ! $visibility && is_array( $payload ) ) {
-            $visibility = $payload;
+        if ( ! $visibility ) {
+            $visibility = self::normalize_visibility_payload( $payload );
         }
 
         if ( empty( $visibility ) || ! is_array( $visibility ) ) {
