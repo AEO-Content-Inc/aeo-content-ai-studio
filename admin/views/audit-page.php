@@ -64,6 +64,189 @@ $aeocas_log_last_action_label = $aeocas_stats['last_action']
     : __( 'Never', 'aeo-content-ai-studio' );
 $aeocas_activity_error_count = isset( $aeocas_stats['error'] ) ? (int) $aeocas_stats['error'] : 0;
 ?>
+<style id="aeo-audit-critical-shell">
+    /* Critical shell styles live inline as a cache-safe fallback so plugin
+       upgrades do not leave the workflow header/rail unstyled in wp-admin. */
+    #aeo-audit-wrap .aeo-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 22px;
+        margin: 6px 0 24px;
+        padding: 24px 28px;
+        border: 1px solid rgba(31, 42, 51, 0.12);
+        border-radius: 28px;
+        background:
+            radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 36%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 245, 236, 0.96));
+        box-shadow: 0 18px 40px rgba(31, 42, 51, 0.08);
+    }
+    #aeo-audit-wrap .aeo-header-brand { display:flex; align-items:flex-start; gap:16px; min-width:0; }
+    #aeo-audit-wrap .aeo-header-logo-wrap {
+        display:inline-flex; align-items:center; justify-content:center; width:76px; height:76px; flex-shrink:0;
+        border-radius:22px; border:1px solid rgba(15, 118, 110, 0.18);
+        background:linear-gradient(180deg, rgba(15, 118, 110, 0.12), rgba(255,255,255,0.98));
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.85);
+    }
+    #aeo-audit-wrap .aeo-header-logo { display:block; width:52px; height:52px; }
+    #aeo-audit-wrap .aeo-header-copy { display:flex; flex-direction:column; gap:8px; min-width:0; }
+    #aeo-audit-wrap .aeo-header-kicker {
+        display:inline-flex; align-items:center; width:max-content; padding:4px 10px;
+        border-radius:999px; background:rgba(15, 118, 110, 0.08); color:#0f766e;
+        font-size:11px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;
+    }
+    #aeo-audit-wrap .aeo-settings h1,
+    #aeo-audit-wrap h1 {
+        margin:0;
+        font-size:32px;
+        line-height:1.05;
+    }
+    #aeo-audit-wrap .aeo-subtitle { margin:0; font-size:15px; line-height:1.6; max-width:70ch; }
+    #aeo-audit-wrap .aeo-header-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-left:auto; }
+    #aeo-audit-wrap .aeo-header-actions .button { min-height:40px; padding-inline:16px; }
+    #aeo-audit-wrap .aeo-version {
+        display:inline-flex; align-items:center; justify-content:center; min-height:34px; padding:0 12px;
+        border-radius:999px; background:rgba(31, 42, 51, 0.06); color:#66717d; font-size:12px; font-weight:700;
+    }
+
+    #aeo-audit-wrap .aeo-workflow-rail {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 18px;
+        margin: 0 0 28px;
+        padding: 6px 0 10px;
+    }
+    #aeo-audit-wrap .aeo-workflow-rail::before {
+        content: '';
+        position: absolute;
+        top: 52px;
+        left: 84px;
+        right: 84px;
+        height: 3px;
+        background: linear-gradient(90deg, rgba(15, 118, 110, 0.18), rgba(15, 118, 110, 0.08));
+        pointer-events: none;
+    }
+    #aeo-audit-wrap .aeo-workflow-step {
+        position: relative;
+        display: flex !important;
+        flex-direction: column;
+        gap: 16px;
+        min-height: 154px;
+        padding: 20px 20px 18px;
+        border: 1px solid rgba(31, 42, 51, 0.12);
+        border-radius: 24px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(249,245,236,0.94));
+        box-shadow: 0 18px 40px rgba(31, 42, 51, 0.08);
+        color: #1f2a33 !important;
+        text-decoration: none !important;
+        overflow: visible;
+    }
+    #aeo-audit-wrap .aeo-workflow-step.is-active {
+        transform: translateY(-3px);
+        border-color: rgba(15, 118, 110, 0.45);
+        box-shadow: 0 22px 50px rgba(31, 42, 51, 0.14);
+    }
+    #aeo-audit-wrap .aeo-workflow-step.is-attention {
+        background: linear-gradient(180deg, rgba(255,250,249,0.98), rgba(253,231,226,0.96));
+        border-color: rgba(196, 61, 61, 0.28);
+    }
+    #aeo-audit-wrap .aeo-workflow-step.is-progress {
+        background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(223,244,239,0.72));
+        border-color: rgba(15, 118, 110, 0.24);
+    }
+    #aeo-audit-wrap .aeo-workflow-step.is-healthy {
+        background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(228,243,232,0.92));
+        border-color: rgba(47, 133, 90, 0.28);
+    }
+    #aeo-audit-wrap .aeo-workflow-step-top { display:flex; align-items:center; gap:12px; min-width:0; padding-right:24px; }
+    #aeo-audit-wrap .aeo-workflow-step-index {
+        position:relative; z-index:1; display:inline-flex; align-items:center; justify-content:center;
+        width:40px; height:40px; border-radius:999px; border:1px solid rgba(31,42,51,0.12);
+        background:#fff; font-size:15px; font-weight:700; box-shadow:0 10px 20px rgba(31,42,51,0.08);
+    }
+    #aeo-audit-wrap .aeo-workflow-step-icon {
+        display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px;
+        border-radius:14px; border:1px solid rgba(15,118,110,0.16); background:rgba(15,118,110,0.08); color:#0f766e;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.82);
+    }
+    #aeo-audit-wrap .aeo-workflow-step-icon .dashicons { width:20px; height:20px; font-size:20px; }
+    #aeo-audit-wrap .aeo-workflow-step-body { display:flex; flex-direction:column; gap:8px; min-width:0; padding-right:26px; }
+    #aeo-audit-wrap .aeo-workflow-step-title { display:block; font-size:18px; font-weight:700; line-height:1.2; }
+    #aeo-audit-wrap .aeo-workflow-step-label { display:block; color:#66717d; font-size:14px; line-height:1.55; }
+    #aeo-audit-wrap .aeo-workflow-step-state {
+        display:inline-flex; align-items:center; justify-content:center; width:max-content; max-width:100%;
+        margin-top:auto; padding:6px 10px; border-radius:999px; font-size:11px; font-weight:700;
+        letter-spacing:0.03em; text-transform:uppercase; background:#eef2f4; color:#66717d;
+    }
+    #aeo-audit-wrap .aeo-workflow-step-state.is-attention { background:#fde7e2; color:#c43d3d; }
+    #aeo-audit-wrap .aeo-workflow-step-state.is-progress { background:#dff4ef; color:#0f766e; }
+    #aeo-audit-wrap .aeo-workflow-step-state.is-healthy { background:#e4f3e8; color:#2f855a; }
+
+    #aeo-audit-wrap .aeo-workflow-badge,
+    #aeo-audit-wrap .aeo-subtab-badge {
+        display:none;
+        align-items:center;
+        justify-content:center;
+        min-width:26px;
+        height:26px;
+        padding:0 8px;
+        border-radius:999px;
+        background:#c43d3d;
+        color:#fff;
+        font-size:12px;
+        font-weight:700;
+        line-height:1;
+        box-shadow:0 0 0 4px #fff, 0 12px 24px rgba(196, 61, 61, 0.24);
+    }
+    #aeo-audit-wrap .aeo-workflow-badge.is-visible,
+    #aeo-audit-wrap .aeo-subtab-badge.is-visible { display:inline-flex !important; }
+    #aeo-audit-wrap .aeo-workflow-badge { position:absolute; top:14px; right:14px; z-index:2; }
+
+    #aeo-audit-wrap .aeo-subtabs { display:flex; gap:12px; flex-wrap:wrap; }
+    #aeo-audit-wrap .aeo-subtab {
+        display:inline-flex !important;
+        align-items:center;
+        gap:10px;
+        min-height:56px;
+        padding:10px 16px 10px 12px;
+        border:1px solid rgba(31, 42, 51, 0.12);
+        border-radius:18px;
+        background:linear-gradient(180deg, rgba(255,253,248,0.9), rgba(245,241,232,0.72));
+        color:#66717d !important;
+        font-size:14px;
+        font-weight:700;
+        text-decoration:none !important;
+        box-sizing:border-box;
+    }
+    #aeo-audit-wrap .aeo-subtab.is-active {
+        background:#fffdf8;
+        color:#1f2a33 !important;
+        border-color:rgba(15, 118, 110, 0.32);
+        box-shadow:0 18px 30px rgba(31, 42, 51, 0.1);
+    }
+    #aeo-audit-wrap .aeo-subtab-icon {
+        display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px;
+        border-radius:12px; background:rgba(15,118,110,0.08); color:#0f766e; flex-shrink:0;
+    }
+    #aeo-audit-wrap .aeo-subtab-icon .dashicons { width:18px; height:18px; font-size:18px; }
+    #aeo-audit-wrap .aeo-subtab-label { line-height:1.3; }
+    #aeo-audit-wrap .aeo-subtab-badge { margin-left:auto; }
+
+    @media (max-width: 1200px) {
+        #aeo-audit-wrap .aeo-workflow-rail { display:flex; overflow-x:auto; padding-bottom:8px; }
+        #aeo-audit-wrap .aeo-workflow-rail::before { display:none; }
+        #aeo-audit-wrap .aeo-workflow-step { min-width:270px; flex:0 0 270px; }
+    }
+    @media (max-width: 782px) {
+        #aeo-audit-wrap .aeo-header { flex-direction:column; padding:18px 20px; }
+        #aeo-audit-wrap .aeo-header-actions { width:100%; justify-content:flex-start; margin-left:0; }
+        #aeo-audit-wrap .aeo-header-logo-wrap { width:64px; height:64px; }
+        #aeo-audit-wrap .aeo-header-logo { width:46px; height:46px; }
+        #aeo-audit-wrap .aeo-settings h1,
+        #aeo-audit-wrap h1 { font-size:28px; }
+    }
+</style>
 <div class="wrap aeo-settings" id="aeo-audit-wrap" data-requested-tab="<?php echo esc_attr( $aeocas_requested_tab ); ?>" data-connected="<?php echo $aeocas_connected ? '1' : '0'; ?>" data-feature-count="<?php echo esc_attr( count( $aeocas_features ) ); ?>">
     <div class="aeo-header">
         <div class="aeo-header-brand">
