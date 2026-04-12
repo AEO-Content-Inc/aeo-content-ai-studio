@@ -27,9 +27,10 @@ $aeocas_module_labels = array(
     'content' => array( 'label' => 'Content Publishing', 'desc' => 'Allow the AEO Content platform to read, create, and update posts on this site.' ),
 );
 
-$aeocas_log_base  = admin_url( 'admin.php?page=aeocas-audit-report' );
-$aeocas_logo_url  = AEOCAS_PLUGIN_URL . 'admin/images/icon.svg';
-$aeocas_admin_url = AEOCAS_Settings::get_admin_plugin_url();
+$aeocas_log_base     = admin_url( 'admin.php?page=aeocas-audit-report' );
+$aeocas_icon_url     = AEOCAS_PLUGIN_URL . 'admin/images/icon.svg';
+$aeocas_wordmark_url = AEOCAS_PLUGIN_URL . 'admin/images/logo.svg';
+$aeocas_admin_url    = AEOCAS_Settings::get_admin_plugin_url();
 $aeocas_valid_tabs = array( 'connect', 'discovery', 'scoreboard', 'site-audit', 'opportunities', 'rewrite', 'visibility-overview', 'visibility-citations', 'visibility-competitors', 'visibility-trends', 'visibility', 'activity' );
 $aeocas_stage_by_tab = array(
     'connect'                 => 'connect',
@@ -69,17 +70,20 @@ $aeocas_active_stage = isset( $aeocas_stage_by_tab[ $aeocas_active_tab ] ) ? $ae
     #aeo-audit-wrap .aeo-header-brand { display:flex; align-items:flex-start; gap:16px; min-width:0; }
     #aeo-audit-wrap .aeo-header-logo-wrap {
         display:inline-flex; align-items:center; justify-content:center; width:76px; height:76px; flex-shrink:0;
-        border-radius:22px; border:1px solid rgba(15, 118, 110, 0.18);
-        background:linear-gradient(180deg, rgba(15, 118, 110, 0.12), rgba(255,255,255,0.98));
+        border-radius:22px; border:1px solid rgba(62, 118, 230, 0.2);
+        background:
+            radial-gradient(circle at top left, rgba(62, 118, 230, 0.18), transparent 55%),
+            linear-gradient(180deg, rgba(255,255,255,0.98), rgba(239, 244, 255, 0.94));
         box-shadow: inset 0 1px 0 rgba(255,255,255,0.85);
     }
     #aeo-audit-wrap .aeo-header-logo { display:block; width:52px; height:52px; }
     #aeo-audit-wrap .aeo-header-copy { display:flex; flex-direction:column; gap:8px; min-width:0; }
-    #aeo-audit-wrap .aeo-header-kicker {
-        display:inline-flex; align-items:center; width:max-content; padding:4px 10px;
-        border-radius:999px; background:rgba(15, 118, 110, 0.08); color:#0f766e;
-        font-size:11px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;
+    #aeo-audit-wrap .aeo-header-wordmark-wrap {
+        display:inline-flex; align-items:center; width:max-content; max-width:100%;
+        padding:11px 16px; border-radius:999px; background:#121313;
+        border:1px solid rgba(31, 42, 51, 0.14); box-shadow:0 10px 26px rgba(31, 42, 51, 0.12);
     }
+    #aeo-audit-wrap .aeo-header-wordmark { display:block; width:172px; max-width:100%; height:auto; }
     #aeo-audit-wrap .aeo-settings h1,
     #aeo-audit-wrap h1 {
         margin:0;
@@ -228,6 +232,7 @@ $aeocas_active_stage = isset( $aeocas_stage_by_tab[ $aeocas_active_tab ] ) ? $ae
         #aeo-audit-wrap .aeo-header-actions { width:100%; justify-content:flex-start; margin-left:0; }
         #aeo-audit-wrap .aeo-header-logo-wrap { width:64px; height:64px; }
         #aeo-audit-wrap .aeo-header-logo { width:46px; height:46px; }
+        #aeo-audit-wrap .aeo-header-wordmark { width:152px; }
         #aeo-audit-wrap .aeo-settings h1,
         #aeo-audit-wrap h1 { font-size:28px; }
     }
@@ -236,10 +241,12 @@ $aeocas_active_stage = isset( $aeocas_stage_by_tab[ $aeocas_active_tab ] ) ? $ae
     <div class="aeo-header">
         <div class="aeo-header-brand">
             <span class="aeo-header-logo-wrap">
-                <img class="aeo-header-logo" src="<?php echo esc_url( $aeocas_logo_url ); ?>" alt="" width="52" height="52" />
+                <img class="aeo-header-logo" src="<?php echo esc_url( $aeocas_icon_url ); ?>" alt="" width="52" height="52" />
             </span>
             <div class="aeo-header-copy">
-                <span class="aeo-header-kicker"><?php esc_html_e( 'AEO Content Plugin', 'aeo-content-ai-studio' ); ?></span>
+                <span class="aeo-header-wordmark-wrap">
+                    <img class="aeo-header-wordmark" src="<?php echo esc_url( $aeocas_wordmark_url ); ?>" alt="<?php esc_attr_e( 'AEO Content', 'aeo-content-ai-studio' ); ?>" width="172" height="34" />
+                </span>
                 <h1><?php esc_html_e( 'AEO Content AI Studio', 'aeo-content-ai-studio' ); ?></h1>
                 <p class="aeo-subtitle">
                     <?php esc_html_e( 'AI Engine Optimization for WordPress. Powered by', 'aeo-content-ai-studio' ); ?>

@@ -57,17 +57,12 @@ class AEOCAS_Settings {
     private static function get_menu_icon_data_uri() {
         $svg = <<<'SVG'
 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
-  <g fill="none" stroke="#a7aaad" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M5 10.2a5 5 0 0 1 8.5-3.55"/>
-    <path d="M6.35 13.8A4.95 4.95 0 0 0 10 15.4c2.98 0 5.4-2.42 5.4-5.4"/>
-    <path d="M10 10l4.12-3.98"/>
-    <path d="M10 10l-3.62 3.36"/>
-    <path d="M10 10L6.92 7.24"/>
+  <g fill="none" stroke="#72A2FF" stroke-width="2.15" stroke-linecap="round">
+    <path d="M10 17.5C4.2 17.5 2 12.2 5.8 6.55" opacity="0.52"/>
+    <path d="M10 15.55C6.15 15.55 4.7 12.15 7.1 7.8" opacity="0.76"/>
+    <path d="M10 13.6C8.05 13.6 7.05 12 7.95 8.95"/>
   </g>
-  <circle cx="10" cy="10" r="1.9" fill="#dcdcde"/>
-  <circle cx="14.25" cy="6.02" r="1.18" fill="#dcdcde"/>
-  <circle cx="6.32" cy="13.38" r="1.12" fill="#dcdcde"/>
-  <circle cx="6.96" cy="7.24" r="1.04" fill="#dcdcde"/>
+  <circle cx="10" cy="10" r="2.05" fill="#3E76E6"/>
 </svg>
 SVG;
 

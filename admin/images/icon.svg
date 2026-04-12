@@ -1,29 +1,8 @@
-<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-<defs>
-<linearGradient id="aeoIconBg" x1="2.5" y1="2" x2="17.5" y2="18" gradientUnits="userSpaceOnUse">
-<stop stop-color="#F8FCFB"/>
-<stop offset="1" stop-color="#E6F3F0"/>
-</linearGradient>
-<linearGradient id="aeoIconOrbit" x1="5.1" y1="4.9" x2="15.6" y2="15.8" gradientUnits="userSpaceOnUse">
-<stop stop-color="#0F766E"/>
-<stop offset="1" stop-color="#7C3AED"/>
-</linearGradient>
-<radialGradient id="aeoIconCoreGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(10 10) rotate(90) scale(3.2)">
-<stop stop-color="#CBB2FF"/>
-<stop offset="1" stop-color="#CBB2FF" stop-opacity="0"/>
-</radialGradient>
-</defs>
-<rect x="0.75" y="0.75" width="18.5" height="18.5" rx="5" fill="url(#aeoIconBg)" stroke="#D5E1DE" stroke-width="1.5"/>
-<circle cx="10" cy="10" r="6.45" stroke="#B8CAC5" stroke-width="1.1"/>
-<circle cx="10" cy="10" r="4.15" stroke="#DDE8E5" stroke-width="1"/>
-<path d="M10 10L14.3 5.95" stroke="#1F2A33" stroke-opacity="0.18" stroke-width="0.95" stroke-linecap="round"/>
-<path d="M10 10L6.15 13.6" stroke="#1F2A33" stroke-opacity="0.18" stroke-width="0.95" stroke-linecap="round"/>
-<path d="M10 10L6.7 7.2" stroke="#1F2A33" stroke-opacity="0.18" stroke-width="0.95" stroke-linecap="round"/>
-<path d="M4.85 11.85C5.6 14.15 7.6 15.8 10 15.8C13.05 15.8 15.55 13.35 15.55 10.35C15.55 8.83 14.9 7.42 13.75 6.42" stroke="url(#aeoIconOrbit)" stroke-width="1.3" stroke-linecap="round"/>
-<circle cx="10" cy="10" r="3.1" fill="url(#aeoIconCoreGlow)"/>
-<circle cx="10" cy="10" r="1.85" fill="#7C3AED"/>
-<circle cx="10" cy="10" r="0.65" fill="#F3ECFF"/>
-<circle cx="14.55" cy="5.85" r="1.2" fill="#14B8A6"/>
-<circle cx="6.15" cy="13.65" r="1.15" fill="#14B8A6"/>
-<circle cx="6.8" cy="7.15" r="1.05" fill="#F59E0B"/>
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(4 4)">
+    <path d="M16 28C4 28 0 16 8 6" stroke="#3E76E6" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.4"/>
+    <path d="M16 24C8 24 5 16 10 8" stroke="#3E76E6" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.7"/>
+    <path d="M16 20C12 20 10 16 12 10" stroke="#3E76E6" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+    <circle cx="16" cy="16" r="3" fill="#3E76E6"/>
+  </g>
 </svg>

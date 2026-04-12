@@ -127,6 +127,7 @@ final class AEOCASSettingsTest extends TestCase {
         $this->assertIsString( $svg );
         $this->assertStringContainsString( '<svg', $svg );
         $this->assertStringContainsString( 'fill="none"', $svg );
+        $this->assertStringContainsString( '#3E76E6', $svg );
         $this->assertStringNotContainsString( '<rect', $svg );
     }
 }
