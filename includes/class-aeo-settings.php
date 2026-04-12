@@ -351,21 +351,23 @@ SVG;
             ) );
         }
 
-        // Audit page JS.
-        $js_ver = AEOCAS_VERSION . '.' . filemtime( AEOCAS_PLUGIN_DIR . 'admin/js/audit.js' );
-        wp_enqueue_script(
-            'aeocas-audit',
-            AEOCAS_PLUGIN_URL . 'admin/js/audit.js',
-            array(),
-            $js_ver,
-            true
-        );
-        wp_localize_script( 'aeocas-audit', 'aeocasAudit', array(
-            'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
-            'nonce'          => wp_create_nonce( 'aeocas_audit_nonce' ),
-            'favicon'        => get_site_icon_url( 48, '' ),
-            'adminPluginUrl' => self::get_admin_plugin_url(),
-        ) );
+        // Only boot the heavy audit app once the site is connected.
+        if ( $connected ) {
+            $js_ver = AEOCAS_VERSION . '.' . filemtime( AEOCAS_PLUGIN_DIR . 'admin/js/audit.js' );
+            wp_enqueue_script(
+                'aeocas-audit',
+                AEOCAS_PLUGIN_URL . 'admin/js/audit.js',
+                array(),
+                $js_ver,
+                true
+            );
+            wp_localize_script( 'aeocas-audit', 'aeocasAudit', array(
+                'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+                'nonce'          => wp_create_nonce( 'aeocas_audit_nonce' ),
+                'favicon'        => get_site_icon_url( 48, '' ),
+                'adminPluginUrl' => self::get_admin_plugin_url(),
+            ) );
+        }
     }
 
     // The old render_page() (Settings) and render_activity_log() methods were

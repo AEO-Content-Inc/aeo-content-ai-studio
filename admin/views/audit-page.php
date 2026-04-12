@@ -50,6 +50,11 @@ $aeocas_stage_by_tab = array(
 $aeocas_active_tab = in_array( $aeocas_requested_tab, $aeocas_valid_tabs, true ) ? $aeocas_requested_tab : 'connect';
 $aeocas_active_tab = in_array( $aeocas_active_tab, array( 'visibility', 'activity' ), true ) ? 'visibility-overview' : $aeocas_active_tab;
 $aeocas_active_stage = isset( $aeocas_stage_by_tab[ $aeocas_active_tab ] ) ? $aeocas_stage_by_tab[ $aeocas_active_tab ] : 'connect';
+
+if ( ! $aeocas_connected ) {
+    $aeocas_active_tab   = 'connect';
+    $aeocas_active_stage = 'connect';
+}
 ?>
 <style id="aeo-audit-critical-shell">
     /* Critical shell styles live inline as a cache-safe fallback so plugin
@@ -255,7 +260,7 @@ $aeocas_active_stage = isset( $aeocas_stage_by_tab[ $aeocas_active_tab ] ) ? $ae
     </div>
 
     <!-- Loading state -->
-    <div id="aeo-audit-loading" class="aeo-audit-loading">
+    <div id="aeo-audit-loading" class="aeo-audit-loading" <?php echo $aeocas_connected ? '' : 'style="display: none;"'; ?>>
         <span class="spinner is-active" style="float: none; margin: 0 8px 0 0;"></span>
         <?php esc_html_e( 'Loading audit data...', 'aeo-content-ai-studio' ); ?>
     </div>
@@ -275,8 +280,9 @@ $aeocas_active_stage = isset( $aeocas_stage_by_tab[ $aeocas_active_tab ] ) ? $ae
     </div>
 
     <!-- Audit content -->
-    <div id="aeo-audit-content" style="display: none;">
+    <div id="aeo-audit-content" <?php echo $aeocas_connected ? 'style="display: none;"' : ''; ?>>
 
+        <?php if ( $aeocas_connected ) : ?>
         <nav class="aeo-workflow-rail" aria-label="<?php esc_attr_e( 'Audit workflow', 'aeo-content-ai-studio' ); ?>">
             <a href="<?php echo esc_url( $aeocas_log_base . '&tab=connect' ); ?>" class="aeo-workflow-step <?php echo 'connect' === $aeocas_active_stage ? 'is-active' : ''; ?>" data-stage="connect" data-default-tab="connect">
                 <span class="aeo-workflow-step-top">
@@ -327,8 +333,10 @@ $aeocas_active_stage = isset( $aeocas_stage_by_tab[ $aeocas_active_tab ] ) ? $ae
                 <span class="aeo-workflow-badge" aria-hidden="true"></span>
             </a>
         </nav>
+        <?php endif; ?>
 
         <section class="aeo-stage-shell <?php echo 'connect' === $aeocas_active_stage ? 'is-active' : ''; ?>" id="stage-connect" data-stage="connect" <?php echo 'connect' === $aeocas_active_stage ? '' : 'style="display: none;"'; ?>>
+            <?php if ( $aeocas_connected ) : ?>
             <div class="aeo-stage-chrome">
                 <div class="aeo-stage-hero" id="aeo-stage-hero-connect"></div>
                 <div class="aeo-stage-summary" id="aeo-stage-summary-connect"></div>
@@ -345,6 +353,7 @@ $aeocas_active_stage = isset( $aeocas_stage_by_tab[ $aeocas_active_tab ] ) ? $ae
                     <span class="aeo-subtab-badge" aria-hidden="true"></span>
                 </a>
             </nav>
+            <?php endif; ?>
             <div class="aeo-stage-body aeo-stage-body-grouped">
                 <div class="aeo-tab-panel" id="tab-connect" data-tab-panel="connect" <?php echo 'connect' === $aeocas_active_tab ? '' : 'style="display: none;"'; ?>>
                     <?php if ( 'disconnected' === $aeocas_notice ) : ?>
