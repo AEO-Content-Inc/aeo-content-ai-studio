@@ -835,6 +835,7 @@
             }).join(' ')
         );
         var targetPillar = getNormalizedCategoryKey(primaryCategory);
+        var faqIntent = contextTokens.indexOf('faq') !== -1 || contextTokens.indexOf('question') !== -1;
 
         var ranked = pages.map(function (page) {
             var score = 0;
@@ -842,6 +843,7 @@
             var pageScore = getPageScore(page);
             var inboundLinks = lookupInLinks(inLinksMap, page.url);
             var weakest = getWeakestPagePillar(page);
+            var local = getLocalContentForUrl(page.url);
             var issuesText = (page.issues || []).map(function (issue) {
                 return [issue.label, issue.check, issue.severity].filter(Boolean).join(' ');
             }).join(' ');
@@ -869,6 +871,14 @@
                 score += overlap * 7;
                 reasons.push('matching issue set');
             }
+            if (local && faqIntent) {
+                if (local.has_faq) {
+                    reasons.push(local.faq_count > 1 ? (local.faq_count + ' FAQ items') : 'FAQ ready');
+                } else {
+                    score += 8;
+                    reasons.push('no FAQ yet');
+                }
+            }
 
             return {
                 url: page.url,
@@ -877,6 +887,9 @@
                 score: pageScore,
                 issueCount: getPageIssueCount(page),
                 inLinks: inboundLinks,
+                editUrl: local && local.edit_url ? local.edit_url : '',
+                faqCount: local && typeof local.faq_count === 'number' ? local.faq_count : 0,
+                hasFaq: !!(local && local.has_faq),
                 reasons: uniqueBy(reasons.map(function (reason) { return { reason: reason }; }), function (entry) {
                     return entry.reason;
                 }).map(function (entry) { return entry.reason; }).slice(0, 3),
@@ -1142,7 +1155,13 @@
                     html += '<div class="aeo-opp-page-item">';
                     html +=   '<div class="aeo-opp-page-main">';
                     html +=     '<div class="aeo-opp-page-title">' + esc(page.title) + '</div>';
-                    html +=     '<div class="aeo-opp-page-url"><a href="' + esc(page.url) + '" target="_blank" rel="noopener">' + esc(page.shortUrl) + ' &#8599;</a></div>';
+                    html +=     '<div class="aeo-opp-page-url">' + esc(page.shortUrl) + '</div>';
+                    html +=     '<div class="aeo-opp-page-actions">';
+                    html +=       '<a href="' + esc(page.url) + '" target="_blank" rel="noopener">View live &#8599;</a>';
+                    if (page.editUrl) {
+                        html += '<a href="' + esc(page.editUrl) + '">Edit</a>';
+                    }
+                    html +=     '</div>';
                     if (page.reasons.length) {
                         html += '<div class="aeo-opp-page-reasons">';
                         page.reasons.forEach(function (reason) {
@@ -1592,6 +1611,8 @@
     var discoveryPollTimer = null;
     var auditRetryTimer = null;
     var currentAuditData = null;
+    var localContentByUrlKey = {};
+    var localContentIndexPromise = null;
     var siteAuditFilters = {
         category: 'all',
         scoreRange: 'all',
@@ -1605,6 +1626,43 @@
 
     function renderAuditLoading() {
         return '<div class="aeo-tab-loading"><span class="spinner is-active" style="float:none;margin:0 8px 0 0;"></span>Loading audit data...</div>';
+    }
+
+    function ingestLocalContentIndex(items) {
+        localContentByUrlKey = {};
+        (items || []).forEach(function (item) {
+            if (!item) return;
+            [item.url, item.canonical_url].forEach(function (url) {
+                var key = normalizeUrlKey(url);
+                if (!key || localContentByUrlKey[key]) return;
+                localContentByUrlKey[key] = item;
+            });
+        });
+    }
+
+    function getLocalContentForUrl(url) {
+        return localContentByUrlKey[normalizeUrlKey(url)] || null;
+    }
+
+    function loadLocalContentIndex() {
+        if (localContentIndexPromise) return localContentIndexPromise;
+
+        var data = new FormData();
+        data.append('action', 'aeocas_get_local_content_index');
+        data.append('nonce', aeocasAudit.nonce);
+
+        localContentIndexPromise = fetch(aeocasAudit.ajaxUrl, { method: 'POST', body: data })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (!res || !res.success) return;
+                ingestLocalContentIndex((res.data && res.data.items) || []);
+                if (currentAuditData) renderAudit(currentAuditData);
+            })
+            .catch(function () {
+                // Keep the audit UI usable even if the local index fails.
+            });
+
+        return localContentIndexPromise;
     }
 
     function ensureTabBadge(tabId) {
@@ -2872,5 +2930,6 @@
 
     loadDiscovery(false);
     loadAudit(false);
+    loadLocalContentIndex();
 
 })();

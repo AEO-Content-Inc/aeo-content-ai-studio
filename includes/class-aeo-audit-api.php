@@ -25,6 +25,53 @@ class AEOCAS_Audit_Api {
     const DISCOVERY_TRANSIENT_PREFIX = 'aeocas_discovery_';
 
     /**
+     * Build a lightweight local content index for admin-side page enrichment.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private static function get_local_content_index() {
+        $post_ids = get_posts( array(
+            'post_type'              => array( 'post', 'page' ),
+            'post_status'            => 'publish',
+            'posts_per_page'         => -1,
+            'orderby'                => 'modified',
+            'order'                  => 'DESC',
+            'fields'                 => 'ids',
+            'no_found_rows'          => true,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+        ) );
+
+        $items = array();
+        foreach ( $post_ids as $post_id ) {
+            $url = get_permalink( $post_id );
+            if ( empty( $url ) ) {
+                continue;
+            }
+
+            $faq       = get_post_meta( $post_id, '_aeocas_faq_schema', true );
+            $canonical = get_post_meta( $post_id, '_aeocas_canonical_url', true );
+            $faq_count = is_array( $faq ) ? count( $faq ) : 0;
+            $edit_url  = get_edit_post_link( $post_id, 'raw' );
+
+            $items[] = array(
+                'id'            => (int) $post_id,
+                'title'         => get_the_title( $post_id ),
+                'url'           => esc_url_raw( $url ),
+                'canonical_url' => $canonical ? esc_url_raw( $canonical ) : '',
+                'edit_url'      => $edit_url ? esc_url_raw( $edit_url ) : '',
+                'post_type'     => get_post_type( $post_id ),
+                'status'        => get_post_status( $post_id ),
+                'modified_gmt'  => get_post_modified_time( 'c', true, $post_id ),
+                'faq_count'     => $faq_count,
+                'has_faq'       => $faq_count > 0,
+            );
+        }
+
+        return $items;
+    }
+
+    /**
      * Get the audit slug for this site.
      *
      * Converts hostname to slug format: wptest.datasub.com → wptest-datasub-com
@@ -400,6 +447,21 @@ class AEOCAS_Audit_Api {
     }
 
     /**
+     * AJAX handler for fetching a local content index used by admin JS.
+     */
+    public static function ajax_get_local_content_index() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
+        }
+
+        check_ajax_referer( 'aeocas_audit_nonce', 'nonce' );
+
+        wp_send_json_success( array(
+            'items' => self::get_local_content_index(),
+        ) );
+    }
+
+    /**
      * Register AJAX hooks.
      */
     public static function register_ajax() {
@@ -407,5 +469,6 @@ class AEOCAS_Audit_Api {
         add_action( 'wp_ajax_aeocas_reaudit', array( __CLASS__, 'ajax_reaudit' ) );
         add_action( 'wp_ajax_aeocas_audit_status', array( __CLASS__, 'ajax_audit_status' ) );
         add_action( 'wp_ajax_aeocas_get_discovery', array( __CLASS__, 'ajax_get_discovery' ) );
+        add_action( 'wp_ajax_aeocas_get_local_content_index', array( __CLASS__, 'ajax_get_local_content_index' ) );
     }
 }

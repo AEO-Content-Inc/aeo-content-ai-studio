@@ -410,6 +410,32 @@
     margin-bottom: 0;
 }
 
+.aeo-audit-tabs .nav-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.aeo-tab-alert-count {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #d63638;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 0 0 2px #fff;
+}
+
+.aeo-tab-alert-count.is-visible {
+    display: inline-flex;
+}
+
 .aeo-tab-panel {
     background: #fff;
     border: 1px solid #ccd0d4;
@@ -971,63 +997,309 @@
 
 /* ── Opportunities ────────────────────────────────── */
 
+.aeo-opportunities-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
 .aeo-opportunities-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 12px;
 }
 
 .aeo-opp-card {
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
     overflow: hidden;
+    background: #fff;
 }
 
 .aeo-opp-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
+    gap: 12px;
+    padding: 14px 16px;
     cursor: pointer;
     user-select: none;
 }
 
 .aeo-opp-header:hover {
-    background: #f9f9f9;
+    background: #fbfcff;
 }
 
 .aeo-opp-impact {
     display: inline-block;
-    padding: 2px 8px;
-    border-radius: 10px;
+    padding: 3px 9px;
+    border-radius: 999px;
     font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
     white-space: nowrap;
 }
 
+.aeo-opp-primary {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
 .aeo-opp-name {
     font-weight: 600;
-    flex: 1;
     font-size: 14px;
+    color: #1d2327;
+}
+
+.aeo-opp-subtitle {
+    font-size: 12px;
+    color: #646970;
+    line-height: 1.45;
+}
+
+.aeo-opp-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.aeo-opp-potential {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(52, 168, 83, 0.12);
+    color: #137333;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
 }
 
 .aeo-opp-effort {
     display: inline-block;
-    padding: 2px 8px;
-    border-radius: 10px;
+    padding: 3px 9px;
+    border-radius: 999px;
     font-size: 11px;
     font-weight: 600;
     text-transform: capitalize;
     white-space: nowrap;
 }
 
-.aeo-opp-card .aeo-accordion-body p {
-    padding: 17px 14px 14px;
+.aeo-opp-body {
+    padding: 18px 16px 16px;
+    border-top: 1px solid #f0f0f1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.aeo-opp-summary p {
     margin: 0;
     color: #1d2327;
     font-size: 14px;
     line-height: 1.6;
+}
+
+.aeo-opp-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.aeo-opp-panel {
+    padding: 14px;
+    border: 1px solid #eceff4;
+    border-radius: 10px;
+    background: #fcfcfd;
+}
+
+.aeo-opp-panel-title {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #646970;
+}
+
+.aeo-opp-page-list,
+.aeo-opp-link-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.aeo-opp-page-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid #eceff4;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.aeo-opp-page-main {
+    min-width: 0;
+}
+
+.aeo-opp-page-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1d2327;
+    line-height: 1.45;
+}
+
+.aeo-opp-page-url {
+    margin-top: 3px;
+    font-size: 11px;
+    color: #646970;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.aeo-opp-page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.aeo-opp-page-actions a {
+    font-size: 11px;
+    font-weight: 600;
+    color: #2271b1;
+    text-decoration: none;
+}
+
+.aeo-opp-page-actions a:hover {
+    color: #2271b1;
+    text-decoration: underline;
+}
+
+.aeo-opp-page-reasons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.aeo-opp-reason-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #f0f4fb;
+    color: #335d92;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.aeo-opp-page-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.aeo-opp-page-meta {
+    font-size: 11px;
+    color: #646970;
+}
+
+.aeo-opp-link-item {
+    display: block;
+    padding: 10px 12px;
+    border: 1px solid #eceff4;
+    border-radius: 8px;
+    background: #fff;
+    text-decoration: none;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.aeo-opp-link-item:hover {
+    border-color: #c3d4f4;
+    background: #f7faff;
+}
+
+.aeo-opp-link-kicker,
+.aeo-opp-link-title,
+.aeo-opp-link-meta {
+    display: block;
+}
+
+.aeo-opp-link-kicker {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #646970;
+}
+
+.aeo-opp-link-title {
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1d2327;
+    line-height: 1.45;
+}
+
+.aeo-opp-link-meta {
+    margin-top: 4px;
+    font-size: 11px;
+    color: #646970;
+}
+
+.aeo-opp-action-list {
+    margin: 12px 0 0;
+    padding-left: 18px;
+    color: #1d2327;
+}
+
+.aeo-opp-action-list li + li {
+    margin-top: 8px;
+}
+
+.aeo-opp-empty {
+    margin: 12px 0 0;
+    color: #646970;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+@media (max-width: 1100px) {
+    .aeo-opp-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 782px) {
+    .aeo-opp-header {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .aeo-opp-meta {
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .aeo-opp-page-item {
+        flex-direction: column;
+    }
+
+    .aeo-opp-page-side {
+        align-items: flex-start;
+    }
 }
 
 /* ── Discovery tab ──────────────────────────────────── */
