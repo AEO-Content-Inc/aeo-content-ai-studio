@@ -141,6 +141,10 @@
     function initWorkflowRail() {
         wrap.querySelectorAll('.aeo-workflow-step').forEach(function (step) {
             step.addEventListener('click', function (e) {
+                if (e.target && e.target.closest && e.target.closest('.aeo-workflow-step-action')) {
+                    e.preventDefault();
+                    return;
+                }
                 e.preventDefault();
                 var stageId = this.getAttribute('data-stage');
                 activateStage(stageId);
@@ -1548,7 +1552,7 @@
         var inLinks = out.inLinks;
 
         if (!rows.length) {
-            return '<tr><td colspan="5" class="aeo-site-audit-empty">No pages match the current filters.</td></tr>';
+            return '<tr><td colspan="6" class="aeo-site-audit-empty">No pages match the current filters.</td></tr>';
         }
 
         return rows.map(function (page) {
@@ -1579,6 +1583,7 @@
                 +   '<td>' + scoreCell + '</td>'
                 +   '<td style="color:#646970;">' + (words > 0 ? words.toLocaleString() : '—') + '</td>'
                 +   '<td style="color:#646970;">' + il + '</td>'
+                +   '<td class="aeo-rewrite-action-cell">' + renderRewriteActionCell(page.url, score) + '</td>'
                 + '</tr>';
         }).join('');
     }
@@ -1606,6 +1611,7 @@
             +     '<th style="width:110px;">AEO Rank</th>'
             +     '<th style="width:90px;">Words</th>'
             +     '<th style="width:90px;">In Links</th>'
+            +     '<th style="width:190px;">Actions</th>'
             +   '</tr></thead>'
             +   '<tbody id="aeo-site-audit-tbody">' + renderSiteAuditRows(audit) + '</tbody>'
             + '</table>';
@@ -1626,6 +1632,26 @@
         if (!tbody) return;
         tbody.innerHTML = renderSiteAuditRows(currentAuditData);
         refreshSiteAuditCount();
+    }
+
+    function openLowestScorePagesAudit() {
+        siteAuditFilters.category = 'all';
+        siteAuditFilters.scoreRange = 'all';
+        siteAuditFilters.sort = 'score-asc';
+        siteAuditFilters.search = '';
+
+        if (currentAuditData) {
+            renderAudit(currentAuditData);
+        }
+
+        activateTab('site-audit');
+
+        window.setTimeout(function () {
+            var header = document.querySelector('#tab-site-audit .aeo-site-audit-header');
+            if (header && header.scrollIntoView) {
+                header.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 20);
     }
 
     function renderSiteAuditPending() {
@@ -1660,6 +1686,7 @@
                 tier: tier,
                 inLinks: inLinks,
                 words: page.wordCount || 0,
+                issueCount: getPageIssueCount(page),
                 weakest: weakest ? { name: weakest.label, score: weakest.score } : null,
                 priority: priority,
                 topFixes: page.topFixes || [],
@@ -1693,6 +1720,7 @@
         html += '<div class="aeo-stat-card"><span class="aeo-stat-number" style="color:#c5a200;">' + medCount + '</span><span class="aeo-stat-label">Medium Priority</span></div>';
         html += '<div class="aeo-stat-card"><span class="aeo-stat-number" style="color:#34a853;">' + lowCount + '</span><span class="aeo-stat-label">Low Priority</span></div>';
         html += '</div>';
+        html += renderRewriteStatusCard();
 
         if (!candidates.length) {
             return html + '<div class="aeo-log-empty"><p>All scored pages are at 70 or above. No rewrites needed.</p></div>';
@@ -1707,6 +1735,7 @@
         html += '<th style="width:150px;">Weakest Pillar</th>';
         html += '<th style="width:70px;">Words</th>';
         html += '<th style="width:70px;">In Links</th>';
+        html += '<th style="width:190px;">Actions</th>';
         html += '</tr></thead><tbody>';
 
         candidates.forEach(function (c) {
@@ -1736,11 +1765,261 @@
             html += '</td>';
             html += '<td style="color:#646970;">' + (c.words > 0 ? c.words.toLocaleString() : '-') + '</td>';
             html += '<td style="color:#646970;">' + c.inLinks + '</td>';
+            html += '<td class="aeo-rewrite-action-cell">' + renderRewriteActionCell(c.url, c.score) + '</td>';
             html += '</tr>';
         });
 
         html += '</tbody></table>';
         return html;
+    }
+
+    function getHeaderRewritePriorityMount() {
+        return document.getElementById('aeo-header-rewrite-priority');
+    }
+
+    function getHeaderContentSuggestionsMount() {
+        return document.getElementById('aeo-header-content-suggestions');
+    }
+
+    function buildHeaderRewritePriorityItems(audit) {
+        var items = buildRewriteCandidates(audit).map(function (candidate) {
+            return {
+                candidate: candidate,
+                local: getRewriteLocalItem(candidate.url)
+            };
+        }).filter(function (entry) {
+            if (!entry.local || !entry.local.id || !entry.local.can_edit) return false;
+            return String(entry.local.post_type || '').toLowerCase() === 'post';
+        });
+
+        items.sort(function (a, b) {
+            if (a.candidate.score !== b.candidate.score) return a.candidate.score - b.candidate.score;
+            if (a.candidate.issueCount !== b.candidate.issueCount) return b.candidate.issueCount - a.candidate.issueCount;
+            if (a.candidate.inLinks !== b.candidate.inLinks) return b.candidate.inLinks - a.candidate.inLinks;
+            if (!!a.candidate.isStale !== !!b.candidate.isStale) return a.candidate.isStale ? -1 : 1;
+            return String(a.candidate.title || a.candidate.url || '').localeCompare(String(b.candidate.title || b.candidate.url || ''));
+        });
+
+        return items;
+    }
+
+    function renderHeaderRewritePriorityCard(audit) {
+        if (!audit || !audit.pages_reviewed || !audit.pages_reviewed.length) {
+            return ''
+                + '<div class="aeo-header-priority-empty">'
+                +   '<strong>Loading rewrite priorities…</strong>'
+                +   '<p>Run or refresh the audit to surface the lowest-scoring blog articles here.</p>'
+                + '</div>';
+        }
+
+        if (localContentIndexState === 'idle' || localContentIndexState === 'loading') {
+            return ''
+                + '<div class="aeo-header-priority-empty">'
+                +   '<strong>Matching audit results to WordPress articles…</strong>'
+                +   '<p>Studio is identifying which audited pages are editable blog posts.</p>'
+                + '</div>';
+        }
+
+        if (localContentIndexState === 'error') {
+            return ''
+                + '<div class="aeo-header-priority-empty">'
+                +   '<strong>Rewrite priorities are temporarily unavailable.</strong>'
+                +   '<p>The audit loaded, but the local article index could not be read.</p>'
+                + '</div>';
+        }
+
+        var ranked = buildHeaderRewritePriorityItems(audit);
+        if (!ranked.length) {
+            return ''
+                + '<div class="aeo-header-priority-empty">'
+                +   '<strong>No blog articles currently need rewrite.</strong>'
+                +   '<p>Posts mapped as blog articles are all at 70 or above, or they are not editable from this account.</p>'
+                + '</div>';
+        }
+
+        var html = '';
+        html += '<div class="aeo-header-priority-card">';
+        html +=   '<div class="aeo-header-priority-head">';
+        html +=     '<div>';
+        html +=       '<span class="aeo-header-priority-kicker">Rewrite Priority</span>';
+        html +=       '<h2>Top 5 Articles To Rewrite</h2>';
+        html +=       '<p>Lowest-scoring blog posts from the latest audit, ranked worst first.</p>';
+        html +=     '</div>';
+        html +=     '<span class="aeo-header-priority-total">' + ranked.length + ' queued</span>';
+        html +=   '</div>';
+        html +=   '<div class="aeo-header-priority-list">';
+
+        ranked.slice(0, 5).forEach(function (entry, index) {
+            var candidate = entry.candidate;
+            var weakest = candidate.weakest ? candidate.weakest.name : 'Weakest pillar pending';
+            var score = candidate.score || 0;
+            var scoreColor = scoreColor100(score);
+            var scoreBg = scoreBg100(score);
+
+            html += '<article class="aeo-header-priority-item">';
+            html +=   '<span class="aeo-header-priority-rank">' + (index + 1) + '</span>';
+            html +=   '<div class="aeo-header-priority-main">';
+            html +=     '<span class="aeo-header-priority-title">' + esc(candidate.title || candidate.url) + '</span>';
+            html +=     '<div class="aeo-header-priority-meta">';
+            html +=       '<span><strong>Weakest:</strong> ' + esc(weakest) + '</span>';
+            html +=       '<span><strong>Issues:</strong> ' + esc(String(candidate.issueCount || 0)) + '</span>';
+            html +=       '<span><strong>Links:</strong> ' + esc(String(candidate.inLinks || 0)) + '</span>';
+            html +=     '</div>';
+            html +=   '</div>';
+            html +=   '<div class="aeo-header-priority-side">';
+            html +=     '<span class="aeo-score-badge-pill" style="background:' + scoreBg + ';color:' + scoreColor + ';">' + esc(String(score || '—')) + '</span>';
+            html +=     renderRewriteActionCell(candidate.url, score);
+            html +=   '</div>';
+            html += '</article>';
+        });
+
+        html +=   '</div>';
+        html +=   '<div class="aeo-header-priority-footer">';
+        html +=     '<a href="#" class="aeo-header-priority-link" data-aeo-open-lowest-pages="1">See all audited pages sorted low to high</a>';
+        html +=   '</div>';
+        html += '</div>';
+        return html;
+    }
+
+    function renderHeaderRewritePriority(audit) {
+        var mount = getHeaderRewritePriorityMount();
+        if (!mount) return;
+        mount.innerHTML = renderHeaderRewritePriorityCard(audit);
+    }
+
+    function buildHeaderContentSuggestions() {
+        var discovery = currentDiscoveryPayload;
+        var discoveryData = discovery && discovery.discovery ? discovery.discovery : null;
+        var deterministicProfile = discoveryData && discoveryData.deterministic_profile ? discoveryData.deterministic_profile : {};
+        if (!discoveryData) return [];
+
+        var suggestions = [];
+        var seen = {};
+
+        function addSuggestion(title, source, detail, priority) {
+            var cleanTitle = trimText(title, 96);
+            if (!cleanTitle) return;
+            var key = cleanTitle.toLowerCase();
+            if (seen[key]) return;
+            seen[key] = 1;
+            suggestions.push({
+                title: cleanTitle,
+                source: source || 'Discovery signal',
+                detail: trimText(detail, 120),
+                priority: priority || 0
+            });
+        }
+
+        mergeArrays(discoveryData.content_gaps, deterministicProfile.content_gaps).forEach(function (gap, index) {
+            addSuggestion(gap, 'Content gap', 'Missing topic coverage surfaced by discovery.', 320 - index);
+        });
+
+        (discoveryData.intent_clusters || []).forEach(function (cluster, index) {
+            var title = cluster && (cluster.name || cluster.intent);
+            var detail = mergeArrays(cluster && cluster.queries, cluster && cluster.examples).slice(0, 2).join(' • ');
+            addSuggestion(title, 'Intent cluster', detail || 'Recurring search intent worth a standalone article.', 280 - index);
+        });
+
+        mergeArrays(discoveryData.solution_queries, deterministicProfile.solution_queries).forEach(function (query, index) {
+            addSuggestion(query, 'Solution query', 'High-intent query discovered during the latest site analysis.', 240 - index);
+        });
+
+        (deterministicProfile.faq_questions || []).forEach(function (question, index) {
+            addSuggestion(question, 'FAQ opportunity', 'Question signal that could become a new support or blog article.', 200 - index);
+        });
+
+        mergeArrays(discoveryData.content_themes, discoveryData.topic_phrases, deterministicProfile.topic_phrases).forEach(function (topic, index) {
+            addSuggestion(topic, 'Topic signal', 'Theme extracted from current site language and topic clustering.', 160 - index);
+        });
+
+        suggestions.sort(function (a, b) {
+            if (b.priority !== a.priority) return b.priority - a.priority;
+            return a.title.localeCompare(b.title);
+        });
+
+        return suggestions.slice(0, 5);
+    }
+
+    function renderHeaderContentSuggestionsCard() {
+        var discovery = currentDiscoveryPayload;
+        if (!discovery || discoveryUiState.phase === 'loading') {
+            return ''
+                + '<div class="aeo-header-priority-empty">'
+                +   '<strong>Loading content suggestions…</strong>'
+                +   '<p>Discovery is still assembling topic gaps and intent signals.</p>'
+                + '</div>';
+        }
+
+        if (discoveryUiState.phase === 'pending') {
+            return ''
+                + '<div class="aeo-header-priority-empty">'
+                +   '<strong>Discovery is still running…</strong>'
+                +   '<p>New content suggestions appear after the latest discovery pass finishes.</p>'
+                + '</div>';
+        }
+
+        if (discoveryUiState.phase === 'error' || !discovery.discovery) {
+            return ''
+                + '<div class="aeo-header-priority-empty">'
+                +   '<strong>Content suggestions are not ready yet.</strong>'
+                +   '<p>Open Discovery to inspect the latest site profile or rerun the analysis.</p>'
+                + '</div>';
+        }
+
+        var suggestions = buildHeaderContentSuggestions();
+        if (!suggestions.length) {
+            return ''
+                + '<div class="aeo-header-priority-empty">'
+                +   '<strong>No fresh content suggestions yet.</strong>'
+                +   '<p>Discovery did not return enough content gaps or intent clusters to rank new article ideas.</p>'
+                + '</div>';
+        }
+
+        var html = '';
+        html += '<div class="aeo-header-priority-card">';
+        html +=   '<div class="aeo-header-priority-head">';
+        html +=     '<div>';
+        html +=       '<span class="aeo-header-priority-kicker">New Content</span>';
+        html +=       '<h2>Top 5 Content Suggestions</h2>';
+        html +=       '<p>Discovery gaps and intent signals worth turning into new articles.</p>';
+        html +=     '</div>';
+        html +=     '<span class="aeo-header-priority-total">' + suggestions.length + ' suggested</span>';
+        html +=   '</div>';
+        html +=   '<div class="aeo-header-priority-list">';
+
+        suggestions.forEach(function (suggestion, index) {
+            html += '<article class="aeo-header-priority-item">';
+            html +=   '<span class="aeo-header-priority-rank">' + (index + 1) + '</span>';
+            html +=   '<div class="aeo-header-priority-main">';
+            html +=     '<span class="aeo-header-priority-title">' + esc(suggestion.title) + '</span>';
+            html +=     '<div class="aeo-header-priority-meta">';
+            html +=       '<span><strong>Signal:</strong> ' + esc(suggestion.source) + '</span>';
+            html +=       (suggestion.detail ? '<span>' + esc(suggestion.detail) + '</span>' : '');
+            html +=     '</div>';
+            html +=   '</div>';
+            html +=   '<div class="aeo-header-priority-side">';
+            html +=     '<span class="aeo-header-priority-source">' + esc(suggestion.source) + '</span>';
+            html +=   '</div>';
+            html += '</article>';
+        });
+
+        html +=   '</div>';
+        html +=   '<div class="aeo-header-priority-footer">';
+        html +=     '<a href="#" class="aeo-header-priority-link aeo-stage-nav-link" data-target-tab="discovery">Open discovery signals</a>';
+        html +=   '</div>';
+        html += '</div>';
+        return html;
+    }
+
+    function renderHeaderContentSuggestions() {
+        var mount = getHeaderContentSuggestionsMount();
+        if (!mount) return;
+        mount.innerHTML = renderHeaderContentSuggestionsCard();
+    }
+
+    function refreshHeaderInsights() {
+        renderHeaderRewritePriority(currentAuditData);
+        renderHeaderContentSuggestions();
     }
 
     /* ── Discovery Tab ────────────────────────────────── */
@@ -1759,7 +2038,24 @@
         phase: 'idle',
         message: ''
     };
+    var rewriteAvailabilityState = {
+        phase: 'idle',
+        message: '',
+        data: null
+    };
+    var rewriteCheckoutState = {
+        loading: false
+    };
+    var rewritePreviewByUrlKey = {};
+    var rewriteRequestStateByUrlKey = {};
+    var rewriteModalState = {
+        pageUrl: '',
+        phase: 'idle',
+        message: '',
+        preview: null
+    };
     var localContentByUrlKey = {};
+    var localContentIndexState = 'idle';
     var localContentIndexPromise = null;
     var siteAuditFilters = {
         category: 'all',
@@ -1795,6 +2091,9 @@
     function loadLocalContentIndex() {
         if (localContentIndexPromise) return localContentIndexPromise;
 
+        localContentIndexState = 'loading';
+        refreshHeaderInsights();
+
         var data = new FormData();
         data.append('action', 'aeocas_get_local_content_index');
         data.append('nonce', aeocasAudit.nonce);
@@ -1802,15 +2101,375 @@
         localContentIndexPromise = fetch(aeocasAudit.ajaxUrl, { method: 'POST', body: data })
             .then(function (r) { return r.json(); })
             .then(function (res) {
-                if (!res || !res.success) return;
+                localContentIndexState = 'ready';
+                if (!res || !res.success) {
+                    refreshHeaderInsights();
+                    return;
+                }
                 ingestLocalContentIndex((res.data && res.data.items) || []);
                 if (currentAuditData) renderAudit(currentAuditData);
             })
             .catch(function () {
+                localContentIndexState = 'error';
+                refreshHeaderInsights();
                 // Keep the audit UI usable even if the local index fails.
             });
 
         return localContentIndexPromise;
+    }
+
+    function getRewriteAvailabilityBadge() {
+        return document.getElementById('aeo-rewrite-availability');
+    }
+
+    function normalizeRewriteAvailability(raw) {
+        if (!raw || typeof raw !== 'object') return null;
+
+        var data = raw;
+        if (raw.data && typeof raw.data === 'object') {
+            data = raw.data.rewrites && typeof raw.data.rewrites === 'object' ? raw.data.rewrites : raw.data;
+        } else if (raw.rewrites && typeof raw.rewrites === 'object') {
+            data = raw.rewrites;
+        }
+
+        if (!data || typeof data !== 'object') return null;
+
+        return {
+            available: Math.max(0, parseInt(data.available, 10) || 0),
+            used: Math.max(0, parseInt(data.used, 10) || 0),
+            limit: Math.max(0, parseInt(data.limit, 10) || 0),
+            plan: data.plan ? String(data.plan) : '',
+            planLabel: data.plan_label ? String(data.plan_label) : '',
+            resetsAt: data.resets_at ? String(data.resets_at) : '',
+            upgradeUrl: data.upgrade_url ? String(data.upgrade_url) : ((aeocasAudit && aeocasAudit.manageUrl) ? aeocasAudit.manageUrl : ''),
+            starterEligible: Boolean(data.starter_eligible),
+            starterPriceCents: Math.max(0, parseInt(data.starter_price_cents, 10) || 0),
+            starterArticles: Math.max(0, parseInt(data.starter_articles, 10) || 0),
+            checkoutEnabled: Boolean(data.checkout_enabled)
+        };
+    }
+
+    function formatRewritePlanLabel(plan, explicitLabel) {
+        if (explicitLabel) return explicitLabel;
+        if (!plan) return '';
+        if (plan === 'starter') return '$1 Trial Plan';
+        if (plan === 'pro') return 'Pro Plan';
+        return String(plan)
+            .replace(/[_-]+/g, ' ')
+            .replace(/\b[a-z]/g, function (ch) { return ch.toUpperCase(); });
+    }
+
+    function formatMoneyCents(cents) {
+        var amount = parseInt(cents, 10) || 0;
+        var dollars = amount / 100;
+        return '$' + (amount % 100 === 0 ? dollars.toFixed(0) : dollars.toFixed(2));
+    }
+
+    function buildRewriteStudioUrl(pageUrl) {
+        var page = findPageByUrl(pageUrl);
+        var base = (aeocasAudit && aeocasAudit.rewriteBaseUrl) ? String(aeocasAudit.rewriteBaseUrl) : '';
+        if (!base || !pageUrl) return '';
+
+        try {
+            var url = new URL(base, window.location.href);
+            url.searchParams.set('sourceUrl', pageUrl);
+            url.searchParams.set('title', (page && page.title) ? page.title : pageUrl);
+            url.searchParams.set('utm_source', 'wordpress-plugin');
+            url.searchParams.set('utm_medium', 'plugin');
+            url.searchParams.set('utm_campaign', 'rewrite-tab');
+            return url.toString();
+        } catch (err) {
+            return '';
+        }
+    }
+
+    function renderRewriteStatusCard() {
+        var data = getRewriteAvailabilityData() || {};
+        var available = typeof data.available === 'number' ? data.available : 0;
+        var limit = typeof data.limit === 'number' ? data.limit : 0;
+        var planLabel = formatRewritePlanLabel(data.plan, data.planLabel);
+        var starterArticles = data.starterArticles > 0 ? data.starterArticles : 5;
+        var starterPrice = data.starterPriceCents > 0 ? formatMoneyCents(data.starterPriceCents) : '$1';
+        var upgradeUrl = getRewriteUpgradeUrl();
+        var actionHtml = '';
+        var body = '';
+
+        if (rewriteAvailabilityState.phase === 'loading') {
+            body = 'Checking rewrite availability for this site...';
+        } else if (rewriteAvailabilityState.phase === 'error') {
+            body = rewriteAvailabilityState.message || 'Unable to load rewrite availability right now.';
+            if (upgradeUrl) {
+                actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Manage account</a>';
+            }
+        } else if (available > 0) {
+            body = (planLabel ? planLabel + ' active. ' : '') + available + ' rewrite' + (available === 1 ? '' : 's') + ' remaining';
+            if (limit > 0) body += ' out of ' + limit + '.';
+            else body += '.';
+        } else if (data.checkoutEnabled && data.starterEligible) {
+            body = 'Unlock ' + starterArticles + ' full-article rewrites for ' + starterPrice + '.';
+            actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening checkout...' : ('Unlock ' + starterArticles + ' rewrites for ' + starterPrice)) + '</button>';
+        } else {
+            body = (planLabel ? planLabel + '. ' : '') + 'No rewrite tokens remain on this account.';
+            if (upgradeUrl) {
+                actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Upgrade in Studio</a>';
+            }
+        }
+
+        return ''
+            + '<div style="margin-bottom:16px;padding:14px 16px;border:1px solid #dcdcde;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">'
+            +   '<div>'
+            +     '<div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#8a5a12;margin-bottom:4px;">Rewrite Trial</div>'
+            +     '<div style="font-size:14px;color:#1d2327;">' + esc(body) + '</div>'
+            +   '</div>'
+            +   actionHtml
+            + '</div>';
+    }
+
+    function renderRewriteAvailabilityBadge() {
+        var badge = getRewriteAvailabilityBadge();
+        if (!badge) return;
+
+        badge.hidden = false;
+        badge.classList.remove('is-loading', 'is-exhausted');
+        badge.title = '';
+
+        if (!isConnected || rewriteAvailabilityState.phase === 'idle') {
+            badge.hidden = true;
+            return;
+        }
+
+        if (rewriteAvailabilityState.phase === 'loading') {
+            badge.textContent = 'Loading rewrites...';
+            badge.classList.add('is-loading');
+            return;
+        }
+
+        if (rewriteAvailabilityState.phase === 'error') {
+            badge.textContent = 'Rewrites unavailable';
+            badge.classList.add('is-exhausted');
+            badge.title = rewriteAvailabilityState.message || 'Unable to load rewrite availability.';
+            return;
+        }
+
+        var data = rewriteAvailabilityState.data || {};
+        var available = typeof data.available === 'number' ? data.available : 0;
+        var used = typeof data.used === 'number' ? data.used : 0;
+        var limit = typeof data.limit === 'number' ? data.limit : 0;
+        var planLabel = formatRewritePlanLabel(data.plan, data.planLabel);
+
+        if (available > 0) {
+            badge.textContent = available + ' rewrite' + (available === 1 ? '' : 's') + ' available';
+        } else {
+            badge.textContent = '0 remaining' + (planLabel ? ' • ' + planLabel : '');
+            badge.classList.add('is-exhausted');
+        }
+
+        if (limit > 0) {
+            badge.title = used + ' used of ' + limit + (data.resetsAt ? ' • resets ' + data.resetsAt : '');
+        } else if (data.resetsAt) {
+            badge.title = 'Resets ' + data.resetsAt;
+        }
+    }
+
+    function loadRewriteAvailability(refresh) {
+        if (!isConnected) {
+            rewriteAvailabilityState.phase = 'idle';
+            rewriteAvailabilityState.message = '';
+            rewriteAvailabilityState.data = null;
+            renderRewriteAvailabilityBadge();
+            return;
+        }
+
+        rewriteAvailabilityState.phase = 'loading';
+        rewriteAvailabilityState.message = '';
+        renderRewriteAvailabilityBadge();
+
+        var data = new FormData();
+        data.append('action', 'aeocas_get_rewrite_availability');
+        data.append('nonce', aeocasAudit.nonce);
+        if (refresh) data.append('refresh', '1');
+
+        fetch(aeocasAudit.ajaxUrl, { method: 'POST', body: data })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res && res.success) {
+                    rewriteAvailabilityState.phase = 'ready';
+                    rewriteAvailabilityState.data = normalizeRewriteAvailability(res.data) || {
+                        available: 0,
+                        used: 0,
+                        limit: 0,
+                        plan: '',
+                        planLabel: '',
+                        resetsAt: '',
+                        upgradeUrl: (aeocasAudit && aeocasAudit.manageUrl) ? aeocasAudit.manageUrl : '',
+                        starterEligible: false,
+                        starterPriceCents: 100,
+                        starterArticles: 5,
+                        checkoutEnabled: false
+                    };
+                    renderRewriteAvailabilityBadge();
+                    if (currentAuditData) renderAudit(currentAuditData);
+                    return;
+                }
+
+                if (checkAuthExpired(res)) return;
+                rewriteAvailabilityState.phase = 'error';
+                rewriteAvailabilityState.message = (res && res.data && res.data.message) ? res.data.message : 'Unable to load rewrite availability.';
+                renderRewriteAvailabilityBadge();
+                if (currentAuditData) renderAudit(currentAuditData);
+            })
+            .catch(function (err) {
+                rewriteAvailabilityState.phase = 'error';
+                rewriteAvailabilityState.message = 'Network error: ' + (err.message || 'Please try again.');
+                renderRewriteAvailabilityBadge();
+                if (currentAuditData) renderAudit(currentAuditData);
+            });
+    }
+
+    function startRewriteCheckout() {
+        if (rewriteCheckoutState.loading) return;
+
+        rewriteCheckoutState.loading = true;
+        if (currentAuditData) renderAudit(currentAuditData);
+
+        var data = new FormData();
+        data.append('action', 'aeocas_get_rewrite_checkout_url');
+        data.append('nonce', aeocasAudit.nonce);
+
+        fetch(aeocasAudit.ajaxUrl, { method: 'POST', body: data })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res && res.success && res.data && res.data.url) {
+                    window.location.href = String(res.data.url);
+                    return;
+                }
+
+                if (checkAuthExpired(res)) return;
+                showError((res && res.data && res.data.message) ? res.data.message : 'Unable to open rewrite checkout.');
+            })
+            .catch(function (err) {
+                showError('Network error: ' + (err.message || 'Please try again.'));
+            })
+            .finally(function () {
+                rewriteCheckoutState.loading = false;
+                if (currentAuditData) renderAudit(currentAuditData);
+            });
+    }
+
+    function getRewriteRequestPhase(url) {
+        return rewriteRequestStateByUrlKey[normalizeUrlKey(url)] || '';
+    }
+
+    function setRewriteRequestPhase(url, phase) {
+        var key = normalizeUrlKey(url);
+        if (!key) return;
+        if (!phase) delete rewriteRequestStateByUrlKey[key];
+        else rewriteRequestStateByUrlKey[key] = phase;
+        if (currentAuditData) renderAudit(currentAuditData);
+    }
+
+    function getRewriteAvailabilityData() {
+        return rewriteAvailabilityState.data || null;
+    }
+
+    function getRewriteUpgradeUrl() {
+        var availability = getRewriteAvailabilityData();
+        if (availability && availability.upgradeUrl) return availability.upgradeUrl;
+        return (aeocasAudit && aeocasAudit.manageUrl) ? aeocasAudit.manageUrl : '';
+    }
+
+    function getRewriteLocalItem(url) {
+        var item = getLocalContentForUrl(url);
+        return item && typeof item === 'object' ? item : null;
+    }
+
+    function updateLocalRewriteDraftState(pageUrl, payload) {
+        var item = getRewriteLocalItem(pageUrl);
+        if (!item || !payload) return;
+
+        if (payload.draft_post_id) item.active_rewrite_draft_id = parseInt(payload.draft_post_id, 10) || 0;
+        if (payload.active_rewrite_draft_edit_url) item.active_rewrite_draft_edit_url = payload.active_rewrite_draft_edit_url;
+        else if (payload.edit) item.active_rewrite_draft_edit_url = payload.edit;
+        if (payload.rewrite_status) item.rewrite_status = payload.rewrite_status;
+        if (payload.rewrite_id) item.rewrite_id = payload.rewrite_id;
+    }
+
+    function getRewriteActionState(url, score) {
+        if (!(score > 0) || score >= 70) {
+            return { kind: 'hidden' };
+        }
+
+        var local = getRewriteLocalItem(url);
+        var requestPhase = getRewriteRequestPhase(url);
+        var availability = getRewriteAvailabilityData();
+
+        if (requestPhase === 'preview') {
+            return { kind: 'busy', label: 'Previewing...' };
+        }
+        if (requestPhase === 'draft') {
+            return { kind: 'busy', label: 'Creating draft...' };
+        }
+
+        if (!local || !local.id) {
+            return { kind: 'unavailable', label: 'Unavailable', reason: 'Not mapped to a WordPress post.' };
+        }
+        if (!local.can_edit) {
+            return { kind: 'unavailable', label: 'Unavailable', reason: 'You cannot edit this post.' };
+        }
+        if (local.active_rewrite_draft_id && local.active_rewrite_draft_edit_url) {
+            return { kind: 'draft', label: 'Open Draft', href: local.active_rewrite_draft_edit_url };
+        }
+        if (local.rewrite_status === 'applied') {
+            return { kind: 'awaiting', label: 'Awaiting Re-audit' };
+        }
+        if (rewriteAvailabilityState.phase === 'loading' && !availability) {
+            return { kind: 'unavailable', label: 'Checking...', reason: 'Loading rewrite availability.' };
+        }
+        if (rewriteAvailabilityState.phase === 'error') {
+            return { kind: 'unavailable', label: 'Unavailable', reason: rewriteAvailabilityState.message || 'Rewrite availability could not be loaded.' };
+        }
+        if (availability && availability.available <= 0) {
+            if (availability.checkoutEnabled && availability.starterEligible) {
+                return { kind: 'starter', label: 'Unlock for $1' };
+            }
+            return { kind: 'upgrade', label: 'Upgrade', href: getRewriteUpgradeUrl() };
+        }
+
+        return { kind: 'rewrite', label: 'Rewrite' };
+    }
+
+    function renderRewriteActionCell(url, score) {
+        var state = getRewriteActionState(url, score);
+        if (state.kind === 'hidden') return '';
+
+        if (state.kind === 'rewrite') {
+            var rewriteHref = buildRewriteStudioUrl(url);
+            if (!rewriteHref) {
+                return '<span class="aeo-rewrite-state-pill">Studio unavailable</span>';
+            }
+            return '<a class="button button-primary aeo-rewrite-row-action" href="' + esc(rewriteHref) + '" target="_blank" rel="noopener">Rewrite in Studio</a>';
+        }
+        if (state.kind === 'starter') {
+            return '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening checkout...' : state.label) + '</button>';
+        }
+        if (state.kind === 'upgrade') {
+            return '<a class="button button-secondary aeo-rewrite-upgrade-link" href="' + esc(state.href || getRewriteUpgradeUrl()) + '" target="_blank" rel="noopener">Upgrade</a>';
+        }
+        if (state.kind === 'draft') {
+            return '<a class="button button-secondary" href="' + esc(state.href) + '">Open Draft</a>';
+        }
+        if (state.kind === 'awaiting') {
+            return '<span class="aeo-rewrite-state-pill">' + esc(state.label) + '</span>';
+        }
+        if (state.kind === 'busy') {
+            return '<button type="button" class="button button-secondary" disabled><span class="spinner is-active" style="float:none;margin:0 6px 0 0;"></span>' + esc(state.label) + '</button>';
+        }
+
+        return ''
+            + '<div class="aeo-rewrite-unavailable">'
+            +   '<span class="aeo-rewrite-unavailable-label">' + esc(state.label || 'Unavailable') + '</span>'
+            +   (state.reason ? '<small>' + esc(state.reason) + '</small>' : '')
+            + '</div>';
     }
 
     function ensureCountBadge(host, className) {
@@ -3538,6 +4197,7 @@
 
     function renderAudit(audit) {
         currentAuditData = audit;
+        refreshHeaderInsights();
         document.getElementById('tab-scoreboard').innerHTML    = renderScoreboard(audit);
         document.getElementById('tab-opportunities').innerHTML = renderOpportunities(audit);
         document.getElementById('tab-site-audit').innerHTML    = renderSiteAudit(audit);
@@ -3786,6 +4446,306 @@
         return html;
     }
 
+    function normalizeRewritePreview(raw, page) {
+        var data = raw && raw.data && typeof raw.data === 'object' ? raw.data : raw;
+        data = data && typeof data === 'object' ? data : {};
+
+        var current = data.current && typeof data.current === 'object' ? data.current : {};
+        var optimized = data.optimized && typeof data.optimized === 'object' ? data.optimized : {};
+
+        return {
+            rewriteId: data.rewrite_id ? String(data.rewrite_id) : '',
+            pageUrl: data.page_url ? String(data.page_url) : (page && page.url ? page.url : ''),
+            postId: parseInt(data.post_id, 10) || 0,
+            auditStamp: data.audit_stamp || data.audit_id || data.audit_updated_at || '',
+            predictedScore: parseInt(data.predicted_score, 10) || 0,
+            predictedDelta: parseInt(data.predicted_delta, 10) || 0,
+            weakestPillar: data.weakest_pillar ? String(data.weakest_pillar) : '',
+            issues: Array.isArray(data.issues) ? data.issues : [],
+            topFixes: Array.isArray(data.top_fixes) ? data.top_fixes : [],
+            changes: Array.isArray(data.changes) ? data.changes : [],
+            reasons: Array.isArray(data.reasons) ? data.reasons : [],
+            current: {
+                title: current.title || (page && page.title) || '',
+                excerpt: current.excerpt || '',
+                contentHtml: current.content_html || current.content || ''
+            },
+            optimized: {
+                title: optimized.title || '',
+                excerpt: optimized.excerpt || '',
+                contentHtml: optimized.content_html || optimized.content || ''
+            },
+            availability: normalizeRewriteAvailability(data.availability || data.rewrites || data)
+        };
+    }
+
+    function htmlPreviewText(html, fallback, maxLength) {
+        var source = html || fallback || '';
+        if (!source) return '';
+        var box = document.createElement('div');
+        box.innerHTML = source;
+        var text = (box.textContent || box.innerText || '').replace(/\s+/g, ' ').trim();
+        if (!text && fallback) text = String(fallback).replace(/\s+/g, ' ').trim();
+        if (maxLength && text.length > maxLength) {
+            return text.slice(0, maxLength - 1).trim() + '…';
+        }
+        return text;
+    }
+
+    function getRewriteModalPage() {
+        return rewriteModalState.pageUrl ? findPageByUrl(rewriteModalState.pageUrl) : null;
+    }
+
+    function renderRewritePreviewContent(page, preview) {
+        var currentScore = page ? getPageScore(page) : 0;
+        var predictedScore = preview.predictedScore || 0;
+        var delta = preview.predictedDelta || Math.max(0, predictedScore - currentScore);
+        var local = preview.pageUrl ? getRewriteLocalItem(preview.pageUrl) : null;
+        var currentTitle = preview.current.title || (page && page.title) || '';
+        var optimizedTitle = preview.optimized.title || currentTitle || '';
+        var currentExcerpt = htmlPreviewText(preview.current.contentHtml, preview.current.excerpt, 420);
+        var optimizedExcerpt = htmlPreviewText(preview.optimized.contentHtml, preview.optimized.excerpt, 420);
+        var scoreRange = getScoreRangeLabel(predictedScore || currentScore || 0);
+        var primaryActionDisabled = !preview.optimized.contentHtml;
+        var openDraftHref = local && local.active_rewrite_draft_edit_url ? local.active_rewrite_draft_edit_url : '';
+
+        var html = '';
+        html += '<div class="aeo-rewrite-modal">';
+        html +=   '<div class="aeo-score-modal-hero aeo-rewrite-modal-hero">';
+        html +=     '<div class="aeo-score-modal-score">' + renderScoreCircle(currentScore || 0, 100, 120) + '</div>';
+        html +=     '<div class="aeo-score-modal-range">';
+        html +=       '<div class="aeo-score-modal-range-label" style="color:' + scoreRange.color + ';">Predicted score ' + esc(String(predictedScore || currentScore || 0)) + '</div>';
+        html +=       '<div class="aeo-rewrite-score-delta">+' + esc(String(delta)) + ' projected improvement</div>';
+        html +=       '<p class="description">The rewrite is targeting the exact failures surfaced in the latest audit before sending you into WordPress review.</p>';
+        html +=     '</div>';
+        html +=   '</div>';
+
+        if (preview.reasons.length || preview.weakestPillar) {
+            html += '<h3 class="aeo-score-modal-subhead">Why This Rewrite</h3>';
+            html += '<div class="aeo-rewrite-chip-list">';
+            if (preview.weakestPillar) {
+                html += '<span class="aeo-rewrite-chip">' + esc(preview.weakestPillar) + '</span>';
+            }
+            preview.reasons.slice(0, 4).forEach(function (reason) {
+                html += '<span class="aeo-rewrite-chip">' + esc(typeof reason === 'string' ? reason : JSON.stringify(reason)) + '</span>';
+            });
+            html += '</div>';
+        }
+
+        if (preview.changes.length || preview.topFixes.length || preview.issues.length) {
+            html += '<h3 class="aeo-score-modal-subhead">Planned Changes</h3>';
+            html += '<div class="aeo-rewrite-summary-grid">';
+            html +=   '<section class="aeo-rewrite-summary-card">';
+            html +=     '<h4>Change Summary</h4>';
+            if (preview.changes.length) {
+                html += '<ul class="aeo-rewrite-list">';
+                preview.changes.slice(0, 6).forEach(function (change) {
+                    if (typeof change === 'string') {
+                        html += '<li>' + esc(change) + '</li>';
+                        return;
+                    }
+                    var label = change.label || change.title || change.type || 'Update';
+                    var detail = change.type && change.label ? change.type + ': ' + change.label : label;
+                    html += '<li>' + esc(detail) + '</li>';
+                });
+                html += '</ul>';
+            } else {
+                html += '<p class="aeo-rewrite-empty">The platform did not return structured change items for this preview.</p>';
+            }
+            html +=   '</section>';
+            html +=   '<section class="aeo-rewrite-summary-card">';
+            html +=     '<h4>Audit Inputs</h4>';
+            html +=     '<ul class="aeo-rewrite-list">';
+            preview.topFixes.slice(0, 3).forEach(function (fix) {
+                html += '<li>' + esc(fix) + '</li>';
+            });
+            preview.issues.slice(0, 3).forEach(function (issue) {
+                html += '<li>' + esc(typeof issue === 'string' ? issue : (issue.label || issue.check || 'Issue')) + '</li>';
+            });
+            if (!preview.topFixes.length && !preview.issues.length) {
+                html += '<li>No detailed fixes were returned for this page yet.</li>';
+            }
+            html +=     '</ul>';
+            html +=   '</section>';
+            html += '</div>';
+        }
+
+        html += '<h3 class="aeo-score-modal-subhead">Review Preview</h3>';
+        html += '<div class="aeo-rewrite-preview-grid">';
+        html +=   '<section class="aeo-rewrite-preview-card">';
+        html +=     '<span class="aeo-rewrite-preview-label">Current</span>';
+        html +=     '<h4>' + esc(currentTitle || 'Current draft') + '</h4>';
+        html +=     '<p>' + esc(currentExcerpt || 'No current excerpt or content preview available.') + '</p>';
+        html +=   '</section>';
+        html +=   '<section class="aeo-rewrite-preview-card is-optimized">';
+        html +=     '<span class="aeo-rewrite-preview-label">Optimized</span>';
+        html +=     '<h4>' + esc(optimizedTitle || 'Optimized draft') + '</h4>';
+        html +=     '<p>' + esc(optimizedExcerpt || 'No optimized excerpt or content preview available.') + '</p>';
+        html +=   '</section>';
+        html += '</div>';
+
+        html += '<div class="aeo-rewrite-modal-actions">';
+        html +=   '<button type="button" class="button button-primary aeo-rewrite-create-draft"'
+            + (primaryActionDisabled ? ' disabled' : '')
+            + '>Create Draft Review</button>';
+        if (openDraftHref) {
+            html += '<a class="button button-secondary" href="' + esc(openDraftHref) + '">Open Existing Draft</a>';
+        }
+        html +=   '<button type="button" class="button button-secondary aeo-rewrite-refresh-preview">Refresh Preview</button>';
+        html += '</div>';
+        html += '<p class="aeo-rewrite-modal-note">The live article stays untouched. Review happens in a linked WordPress draft.</p>';
+        html += '</div>';
+        return html;
+    }
+
+    function renderRewriteModalBody() {
+        var page = getRewriteModalPage();
+        if (!page) {
+            return '<div class="notice notice-error"><p>Page data not found for this rewrite.</p></div>';
+        }
+
+        if (rewriteModalState.phase === 'loading') {
+            return '<div class="aeo-tab-loading"><span class="spinner is-active" style="float:none;margin:0 8px 0 0;"></span>Generating rewrite preview…</div>';
+        }
+
+        if (rewriteModalState.phase === 'error') {
+            return ''
+                + '<div class="notice notice-error" style="padding:12px 16px;">'
+                +   '<p>' + esc(rewriteModalState.message || 'Unable to generate rewrite preview.') + '</p>'
+                +   '<p><button type="button" class="button button-primary aeo-rewrite-refresh-preview">Try Again</button></p>'
+                + '</div>';
+        }
+
+        if (rewriteModalState.phase === 'ready' && rewriteModalState.preview) {
+            return renderRewritePreviewContent(page, rewriteModalState.preview);
+        }
+
+        return '<p>Rewrite preview not loaded yet.</p>';
+    }
+
+    function renderRewriteModal() {
+        var modal = document.getElementById('aeo-score-modal');
+        var body  = document.getElementById('aeo-score-modal-body');
+        var title = document.getElementById('aeo-score-modal-title');
+        if (!modal || !body) return;
+
+        var page = getRewriteModalPage();
+        if (title) title.textContent = 'Rewrite Preview — ' + ((page && (page.title || page.url)) || '');
+        body.innerHTML = renderRewriteModalBody();
+        modal.style.display = '';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function openRewriteModal(page) {
+        if (!page || !page.url) return;
+        rewriteModalState = {
+            pageUrl: page.url,
+            phase: 'loading',
+            message: '',
+            preview: null
+        };
+        renderRewriteModal();
+        loadRewritePreview(page, false);
+    }
+
+    function loadRewritePreview(page, forceRefresh) {
+        if (!page || !page.url) return;
+
+        var key = normalizeUrlKey(page.url);
+        var cached = rewritePreviewByUrlKey[key];
+        if (cached && !forceRefresh) {
+            rewriteModalState.phase = 'ready';
+            rewriteModalState.preview = cached;
+            renderRewriteModal();
+            return;
+        }
+
+        rewriteModalState.phase = 'loading';
+        rewriteModalState.message = '';
+        rewriteModalState.preview = null;
+        renderRewriteModal();
+        setRewriteRequestPhase(page.url, 'preview');
+
+        var data = new FormData();
+        data.append('action', 'aeocas_preview_rewrite');
+        data.append('nonce', aeocasAudit.nonce);
+        data.append('page_url', page.url);
+
+        fetch(aeocasAudit.ajaxUrl, { method: 'POST', body: data })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res && res.success) {
+                    var preview = normalizeRewritePreview(res.data, page);
+                    rewritePreviewByUrlKey[key] = preview;
+                    rewriteModalState.phase = 'ready';
+                    rewriteModalState.preview = preview;
+                    if (preview.availability) {
+                        rewriteAvailabilityState.phase = 'ready';
+                        rewriteAvailabilityState.data = preview.availability;
+                        renderRewriteAvailabilityBadge();
+                    }
+                    renderRewriteModal();
+                    return;
+                }
+
+                if (checkAuthExpired(res)) return;
+                rewriteModalState.phase = 'error';
+                rewriteModalState.message = (res && res.data && res.data.message) ? res.data.message : 'Unable to generate rewrite preview.';
+                renderRewriteModal();
+            })
+            .catch(function (err) {
+                rewriteModalState.phase = 'error';
+                rewriteModalState.message = 'Network error: ' + (err.message || 'Please try again.');
+                renderRewriteModal();
+            })
+            .finally(function () {
+                setRewriteRequestPhase(page.url, '');
+            });
+    }
+
+    function createRewriteDraftFromModal() {
+        var page = getRewriteModalPage();
+        var preview = rewriteModalState.preview;
+        if (!page || !preview) return;
+
+        setRewriteRequestPhase(page.url, 'draft');
+
+        var data = new FormData();
+        data.append('action', 'aeocas_create_rewrite_draft');
+        data.append('nonce', aeocasAudit.nonce);
+        data.append('page_url', preview.pageUrl || page.url);
+        data.append('rewrite_id', preview.rewriteId || '');
+        data.append('audit_stamp', preview.auditStamp || '');
+        data.append('title', preview.optimized.title || page.title || '');
+        data.append('content', preview.optimized.contentHtml || '');
+        data.append('excerpt', preview.optimized.excerpt || '');
+
+        fetch(aeocasAudit.ajaxUrl, { method: 'POST', body: data })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res && res.success) {
+                    updateLocalRewriteDraftState(page.url, res.data || {});
+                    renderRewriteAvailabilityBadge();
+                    if (res.data && res.data.edit) {
+                        window.location.href = res.data.edit;
+                        return;
+                    }
+                    closeScoreModal();
+                    if (res.data && res.data.message) showError(res.data.message);
+                    return;
+                }
+
+                if (checkAuthExpired(res)) return;
+                showError((res && res.data && res.data.message) ? res.data.message : 'Unable to create rewrite draft.');
+            })
+            .catch(function (err) {
+                showError('Network error: ' + (err.message || 'Please try again.'));
+            })
+            .finally(function () {
+                setRewriteRequestPhase(page.url, '');
+            });
+    }
+
     function openScoreModal(page) {
         if (!currentAuditData) return;
         var modal = document.getElementById('aeo-score-modal');
@@ -3810,6 +4770,12 @@
         if (!modal) return;
         modal.style.display = 'none';
         document.body.style.overflow = '';
+        rewriteModalState = {
+            pageUrl: '',
+            phase: 'idle',
+            message: '',
+            preview: null
+        };
     }
 
     /* ── Load Audit Data ──────────────────────────────── */
@@ -3929,6 +4895,7 @@
         currentDiscoveryPayload = payload || null;
         tab.innerHTML = renderDiscoveryPending(payload);
         startDiscoveryTicker();
+        refreshHeaderInsights();
         refreshWorkflowChrome();
     }
 
@@ -3945,6 +4912,7 @@
         // The Site Audit pending card mirrors discoveryUiState, so re-render
         // it if the audit data isn't in yet.
         if (!currentAuditData) setSiteAuditPending();
+        refreshHeaderInsights();
         refreshWorkflowChrome();
     }
 
@@ -4002,6 +4970,7 @@
                         renderPendingFresh(tab, payload);
                         startDiscoveryPolling();
                     }
+                    refreshHeaderInsights();
                     refreshWorkflowChrome();
                 } else {
                     if (checkAuthExpired(res)) return;
@@ -4028,6 +4997,7 @@
                         currentDiscoveryPayload = { status: 'failed', current_stage: msg };
                         tab.innerHTML = '<div class="notice notice-error" style="padding:12px 16px;"><p>' + esc(msg) + '</p></div>';
                     }
+                    refreshHeaderInsights();
                     refreshWorkflowChrome();
                 }
             })
@@ -4107,20 +5077,26 @@
         errorBox.innerHTML = '<div class="notice notice-error" style="padding:12px 16px;"><p style="font-size:14px;margin:0;">' + esc(msg) + '</p></div>';
     }
 
+    function triggerStudioRefresh() {
+        if (!isConnected) {
+            showError('Connect your site first to load audit, discovery, and visibility data.');
+            activateTab('connect');
+            return;
+        }
+
+        loadAudit(true);
+        loadDiscovery(true);
+        loadVisibility(true);
+        loadRewriteAvailability(true);
+    }
+
     /* ── Refresh button ───────────────────────────────── */
 
     var refreshBtn = document.getElementById('aeo-refresh-audit');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', function (e) {
             e.preventDefault();
-            if (!isConnected) {
-                showError('Connect your site first to load audit, discovery, and visibility data.');
-                activateTab('connect');
-                return;
-            }
-            loadAudit(true);
-            loadDiscovery(true);
-            loadVisibility(true);
+            triggerStudioRefresh();
         });
     }
 
@@ -4180,8 +5156,10 @@
             clearInterval(pollTimer);
             pollTimer = null;
         }
-        reauditBtn.disabled = false;
-        reauditBtn.textContent = 'Re-audit';
+        if (reauditBtn) {
+            reauditBtn.disabled = false;
+            reauditBtn.textContent = 'Re-audit';
+        }
     }
 
     var lastPolledStatus = null;
@@ -4243,8 +5221,10 @@
             return;
         }
 
-        reauditBtn.disabled = true;
-        reauditBtn.textContent = 'Running...';
+        if (reauditBtn) {
+            reauditBtn.disabled = true;
+            reauditBtn.textContent = 'Running...';
+        }
         lastPolledStatus = null;
         errorBox.innerHTML = '';
         // Reset Discovery UI state so the elapsed counter starts at 0 and the
@@ -4330,6 +5310,73 @@
             var key = t.getAttribute('data-aeo-filter');
             siteAuditFilters[key] = t.value;
             refreshSiteAuditTableOnly();
+        }
+    });
+
+    wrap.addEventListener('click', function (e) {
+        var checkoutBtn = e.target.closest && e.target.closest('.aeo-start-rewrite-checkout');
+        if (!checkoutBtn) return;
+        e.preventDefault();
+        startRewriteCheckout();
+    });
+
+    wrap.addEventListener('click', function (e) {
+        var diagnoseAction = e.target.closest && e.target.closest('.aeo-workflow-step-action');
+        if (!diagnoseAction) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        var action = diagnoseAction.getAttribute('data-aeo-diagnose-action');
+        if (action === 'refresh') {
+            triggerStudioRefresh();
+            return;
+        }
+        if (action === 'reaudit' && !pollTimer) {
+            triggerReaudit();
+        }
+    });
+
+    wrap.addEventListener('keydown', function (e) {
+        var diagnoseAction = e.target.closest && e.target.closest('.aeo-workflow-step-action');
+        if (!diagnoseAction) return;
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        diagnoseAction.click();
+    });
+
+    wrap.addEventListener('click', function (e) {
+        var rewriteRowAction = e.target.closest && e.target.closest('.aeo-rewrite-row-action');
+        if (rewriteRowAction) {
+            e.preventDefault();
+            var pageUrl = rewriteRowAction.getAttribute('data-page-url');
+            var page = findPageByUrl(pageUrl);
+            if (page) {
+                openRewriteModal(page);
+            } else {
+                showError('The selected page is no longer available in the current audit snapshot.');
+            }
+            return;
+        }
+
+        var refreshPreview = e.target.closest && e.target.closest('.aeo-rewrite-refresh-preview');
+        if (refreshPreview) {
+            e.preventDefault();
+            var previewPage = getRewriteModalPage();
+            if (previewPage) loadRewritePreview(previewPage, true);
+            return;
+        }
+
+        var createDraft = e.target.closest && e.target.closest('.aeo-rewrite-create-draft');
+        if (createDraft) {
+            e.preventDefault();
+            createRewriteDraftFromModal();
+            return;
+        }
+
+        var lowestPagesLink = e.target.closest && e.target.closest('[data-aeo-open-lowest-pages]');
+        if (lowestPagesLink) {
+            e.preventDefault();
+            openLowestScorePagesAudit();
         }
     });
 
@@ -4459,9 +5506,22 @@
         updateUrlTab('connect');
         return;
     }
+    var rewriteCheckoutReturnState = '';
+    try {
+        var currentUrl = new URL(window.location.href);
+        rewriteCheckoutReturnState = currentUrl.searchParams.get('aeocas_checkout') || '';
+        if (rewriteCheckoutReturnState) {
+            currentUrl.searchParams.delete('aeocas_checkout');
+            history.replaceState({}, '', currentUrl.toString());
+        }
+    } catch (e) { /* ignore */ }
     loadDiscovery(false);
     loadAudit(false);
     loadVisibility(false);
+    loadRewriteAvailability(rewriteCheckoutReturnState === 'starter_success');
+    if (rewriteCheckoutReturnState === 'starter_success') {
+        setTimeout(function () { loadRewriteAvailability(true); }, 2500);
+    }
     loadLocalContentIndex();
 
 })();

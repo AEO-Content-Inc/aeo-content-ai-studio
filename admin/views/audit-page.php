@@ -60,9 +60,9 @@ if ( ! $aeocas_connected ) {
     /* Critical shell styles live inline as a cache-safe fallback so plugin
        upgrades do not leave the workflow header/rail unstyled in wp-admin. */
     #aeo-audit-wrap .aeo-header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
         gap: 22px;
         margin: 6px 0 24px;
         padding: 24px 28px;
@@ -75,12 +75,14 @@ if ( ! $aeocas_connected ) {
     }
     #aeo-audit-wrap .aeo-header-brand { display:flex; flex-direction:column; align-items:flex-start; gap:18px; min-width:0; }
     #aeo-audit-wrap .aeo-header-copy { display:flex; flex-direction:column; gap:10px; min-width:0; }
+    #aeo-audit-wrap .aeo-header-meta { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     #aeo-audit-wrap .aeo-header-wordmark-wrap {
         display:block;
         width:min(360px, 100%);
         max-width:100%;
     }
     #aeo-audit-wrap .aeo-header-wordmark { display:block; width:100%; max-width:100%; height:auto; }
+    #aeo-audit-wrap .aeo-header-insights { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:18px; }
     #aeo-audit-wrap .aeo-settings h1,
     #aeo-audit-wrap h1 {
         margin:0;
@@ -88,12 +90,49 @@ if ( ! $aeocas_connected ) {
         line-height:1.05;
     }
     #aeo-audit-wrap .aeo-subtitle { margin:0; font-size:15px; line-height:1.6; max-width:70ch; }
-    #aeo-audit-wrap .aeo-header-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-left:auto; }
-    #aeo-audit-wrap .aeo-header-actions .button { min-height:40px; padding-inline:16px; }
     #aeo-audit-wrap .aeo-version {
         display:inline-flex; align-items:center; justify-content:center; min-height:34px; padding:0 12px;
         border-radius:999px; background:rgba(31, 42, 51, 0.06); color:#66717d; font-size:12px; font-weight:700;
     }
+    #aeo-audit-wrap .aeo-rewrite-badge {
+        display:inline-flex; align-items:center; justify-content:center; min-height:34px; padding:0 12px;
+        border-radius:999px; background:#dff4ef; color:#0f766e; font-size:12px; font-weight:700;
+    }
+    #aeo-audit-wrap .aeo-rewrite-badge.is-exhausted { background:#eef2f4; color:#50575e; }
+    #aeo-audit-wrap .aeo-rewrite-badge.is-loading { background:#fbf0d7; color:#8a5a12; }
+    #aeo-audit-wrap .aeo-rewrite-badge[hidden] { display:none !important; }
+    #aeo-audit-wrap .aeo-header-priority {
+        min-height:232px;
+        padding:20px 22px;
+        border:1px solid rgba(31, 42, 51, 0.1);
+        border-radius:24px;
+        background:linear-gradient(180deg, rgba(255,255,255,0.94), rgba(223,244,239,0.5));
+        box-shadow:inset 0 1px 0 rgba(255,255,255,0.72);
+    }
+    #aeo-audit-wrap .aeo-header-priority-empty {
+        display:flex;
+        flex-direction:column;
+        justify-content:center;
+        min-height:188px;
+        gap:10px;
+        color:#66717d;
+    }
+    #aeo-audit-wrap .aeo-header-priority-empty p { margin:0; }
+    #aeo-audit-wrap .aeo-header-priority-empty strong {
+        color:#1f2a33;
+        font-size:16px;
+    }
+    #aeo-audit-wrap .aeo-workflow-step-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; position:relative; z-index:1; }
+    #aeo-audit-wrap .aeo-workflow-step-action {
+        display:inline-flex; align-items:center; justify-content:center; min-height:32px; padding:0 10px;
+        border-radius:999px; background:rgba(31, 42, 51, 0.06); color:#66717d; font-size:12px; font-weight:700;
+        line-height:1; text-decoration:none; cursor:pointer;
+    }
+    #aeo-audit-wrap .aeo-workflow-step-action.is-primary { background:#0f766e; color:#fff; }
+    #aeo-audit-wrap .aeo-workflow-step-action.is-primary:hover,
+    #aeo-audit-wrap .aeo-workflow-step-action.is-primary:focus { background:#0b5f58; color:#fff; }
+    #aeo-audit-wrap .aeo-workflow-step-action:hover,
+    #aeo-audit-wrap .aeo-workflow-step-action:focus { background:rgba(31, 42, 51, 0.1); color:#1f2a33; }
 
     #aeo-audit-wrap .aeo-workflow-rail {
         position: relative;
@@ -225,11 +264,12 @@ if ( ! $aeocas_connected ) {
         #aeo-audit-wrap .aeo-workflow-step { min-width:270px; flex:0 0 270px; }
     }
     @media (max-width: 782px) {
-        #aeo-audit-wrap .aeo-header { flex-direction:column; padding:18px 20px; }
-        #aeo-audit-wrap .aeo-header-actions { width:100%; justify-content:flex-start; margin-left:0; }
+        #aeo-audit-wrap .aeo-header { padding:18px 20px; }
+        #aeo-audit-wrap .aeo-header-insights { grid-template-columns:minmax(0, 1fr); }
         #aeo-audit-wrap .aeo-header-wordmark-wrap { width:min(300px, 100%); }
         #aeo-audit-wrap .aeo-settings h1,
         #aeo-audit-wrap h1 { font-size:28px; }
+        #aeo-audit-wrap .aeo-workflow-step-actions { width:100%; }
     }
 </style>
 <div class="wrap aeo-settings" id="aeo-audit-wrap" data-requested-tab="<?php echo esc_attr( $aeocas_requested_tab ); ?>" data-connected="<?php echo $aeocas_connected ? '1' : '0'; ?>" data-feature-count="<?php echo esc_attr( count( $aeocas_features ) ); ?>">
@@ -244,19 +284,30 @@ if ( ! $aeocas_connected ) {
                     <?php esc_html_e( 'AI Engine Optimization for WordPress. Powered by', 'aeo-content-ai-studio' ); ?>
                     <a href="<?php echo esc_url( 'https://www.aeocontent.ai' ); ?>" target="_blank" rel="noopener">aeocontent.ai</a>
                 </p>
+                <div class="aeo-header-meta">
+                    <span class="aeo-version">v<?php echo esc_html( AEOCAS_VERSION ); ?></span>
+                    <?php if ( $aeocas_connected ) : ?>
+                        <span class="aeo-rewrite-badge" id="aeo-rewrite-availability" hidden aria-live="polite"></span>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
-        <div class="aeo-header-actions">
-            <?php if ( $aeocas_connected ) : ?>
-                <a href="#" id="aeo-refresh-audit" class="button button-secondary">
-                    <?php esc_html_e( 'Refresh', 'aeo-content-ai-studio' ); ?>
-                </a>
-                <a href="#" id="aeo-reaudit-btn" class="button button-primary">
-                    <?php esc_html_e( 'Re-audit', 'aeo-content-ai-studio' ); ?>
-                </a>
-            <?php endif; ?>
-            <span class="aeo-version">v<?php echo esc_html( AEOCAS_VERSION ); ?></span>
-        </div>
+        <?php if ( $aeocas_connected ) : ?>
+            <div class="aeo-header-insights">
+                <div class="aeo-header-priority" id="aeo-header-rewrite-priority" aria-live="polite">
+                    <div class="aeo-header-priority-empty">
+                        <strong><?php esc_html_e( 'Loading rewrite priorities…', 'aeo-content-ai-studio' ); ?></strong>
+                        <p><?php esc_html_e( 'The lowest-scoring blog articles from the latest audit will surface here.', 'aeo-content-ai-studio' ); ?></p>
+                    </div>
+                </div>
+                <div class="aeo-header-priority" id="aeo-header-content-suggestions" aria-live="polite">
+                    <div class="aeo-header-priority-empty">
+                        <strong><?php esc_html_e( 'Loading content suggestions…', 'aeo-content-ai-studio' ); ?></strong>
+                        <p><?php esc_html_e( 'Discovery gaps and intent signals will surface new article ideas here.', 'aeo-content-ai-studio' ); ?></p>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
     </div>
 
     <!-- Loading state -->
@@ -304,6 +355,10 @@ if ( ! $aeocas_connected ) {
                 <span class="aeo-workflow-step-body">
                     <span class="aeo-workflow-step-title"><?php esc_html_e( 'Diagnose', 'aeo-content-ai-studio' ); ?></span>
                     <span class="aeo-workflow-step-label"><?php esc_html_e( 'Find critical issues', 'aeo-content-ai-studio' ); ?></span>
+                </span>
+                <span class="aeo-workflow-step-actions">
+                    <span class="aeo-workflow-step-action" data-aeo-diagnose-action="refresh" role="button" tabindex="0"><?php esc_html_e( 'Refresh', 'aeo-content-ai-studio' ); ?></span>
+                    <span class="aeo-workflow-step-action is-primary" data-aeo-diagnose-action="reaudit" role="button" tabindex="0"><?php esc_html_e( 'Re-audit', 'aeo-content-ai-studio' ); ?></span>
                 </span>
                 <span class="aeo-workflow-step-state"></span>
                 <span class="aeo-workflow-badge" aria-hidden="true"></span>

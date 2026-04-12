@@ -225,7 +225,7 @@ function is_wp_error( $thing ) {
     return $thing instanceof WP_Error;
 }
 
-function current_user_can( $capability ) {
+function current_user_can( $capability, ...$args ) {
     return true;
 }
 
@@ -290,6 +290,14 @@ function wp_unslash( $value ) {
 
 function sanitize_text_field( $str ) {
     return trim( strip_tags( $str ) );
+}
+
+function sanitize_textarea_field( $str ) {
+    return trim( strip_tags( $str ) );
+}
+
+function wp_kses_post( $content ) {
+    return (string) $content;
 }
 
 function wp_nonce_field( $action, $name ) {
@@ -492,6 +500,20 @@ function get_post_meta( $post_id, $key, $single = false ) {
     return isset( $GLOBALS['aeocas_test_post_meta'][ $post_id ][ $key ] ) ? $GLOBALS['aeocas_test_post_meta'][ $post_id ][ $key ] : '';
 }
 
+function update_post_meta( $post_id, $key, $value ) {
+    if ( ! isset( $GLOBALS['aeocas_test_post_meta'][ $post_id ] ) ) {
+        $GLOBALS['aeocas_test_post_meta'][ $post_id ] = array();
+    }
+
+    $GLOBALS['aeocas_test_post_meta'][ $post_id ][ $key ] = $value;
+    return true;
+}
+
+function delete_post_meta( $post_id, $key ) {
+    unset( $GLOBALS['aeocas_test_post_meta'][ $post_id ][ $key ] );
+    return true;
+}
+
 function get_edit_post_link( $post_id, $context = 'display' ) {
     return 'https://site.example/wp-admin/post.php?post=' . $post_id . '&action=edit';
 }
@@ -501,10 +523,18 @@ function get_the_title( $post_id ) {
 }
 
 function get_post_type( $post_id ) {
+    if ( isset( $GLOBALS['aeocas_test_post_data'][ $post_id ]->post_type ) ) {
+        return $GLOBALS['aeocas_test_post_data'][ $post_id ]->post_type;
+    }
+
     return 'post';
 }
 
 function get_post_status( $post_id ) {
+    if ( isset( $GLOBALS['aeocas_test_post_data'][ $post_id ]->post_status ) ) {
+        return $GLOBALS['aeocas_test_post_data'][ $post_id ]->post_status;
+    }
+
     return 'publish';
 }
 
@@ -533,6 +563,53 @@ function wp_get_post_categories( $post_id, $args = array() ) {
 
 function wp_get_post_tags( $post_id, $args = array() ) {
     return array();
+}
+
+function get_term_by( $field, $value, $taxonomy ) {
+    return null;
+}
+
+function wp_insert_term( $term, $taxonomy ) {
+    return array( 'term_id' => 1 );
+}
+
+function wp_insert_post( $postarr = array(), $wp_error = false ) {
+    $post_id = isset( $GLOBALS['aeocas_test_next_post_id'] ) ? (int) $GLOBALS['aeocas_test_next_post_id'] : 100;
+    $GLOBALS['aeocas_test_next_post_id'] = $post_id + 1;
+
+    $post = (object) array_merge(
+        array(
+            'ID'           => $post_id,
+            'post_type'    => $postarr['post_type'] ?? 'post',
+            'post_status'  => $postarr['post_status'] ?? 'draft',
+            'post_title'   => $postarr['post_title'] ?? '',
+            'post_content' => $postarr['post_content'] ?? '',
+            'post_excerpt' => $postarr['post_excerpt'] ?? '',
+            'post_name'    => $postarr['post_name'] ?? '',
+            'post_author'  => $postarr['post_author'] ?? 1,
+        ),
+        $postarr
+    );
+
+    $GLOBALS['aeocas_test_post_data'][ $post_id ] = $post;
+    $GLOBALS['aeocas_test_insert_post_calls'][]   = $postarr;
+
+    return $post_id;
+}
+
+function wp_update_post( $postarr = array(), $wp_error = false ) {
+    $post_id = isset( $postarr['ID'] ) ? (int) $postarr['ID'] : 0;
+    if ( ! $post_id ) {
+        return $wp_error ? new WP_Error( 'missing_id', 'Missing post ID.' ) : 0;
+    }
+
+    $existing = isset( $GLOBALS['aeocas_test_post_data'][ $post_id ] ) ? (array) $GLOBALS['aeocas_test_post_data'][ $post_id ] : array();
+    $post     = (object) array_merge( $existing, $postarr );
+
+    $GLOBALS['aeocas_test_post_data'][ $post_id ] = $post;
+    $GLOBALS['aeocas_test_update_post_calls'][]   = $postarr;
+
+    return $post_id;
 }
 
 function get_terms( $args ) {

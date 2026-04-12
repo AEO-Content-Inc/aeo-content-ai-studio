@@ -208,6 +208,20 @@ SVG;
     }
 
     /**
+     * Build the Studio rewrite URL for the connected domain.
+     *
+     * @return string
+     */
+    public static function get_rewrite_base_url() {
+        $domain = wp_parse_url( self::get_site_url(), PHP_URL_HOST );
+        if ( ! is_string( $domain ) || '' === $domain ) {
+            return trailingslashit( AEOCAS_STUDIO_URL ) . 'pricing';
+        }
+
+        return trailingslashit( AEOCAS_STUDIO_URL ) . rawurlencode( strtolower( $domain ) ) . '/create';
+    }
+
+    /**
      * Build the admin URL for the wp-plugin console in AEO admin.
      *
      * @return string
@@ -366,6 +380,8 @@ SVG;
                 'nonce'          => wp_create_nonce( 'aeocas_audit_nonce' ),
                 'favicon'        => get_site_icon_url( 48, '' ),
                 'adminPluginUrl' => self::get_admin_plugin_url(),
+                'manageUrl'      => self::get_manage_url(),
+                'rewriteBaseUrl' => self::get_rewrite_base_url(),
             ) );
         }
     }

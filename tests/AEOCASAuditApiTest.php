@@ -431,6 +431,82 @@ final class AEOCASAuditApiTest extends TestCase {
         $this->assertSame( 'Perplexity', $visibility['engines'][0]['name'] );
     }
 
+    public function test_get_rewrite_availability_returns_cached_snapshot_without_remote_call(): void {
+        $GLOBALS['aeocas_test_transients']['aeocas_rewrite_availability_helpsquad-com'] = array(
+            'available'   => 3,
+            'used'        => 7,
+            'limit'       => 10,
+            'plan'        => 'starter',
+            'resets_at'   => '2026-05-01T00:00:00Z',
+            'upgrade_url' => 'https://account.aeocontent.ai/billing',
+        );
+
+        $availability = AEOCAS_Audit_Api::get_rewrite_availability();
+
+        $this->assertIsArray( $availability );
+        $this->assertSame( 3, $availability['available'] );
+        $this->assertSame( array(), $GLOBALS['aeocas_test_remote_get_calls'] );
+    }
+
+    public function test_get_rewrite_availability_normalizes_wrapped_response(): void {
+        $test_case = $this;
+
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ) use ( $test_case ): array {
+            $test_case->assertStringContainsString( '/api/v1/rewrites/availability', $url );
+
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array(
+                    'data' => array(
+                        'rewrites' => array(
+                            'available'           => 2,
+                            'used'                => 8,
+                            'limit'               => 10,
+                            'plan'                => 'starter',
+                            'plan_label'          => '$1 Trial Plan',
+                            'resets_at'           => '2026-05-01T00:00:00Z',
+                            'upgrade_url'         => 'https://account.aeocontent.ai/upgrade',
+                            'starter_eligible'    => true,
+                            'starter_price_cents' => 100,
+                            'starter_articles'    => 5,
+                            'checkout_enabled'    => true,
+                        ),
+                    ),
+                ) ),
+            );
+        };
+
+        $availability = AEOCAS_Audit_Api::get_rewrite_availability( true );
+
+        $this->assertIsArray( $availability );
+        $this->assertSame( 2, $availability['available'] );
+        $this->assertSame( 8, $availability['used'] );
+        $this->assertSame( 'starter', $availability['plan'] );
+        $this->assertSame( '$1 Trial Plan', $availability['plan_label'] );
+        $this->assertTrue( $availability['starter_eligible'] );
+        $this->assertSame( 100, $availability['starter_price_cents'] );
+        $this->assertTrue( $availability['checkout_enabled'] );
+        $this->assertSame( 'https://account.aeocontent.ai/upgrade', $availability['upgrade_url'] );
+    }
+
+    public function test_get_rewrite_checkout_url_returns_platform_checkout_link(): void {
+        $GLOBALS['aeocas_test_remote_post_calls'] = array();
+        $GLOBALS['aeocas_test_remote_post'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array(
+                    'url' => 'https://checkout.stripe.com/pay/cs_test_123',
+                ) ),
+            );
+        };
+
+        $checkout = AEOCAS_Audit_Api::get_rewrite_checkout_url();
+
+        $this->assertIsArray( $checkout );
+        $this->assertSame( 'https://checkout.stripe.com/pay/cs_test_123', $checkout['url'] );
+        $this->assertCount( 1, $GLOBALS['aeocas_test_remote_post_calls'] );
+    }
+
     // --- Discovery tests ---
 
     public function test_get_discovery_returns_error_when_no_token(): void {
@@ -748,6 +824,49 @@ final class AEOCASAuditApiTest extends TestCase {
         $this->assertFalse( $GLOBALS['aeocas_test_json_response']['success'] );
     }
 
+    public function test_ajax_get_rewrite_availability_returns_success(): void {
+        $GLOBALS['aeocas_test_json_response'] = null;
+        $GLOBALS['aeocas_test_transients']['aeocas_rewrite_availability_helpsquad-com'] = array(
+            'available' => 4,
+            'used'      => 6,
+            'limit'     => 10,
+            'plan'      => 'starter',
+        );
+
+        try { AEOCAS_Audit_Api::ajax_get_rewrite_availability(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertTrue( $GLOBALS['aeocas_test_json_response']['success'] );
+        $this->assertSame( 4, $GLOBALS['aeocas_test_json_response']['data']['available'] );
+    }
+
+    public function test_ajax_get_rewrite_availability_returns_error_when_no_token(): void {
+        unset( $GLOBALS['aeocas_test_options']['aeocas_site_token'] );
+        $GLOBALS['aeocas_test_json_response'] = null;
+
+        try { AEOCAS_Audit_Api::ajax_get_rewrite_availability(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertFalse( $GLOBALS['aeocas_test_json_response']['success'] );
+    }
+
+    public function test_ajax_get_rewrite_checkout_url_returns_success(): void {
+        $GLOBALS['aeocas_test_json_response'] = null;
+        $GLOBALS['aeocas_test_remote_post_calls'] = array();
+        $GLOBALS['aeocas_test_remote_post'] = static function (): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array( 'url' => 'https://checkout.stripe.com/pay/cs_test_123' ) ),
+            );
+        };
+
+        try { AEOCAS_Audit_Api::ajax_get_rewrite_checkout_url(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertTrue( $GLOBALS['aeocas_test_json_response']['success'] );
+        $this->assertSame( 'https://checkout.stripe.com/pay/cs_test_123', $GLOBALS['aeocas_test_json_response']['data']['url'] );
+    }
+
     public function test_ajax_audit_status_returns_success(): void {
         $GLOBALS['aeocas_test_json_response'] = null;
         $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
@@ -778,9 +897,21 @@ final class AEOCASAuditApiTest extends TestCase {
     public function test_ajax_get_local_content_index_returns_items(): void {
         $GLOBALS['aeocas_test_json_response'] = null;
         $GLOBALS['aeocas_test_post_ids'] = array( 1, 2 );
+        $GLOBALS['aeocas_test_post_data'] = array(
+            1 => (object) array( 'ID' => 1, 'post_type' => 'page', 'post_status' => 'publish' ),
+            2 => (object) array( 'ID' => 2, 'post_type' => 'post', 'post_status' => 'draft' ),
+        );
         $GLOBALS['aeocas_test_post_meta'] = array(
-            1 => array( '_aeocas_faq_schema' => array( array( 'q' => 'What?', 'a' => 'This.' ) ), '_aeocas_canonical_url' => 'https://helpsquad.com/canonical' ),
-            2 => array( '_aeocas_faq_schema' => '', '_aeocas_canonical_url' => '' ),
+            1 => array(
+                '_aeocas_faq_schema'            => array( array( 'q' => 'What?', 'a' => 'This.' ) ),
+                '_aeocas_canonical_url'         => 'https://helpsquad.com/canonical',
+                '_aeocas_rewrite_status'        => 'draft_ready',
+                '_aeocas_active_rewrite_draft_id' => 21,
+            ),
+            2 => array(
+                '_aeocas_faq_schema'    => '',
+                '_aeocas_canonical_url' => '',
+            ),
         );
 
         try { AEOCAS_Audit_Api::ajax_get_local_content_index(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
@@ -793,11 +924,16 @@ final class AEOCASAuditApiTest extends TestCase {
         // First item should have faq_count = 1.
         $this->assertSame( 1, $GLOBALS['aeocas_test_json_response']['data']['items'][0]['faq_count'] );
         $this->assertTrue( $GLOBALS['aeocas_test_json_response']['data']['items'][0]['has_faq'] );
+        $this->assertSame( 'page', $GLOBALS['aeocas_test_json_response']['data']['items'][0]['post_type'] );
+        $this->assertTrue( $GLOBALS['aeocas_test_json_response']['data']['items'][0]['can_edit'] );
+        $this->assertSame( 'draft_ready', $GLOBALS['aeocas_test_json_response']['data']['items'][0]['rewrite_status'] );
+        $this->assertSame( 21, $GLOBALS['aeocas_test_json_response']['data']['items'][0]['active_rewrite_draft_id'] );
 
         // Second item should have faq_count = 0.
         $this->assertSame( 0, $GLOBALS['aeocas_test_json_response']['data']['items'][1]['faq_count'] );
+        $this->assertSame( 'draft', $GLOBALS['aeocas_test_json_response']['data']['items'][1]['status'] );
 
-        unset( $GLOBALS['aeocas_test_post_ids'], $GLOBALS['aeocas_test_post_meta'] );
+        unset( $GLOBALS['aeocas_test_post_ids'], $GLOBALS['aeocas_test_post_meta'], $GLOBALS['aeocas_test_post_data'] );
     }
 
     // --- register_ajax test ---

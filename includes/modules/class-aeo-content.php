@@ -14,6 +14,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class AEOCAS_Content {
 
+    const REWRITE_SOURCE_POST_META   = '_aeocas_rewrite_source_post_id';
+    const REWRITE_ID_META            = '_aeocas_rewrite_id';
+    const REWRITE_AUDIT_STAMP_META   = '_aeocas_rewrite_audit_stamp';
+    const REWRITE_STATUS_META        = '_aeocas_rewrite_status';
+    const ACTIVE_REWRITE_DRAFT_META  = '_aeocas_active_rewrite_draft_id';
+    const REWRITE_APPLIED_TO_POST_META = '_aeocas_rewrite_applied_to_post_id';
+
     public function __construct() {
         // No hooks needed - called via REST API.
     }
@@ -39,16 +46,17 @@ class AEOCAS_Content {
      * @return WP_REST_Response|WP_Error
      */
     public function create_or_update_post( $payload ) {
-        $post_id = isset( $payload['post_id'] ) ? intval( $payload['post_id'] ) : 0;
+        $post_id       = isset( $payload['post_id'] ) ? intval( $payload['post_id'] ) : 0;
+        $existing_post = $post_id ? get_post( $post_id ) : null;
 
         $post_data = array(
-            'post_type' => 'post',
+            'post_type' => $this->resolve_post_type( $payload, $existing_post ),
         );
 
         // Only set status if explicitly provided; on update, preserve existing status.
         if ( isset( $payload['status'] ) && in_array( $payload['status'], array( 'publish', 'draft', 'pending' ), true ) ) {
             $post_data['post_status'] = $payload['status'];
-        } elseif ( ! $post_id || ! get_post( $post_id ) ) {
+        } elseif ( ! $post_id || ! $existing_post ) {
             // New post defaults to draft.
             $post_data['post_status'] = 'draft';
         }
@@ -98,7 +106,7 @@ class AEOCAS_Content {
         }
 
         // Create or update.
-        if ( $post_id && get_post( $post_id ) ) {
+        if ( $post_id && $existing_post ) {
             $post_data['ID'] = $post_id;
             $result = wp_update_post( $post_data, true );
         } else {
@@ -158,6 +166,135 @@ class AEOCAS_Content {
     }
 
     /**
+     * Create a linked rewrite-review draft for an existing source post.
+     *
+     * @param array $payload Rewrite payload with source_post_id and optimized fields.
+     * @return WP_REST_Response|WP_Error
+     */
+    public function create_rewrite_draft( $payload ) {
+        $source_post_id = isset( $payload['source_post_id'] ) ? absint( $payload['source_post_id'] ) : 0;
+        $source_post    = $source_post_id ? get_post( $source_post_id ) : null;
+
+        if ( ! $source_post ) {
+            return new WP_Error( 'aeocas_rewrite_source_missing', __( 'Source post not found for rewrite draft.', 'aeo-content-ai-studio' ) );
+        }
+
+        $draft_payload = array(
+            'post_type' => $this->resolve_post_type( $payload, $source_post ),
+            'status'    => 'draft',
+            'title'     => isset( $payload['title'] ) ? $payload['title'] : $this->build_rewrite_draft_title( $source_post ),
+            'content'   => isset( $payload['content'] ) ? $payload['content'] : ( isset( $source_post->post_content ) ? $source_post->post_content : '' ),
+            'excerpt'   => array_key_exists( 'excerpt', $payload ) ? $payload['excerpt'] : ( isset( $source_post->post_excerpt ) ? $source_post->post_excerpt : '' ),
+            'slug'      => isset( $payload['slug'] ) ? $payload['slug'] : sanitize_title( ( isset( $source_post->post_name ) ? $source_post->post_name : $source_post_id ) . '-rewrite-review' ),
+        );
+
+        foreach ( array( 'categories', 'tags', 'faq', 'author', 'speakable', 'canonical', 'featured_image_url' ) as $key ) {
+            if ( isset( $payload[ $key ] ) ) {
+                $draft_payload[ $key ] = $payload[ $key ];
+            }
+        }
+
+        $result = $this->create_or_update_post( $draft_payload );
+        if ( is_wp_error( $result ) ) {
+            return $result;
+        }
+
+        $data     = $result->get_data();
+        $draft_id = isset( $data['post_id'] ) ? absint( $data['post_id'] ) : 0;
+        if ( ! $draft_id ) {
+            return new WP_Error( 'aeocas_rewrite_draft_failed', __( 'Rewrite draft could not be created.', 'aeo-content-ai-studio' ) );
+        }
+
+        $rewrite_id = isset( $payload['rewrite_id'] ) ? sanitize_text_field( $payload['rewrite_id'] ) : '';
+        $audit_stamp = isset( $payload['audit_stamp'] ) ? sanitize_text_field( $payload['audit_stamp'] ) : '';
+
+        $this->store_rewrite_meta( $draft_id, array(
+            self::REWRITE_SOURCE_POST_META => $source_post_id,
+            self::REWRITE_ID_META          => $rewrite_id,
+            self::REWRITE_AUDIT_STAMP_META => $audit_stamp,
+            self::REWRITE_STATUS_META      => 'draft_ready',
+        ) );
+
+        $this->store_rewrite_meta( $source_post_id, array(
+            self::REWRITE_ID_META           => $rewrite_id,
+            self::REWRITE_AUDIT_STAMP_META  => $audit_stamp,
+            self::REWRITE_STATUS_META       => 'draft_ready',
+            self::ACTIVE_REWRITE_DRAFT_META => $draft_id,
+        ) );
+
+        return $this->append_response_data( $result, array(
+            'draft_post_id'   => $draft_id,
+            'source_post_id'  => $source_post_id,
+            'rewrite_id'      => $rewrite_id,
+            'rewrite_status'  => 'draft_ready',
+            'source_edit_url' => get_edit_post_link( $source_post_id, 'raw' ),
+        ) );
+    }
+
+    /**
+     * Apply a reviewed rewrite draft back onto the original source post.
+     *
+     * @param array $payload Rewrite-apply payload containing draft_post_id.
+     * @return WP_REST_Response|WP_Error
+     */
+    public function apply_rewrite_draft( $payload ) {
+        $draft_post_id = isset( $payload['draft_post_id'] ) ? absint( $payload['draft_post_id'] ) : 0;
+        $draft_post    = $draft_post_id ? get_post( $draft_post_id ) : null;
+
+        if ( ! $draft_post ) {
+            return new WP_Error( 'aeocas_rewrite_draft_missing', __( 'Rewrite draft not found.', 'aeo-content-ai-studio' ) );
+        }
+
+        $source_post_id = isset( $payload['source_post_id'] ) ? absint( $payload['source_post_id'] ) : absint( get_post_meta( $draft_post_id, self::REWRITE_SOURCE_POST_META, true ) );
+        $source_post    = $source_post_id ? get_post( $source_post_id ) : null;
+
+        if ( ! $source_post ) {
+            return new WP_Error( 'aeocas_rewrite_source_missing', __( 'Source post not found for rewrite apply.', 'aeo-content-ai-studio' ) );
+        }
+
+        $apply_payload = array(
+            'post_id'   => $source_post_id,
+            'post_type' => $this->resolve_post_type( $payload, $source_post ),
+            'title'     => isset( $payload['title'] ) ? $payload['title'] : ( isset( $draft_post->post_title ) ? $draft_post->post_title : '' ),
+            'content'   => isset( $payload['content'] ) ? $payload['content'] : ( isset( $draft_post->post_content ) ? $draft_post->post_content : '' ),
+            'excerpt'   => array_key_exists( 'excerpt', $payload ) ? $payload['excerpt'] : ( isset( $draft_post->post_excerpt ) ? $draft_post->post_excerpt : '' ),
+        );
+
+        foreach ( array( 'status', 'categories', 'tags', 'faq', 'author', 'speakable', 'canonical', 'featured_image_url' ) as $key ) {
+            if ( isset( $payload[ $key ] ) ) {
+                $apply_payload[ $key ] = $payload[ $key ];
+            }
+        }
+
+        $result = $this->create_or_update_post( $apply_payload );
+        if ( is_wp_error( $result ) ) {
+            return $result;
+        }
+
+        $rewrite_id = isset( $payload['rewrite_id'] ) ? sanitize_text_field( $payload['rewrite_id'] ) : sanitize_text_field( (string) get_post_meta( $draft_post_id, self::REWRITE_ID_META, true ) );
+        $audit_stamp = isset( $payload['audit_stamp'] ) ? sanitize_text_field( $payload['audit_stamp'] ) : sanitize_text_field( (string) get_post_meta( $draft_post_id, self::REWRITE_AUDIT_STAMP_META, true ) );
+
+        $this->store_rewrite_meta( $draft_post_id, array(
+            self::REWRITE_STATUS_META          => 'applied',
+            self::REWRITE_APPLIED_TO_POST_META => $source_post_id,
+        ) );
+
+        $this->store_rewrite_meta( $source_post_id, array(
+            self::REWRITE_ID_META          => $rewrite_id,
+            self::REWRITE_AUDIT_STAMP_META => $audit_stamp,
+            self::REWRITE_STATUS_META      => 'applied',
+        ) );
+        delete_post_meta( $source_post_id, self::ACTIVE_REWRITE_DRAFT_META );
+
+        return $this->append_response_data( $result, array(
+            'draft_post_id'  => $draft_post_id,
+            'source_post_id' => $source_post_id,
+            'rewrite_id'     => $rewrite_id,
+            'rewrite_status' => 'applied',
+        ) );
+    }
+
+    /**
      * Recursively sanitize a schema array for safe storage.
      *
      * @param mixed $data Input data.
@@ -181,6 +318,65 @@ class AEOCAS_Content {
             return $data;
         }
         return '';
+    }
+
+    /**
+     * Resolve the post type for creates/updates while preserving existing types.
+     *
+     * @param array       $payload       Incoming payload.
+     * @param object|null $existing_post Existing WP post object when updating.
+     * @return string
+     */
+    private function resolve_post_type( $payload, $existing_post = null ) {
+        if ( ! empty( $payload['post_type'] ) ) {
+            return sanitize_key( $payload['post_type'] );
+        }
+
+        if ( $existing_post && ! empty( $existing_post->post_type ) ) {
+            return sanitize_key( $existing_post->post_type );
+        }
+
+        return 'post';
+    }
+
+    /**
+     * Build a stable review-draft title from the source post.
+     *
+     * @param object $source_post Source post object.
+     * @return string
+     */
+    private function build_rewrite_draft_title( $source_post ) {
+        $base = isset( $source_post->post_title ) && '' !== $source_post->post_title ? $source_post->post_title : __( 'Rewrite Review', 'aeo-content-ai-studio' );
+        return $base . ' (Rewrite Review)';
+    }
+
+    /**
+     * Append extra data onto a REST response payload.
+     *
+     * @param WP_REST_Response $response Response object.
+     * @param array            $extra    Extra fields.
+     * @return WP_REST_Response
+     */
+    private function append_response_data( $response, $extra ) {
+        $data = $response->get_data();
+        return rest_ensure_response( array_merge( $data, $extra ) );
+    }
+
+    /**
+     * Persist non-empty rewrite metadata on a post.
+     *
+     * @param int   $post_id Post ID.
+     * @param array $meta    Key/value metadata pairs.
+     * @return void
+     */
+    private function store_rewrite_meta( $post_id, $meta ) {
+        foreach ( $meta as $key => $value ) {
+            if ( '' === $value || null === $value ) {
+                continue;
+            }
+
+            update_post_meta( $post_id, $key, $value );
+        }
     }
 
     /**
@@ -210,7 +406,7 @@ class AEOCAS_Content {
         // Pattern 2: Generic FAQ heading + Q&A pairs.
         if ( empty( $pairs ) ) {
             $faq_pattern = '/<h2[^>]*>[\s\S]*?(?:FAQ|Frequently\s+Asked\s+Questions)[\s\S]*?<\/h2>/i';
-            if ( preg_match( $faq_pattern, $content, $faq_match, PREG_OFFSET_MATCH ) ) {
+            if ( preg_match( $faq_pattern, $content, $faq_match, PREG_OFFSET_CAPTURE ) ) {
                 $faq_section = substr( $content, $faq_match[0][1] );
                 // Find next H2 to limit scope.
                 $next_h2 = strpos( $faq_section, '<h2', strlen( $faq_match[0][0] ) );
@@ -260,17 +456,17 @@ class AEOCAS_Content {
             return $content;
         }
 
-        if ( ! function_exists( 'media_sideload_image' ) ) {
-            require_once ABSPATH . 'wp-admin/includes/media.php';
-            require_once ABSPATH . 'wp-admin/includes/file.php';
-            require_once ABSPATH . 'wp-admin/includes/image.php';
-        }
-
         $site_host = wp_parse_url( home_url(), PHP_URL_HOST );
 
         // Find all img tags with src attribute.
         if ( ! preg_match_all( '/<img\s[^>]*src\s*=\s*["\']([^"\']+)["\'][^>]*>/i', $content, $matches, PREG_SET_ORDER ) ) {
             return $content;
+        }
+
+        if ( ! function_exists( 'media_sideload_image' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/media.php';
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            require_once ABSPATH . 'wp-admin/includes/image.php';
         }
 
         foreach ( $matches as $match ) {
