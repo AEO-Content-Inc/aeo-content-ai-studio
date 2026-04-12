@@ -10,24 +10,132 @@
     var loading  = document.getElementById('aeo-audit-loading');
     var errorBox = document.getElementById('aeo-audit-error');
     var content  = document.getElementById('aeo-audit-content');
+    var STAGE_CONFIGS = [
+        { id: 'connect',   order: 1, title: 'Connect',   label: 'Link your site',              tabs: ['connect'],       defaultTab: 'connect' },
+        { id: 'discovery', order: 2, title: 'Discover',  label: 'See what was found',          tabs: ['discovery'],     defaultTab: 'discovery' },
+        { id: 'diagnose',  order: 3, title: 'Diagnose',  label: 'Find critical issues',        tabs: ['scoreboard', 'site-audit'], defaultTab: 'scoreboard' },
+        { id: 'fix',       order: 4, title: 'Fix',       label: 'Act on best opportunities',   tabs: ['opportunities', 'rewrite'], defaultTab: 'opportunities' },
+        { id: 'track',     order: 5, title: 'Track',     label: 'Monitor progress',            tabs: ['activity'],      defaultTab: 'activity' }
+    ];
+    var STAGE_BY_ID = {};
+    var TAB_TO_STAGE = {};
+    var activeStageId = 'connect';
+    var stageTabState = {
+        connect: 'connect',
+        discovery: 'discovery',
+        diagnose: 'scoreboard',
+        fix: 'opportunities',
+        track: 'activity'
+    };
 
-    /* ── Tabs ─────────────────────────────────────────── */
+    STAGE_CONFIGS.forEach(function (stage) {
+        STAGE_BY_ID[stage.id] = stage;
+        stage.tabs.forEach(function (tabId) {
+            TAB_TO_STAGE[tabId] = stage.id;
+        });
+    });
 
-    function initTabs() {
-        var tabs = wrap.querySelectorAll('.nav-tab');
-        var panels = wrap.querySelectorAll('.aeo-tab-panel');
+    /* ── Workflow Rail ────────────────────────────────── */
 
-        tabs.forEach(function (tab) {
-            tab.addEventListener('click', function (e) {
-                e.preventDefault();
-                var target = this.getAttribute('data-tab');
+    function getStageShell(stageId) {
+        return document.getElementById('stage-' + stageId);
+    }
 
-                tabs.forEach(function (t) { t.classList.remove('nav-tab-active'); });
-                panels.forEach(function (p) { p.style.display = 'none'; });
+    function getPrimaryStep(stageId) {
+        return wrap.querySelector('.aeo-workflow-step[data-stage="' + stageId + '"]');
+    }
 
-                this.classList.add('nav-tab-active');
-                var panel = document.getElementById('tab-' + target);
-                if (panel) panel.style.display = '';
+    function updateUrlTab(tabId) {
+        if (!tabId || !window.history || !window.history.replaceState) return;
+        try {
+            var url = new URL(window.location.href);
+            url.searchParams.set('tab', tabId);
+            window.history.replaceState({}, '', url.toString());
+        } catch (e) {
+            // Ignore URL update failures.
+        }
+    }
+
+    function getCurrentTabForStage(stageId) {
+        var stage = STAGE_BY_ID[stageId];
+        if (!stage) return '';
+        return stageTabState[stageId] || stage.defaultTab;
+    }
+
+    function syncStagePanels(stageId) {
+        STAGE_CONFIGS.forEach(function (stage) {
+            var shell = getStageShell(stage.id);
+            if (shell) {
+                var isActiveStage = stage.id === stageId;
+                shell.style.display = isActiveStage ? '' : 'none';
+                shell.classList.toggle('is-active', isActiveStage);
+            }
+
+            var step = getPrimaryStep(stage.id);
+            if (step) {
+                step.classList.toggle('is-active', stage.id === stageId);
+                step.setAttribute('aria-current', stage.id === stageId ? 'step' : 'false');
+            }
+
+            var activeTab = getCurrentTabForStage(stage.id);
+            stage.tabs.forEach(function (tabId) {
+                var panel = document.getElementById('tab-' + tabId);
+                if (!panel) return;
+                var shouldShow = stage.id === stageId && (stage.tabs.length === 1 || tabId === activeTab);
+                panel.style.display = shouldShow ? '' : 'none';
+            });
+
+            var subtabWrap = wrap.querySelector('.aeo-subtabs[data-subtabs-for="' + stage.id + '"]');
+            if (subtabWrap) {
+                subtabWrap.querySelectorAll('.aeo-subtab').forEach(function (btn) {
+                    var isActiveSubtab = btn.getAttribute('data-tab') === activeTab;
+                    btn.classList.toggle('is-active', isActiveSubtab);
+                    btn.setAttribute('aria-selected', isActiveSubtab ? 'true' : 'false');
+                });
+            }
+        });
+    }
+
+    function activateStage(stageId, preferredTab, skipUrl) {
+        var stage = STAGE_BY_ID[stageId];
+        if (!stage) return;
+        var targetTab = preferredTab && stage.tabs.indexOf(preferredTab) !== -1 ? preferredTab : getCurrentTabForStage(stageId);
+        if (!targetTab) targetTab = stage.defaultTab;
+
+        stageTabState[stageId] = targetTab;
+        activeStageId = stageId;
+        syncStagePanels(stageId);
+        if (!skipUrl) updateUrlTab(targetTab);
+    }
+
+    function activateTab(tabId, skipUrl) {
+        var stageId = TAB_TO_STAGE[tabId];
+        if (!stageId) return;
+        activateStage(stageId, tabId, skipUrl);
+    }
+
+    function normalizeRequestedView(requested) {
+        if (!requested) return 'connect';
+        if (TAB_TO_STAGE[requested]) return requested;
+        if (STAGE_BY_ID[requested]) return STAGE_BY_ID[requested].defaultTab;
+        return 'connect';
+    }
+
+    function initWorkflowRail() {
+        wrap.querySelectorAll('.aeo-workflow-step').forEach(function (step) {
+            step.addEventListener('click', function () {
+                var stageId = this.getAttribute('data-stage');
+                var defaultTab = this.getAttribute('data-default-tab') || '';
+                activateStage(stageId, defaultTab);
+            });
+        });
+    }
+
+    function initStageSubtabs() {
+        wrap.querySelectorAll('.aeo-subtab').forEach(function (subtab) {
+            subtab.addEventListener('click', function () {
+                var tabId = this.getAttribute('data-tab');
+                activateTab(tabId);
             });
         });
     }
@@ -1611,6 +1719,7 @@
     var discoveryPollTimer = null;
     var auditRetryTimer = null;
     var currentAuditData = null;
+    var currentDiscoveryPayload = null;
     var localContentByUrlKey = {};
     var localContentIndexPromise = null;
     var siteAuditFilters = {
@@ -1665,20 +1774,19 @@
         return localContentIndexPromise;
     }
 
-    function ensureTabBadge(tabId) {
-        var tab = wrap.querySelector('.nav-tab[data-tab="' + tabId + '"]');
-        if (!tab) return null;
-        var badge = tab.querySelector('.aeo-tab-alert-count');
+    function ensureCountBadge(host, className) {
+        if (!host) return null;
+        var badge = host.querySelector('.' + className);
         if (!badge) {
             badge = document.createElement('span');
-            badge.className = 'aeo-tab-alert-count';
-            tab.appendChild(badge);
+            badge.className = className;
+            host.appendChild(badge);
         }
         return badge;
     }
 
-    function setTabCriticalBadge(tabId, count) {
-        var badge = ensureTabBadge(tabId);
+    function setCountBadge(host, className, count) {
+        var badge = ensureCountBadge(host, className);
         if (!badge) return;
         if (!count) {
             badge.textContent = '';
@@ -1689,34 +1797,45 @@
         badge.classList.add('is-visible');
     }
 
-    function clearTabCriticalBadges() {
-        wrap.querySelectorAll('.aeo-tab-alert-count').forEach(function (badge) {
+    function clearCriticalBadges() {
+        wrap.querySelectorAll('.aeo-workflow-badge, .aeo-subtab-badge').forEach(function (badge) {
             badge.textContent = '';
             badge.classList.remove('is-visible');
         });
     }
 
-    function updateTabCriticalBadges(audit) {
-        if (!audit) {
-            clearTabCriticalBadges();
+    function buildStageCounts(context) {
+        return {
+            stages: {
+                connect: context.connected ? 0 : 1,
+                discovery: context.discovery && context.discovery.status === 'failed' ? 1 : 0,
+                diagnose: context.scorecardCritical + context.pageCritical,
+                fix: context.opportunityCritical + context.rewriteCritical,
+                track: context.activity.errorCount
+            },
+            subtabs: {
+                scoreboard: context.scorecardCritical,
+                'site-audit': context.pageCritical,
+                opportunities: context.opportunityCritical,
+                rewrite: context.rewriteCritical
+            }
+        };
+    }
+
+    function updateWorkflowBadges(context) {
+        if (!context) {
+            clearCriticalBadges();
             return;
         }
 
-        var scorecardCritical = (audit.scorecard || []).filter(function (item) {
-            return isCriticalScorecardItem(item);
-        }).length;
-        var pageCritical = (audit.pages_reviewed || []).filter(pageHasCriticalIssue).length;
-        var oppCritical = buildOpportunityModels(audit).filter(function (model) {
-            return model.isCritical;
-        }).length;
-        var rewriteCritical = buildRewriteCandidates(audit).filter(function (candidate) {
-            return candidate.tier === 'high';
-        }).length;
-
-        setTabCriticalBadge('scoreboard', scorecardCritical);
-        setTabCriticalBadge('site-audit', pageCritical);
-        setTabCriticalBadge('opportunities', oppCritical);
-        setTabCriticalBadge('rewrite', rewriteCritical);
+        var counts = buildStageCounts(context);
+        Object.keys(counts.stages).forEach(function (stageId) {
+            setCountBadge(getPrimaryStep(stageId), 'aeo-workflow-badge', counts.stages[stageId]);
+        });
+        Object.keys(counts.subtabs).forEach(function (tabId) {
+            var subtab = wrap.querySelector('.aeo-subtab[data-tab="' + tabId + '"]');
+            setCountBadge(subtab, 'aeo-subtab-badge', counts.subtabs[tabId]);
+        });
     }
 
     function renderAuditWaiting(title, description) {
@@ -1753,19 +1872,21 @@
     }
 
     function setAuditTabsLoading() {
-        clearTabCriticalBadges();
+        clearCriticalBadges();
         AUDIT_TAB_IDS.forEach(function (id) {
             var el = document.getElementById('tab-' + id);
             if (el) el.innerHTML = renderAuditLoading();
         });
+        refreshWorkflowChrome();
     }
 
     function setAuditTabsEmpty(message) {
-        clearTabCriticalBadges();
+        clearCriticalBadges();
         AUDIT_TAB_IDS.forEach(function (id) {
             var el = document.getElementById('tab-' + id);
             if (el) el.innerHTML = renderAuditEmpty(message);
         });
+        refreshWorkflowChrome();
     }
 
     function firstNonEmpty() {
@@ -2143,6 +2264,483 @@
             + '<div class="aeo-discovery-grid">' + cards + '</div>';
     }
 
+    /* ── Workflow Stage Chrome ───────────────────────── */
+
+    function getStageDescription(stageId) {
+        switch (stageId) {
+            case 'connect':
+                return 'Configure the WordPress connection and confirm this site can receive content and audit data from aeocontent.ai.';
+            case 'discovery':
+                return 'Review the deterministic profile, extracted signals, and coverage before moving into deeper diagnosis.';
+            case 'diagnose':
+                return 'Understand what is dragging AI visibility down at both the site level and the page level.';
+            case 'fix':
+                return 'Prioritize the most valuable actions, then move straight into the pages and guidance that support each fix.';
+            case 'track':
+                return 'Monitor command history, reruns, and operational issues so the workflow keeps moving cleanly.';
+            default:
+                return '';
+        }
+    }
+
+    function getEnabledFeatureCount() {
+        var checked = wrap.querySelectorAll('input[name="aeocas_enabled_features[]"]:checked').length;
+        if (checked) return checked;
+        var fallback = parseInt(wrap.getAttribute('data-feature-count') || '0', 10);
+        return isNaN(fallback) ? 0 : fallback;
+    }
+
+    function getActivityStatsSnapshot() {
+        var stage = getStageShell('track');
+        if (!stage) {
+            return { total: 0, successRate: 0, last24h: 0, lastActionLabel: 'Never', errorCount: 0 };
+        }
+        var total = parseInt(stage.getAttribute('data-activity-total') || '0', 10);
+        var successRate = parseInt(stage.getAttribute('data-activity-success-rate') || '0', 10);
+        var last24h = parseInt(stage.getAttribute('data-activity-last24h') || '0', 10);
+        var errorCount = parseInt(stage.getAttribute('data-activity-error-count') || '0', 10);
+        return {
+            total: isNaN(total) ? 0 : total,
+            successRate: isNaN(successRate) ? 0 : successRate,
+            last24h: isNaN(last24h) ? 0 : last24h,
+            lastActionLabel: stage.getAttribute('data-activity-last-action-label') || 'Never',
+            errorCount: isNaN(errorCount) ? 0 : errorCount
+        };
+    }
+
+    function getWeakestScorecardCategory(audit) {
+        var scorecard = (audit && audit.scorecard) || [];
+        if (!scorecard.length) return null;
+        var cats = getCategories(scorecard);
+        var weakest = null;
+
+        cats.forEach(function (cat) {
+            var scores = [];
+            scorecard.forEach(function (item) {
+                if (cat.ids.indexOf(item.id) !== -1 && typeof item.score === 'number') {
+                    scores.push(item.score);
+                }
+            });
+            if (!scores.length) return;
+            var avg = Math.round(scores.reduce(function (sum, score) { return sum + score; }, 0) / scores.length);
+            if (!weakest || avg < weakest.score) {
+                weakest = {
+                    label: cat.label,
+                    score: avg,
+                    color: cat.color,
+                    bg: cat.bg
+                };
+            }
+        });
+
+        return weakest;
+    }
+
+    function getAveragePageScore(pages) {
+        var scores = (pages || []).map(getPageScore).filter(function (score) { return score > 0; });
+        if (!scores.length) return 0;
+        return Math.round(scores.reduce(function (sum, score) { return sum + score; }, 0) / scores.length);
+    }
+
+    function getDiscoveryStatusLabel(context) {
+        if (context.discovery && context.discovery.status === 'failed') return 'Failed';
+        if (context.discovery && context.discovery.discovery) return 'Ready';
+        if (discoveryUiState.phase === 'error') return 'Failed';
+        if (discoveryUiState.phase === 'pending' || discoveryUiState.phase === 'loading') return 'Running';
+        if (context.connected) return 'Queued';
+        return 'Waiting';
+    }
+
+    function buildWorkflowContext() {
+        var audit = currentAuditData;
+        var discovery = currentDiscoveryPayload;
+        var discoveryData = discovery && discovery.discovery ? discovery.discovery : null;
+        var deterministicProfile = discoveryData && discoveryData.deterministic_profile ? discoveryData.deterministic_profile : {};
+        var pages = (audit && audit.pages_reviewed) || [];
+        var scorecard = (audit && audit.scorecard) || [];
+        var opportunityModels = audit ? buildOpportunityModels(audit) : [];
+        var rewriteCandidates = audit ? buildRewriteCandidates(audit) : [];
+        var uniqueOpportunityPages = {};
+        var topicSignals = mergeArrays(
+            deterministicProfile.topic_phrases,
+            discoveryData && discoveryData.content_themes,
+            discoveryData && discoveryData.topic_phrases
+        );
+        var entities = mergeArrays(
+            deterministicProfile.entities,
+            discoveryData && discoveryData.entities
+        );
+
+        opportunityModels.forEach(function (model) {
+            model.relatedPages.forEach(function (page) {
+                if (page && page.url) uniqueOpportunityPages[page.url] = 1;
+            });
+        });
+
+        return {
+            connected: wrap.getAttribute('data-connected') === '1' || !!wrap.querySelector('.aeo-status-bar.aeo-connected'),
+            featureCount: getEnabledFeatureCount(),
+            audit: audit,
+            discovery: discovery,
+            discoveryData: discoveryData,
+            deterministicProfile: deterministicProfile,
+            pages: pages,
+            scorecard: scorecard,
+            opportunityModels: opportunityModels,
+            rewriteCandidates: rewriteCandidates,
+            scorecardCritical: scorecard.filter(function (item) { return isCriticalScorecardItem(item); }).length,
+            scorecardModerate: scorecard.filter(function (item) {
+                var status = String(item.status || '').toLowerCase();
+                return ['partial', 'moderate'].indexOf(status) !== -1;
+            }).length,
+            pageCritical: pages.filter(pageHasCriticalIssue).length,
+            opportunityCritical: opportunityModels.filter(function (model) { return model.isCritical; }).length,
+            rewriteCritical: rewriteCandidates.filter(function (candidate) { return candidate.tier === 'high'; }).length,
+            quickWins: opportunityModels.filter(function (model) { return String(model.effort || '').toLowerCase() === 'low'; }).length,
+            uniqueOpportunityPagesCount: Object.keys(uniqueOpportunityPages).length,
+            avgPageScore: getAveragePageScore(pages),
+            weakestPillar: getWeakestScorecardCategory(audit),
+            discoveryStatusLabel: '',
+            discoveryPagesCount: firstNonEmpty(
+                pages.length ? pages.length : null,
+                Array.isArray(deterministicProfile.page_titles) ? deterministicProfile.page_titles.length : null,
+                typeof deterministicProfile.sitemap_url_count === 'number' ? deterministicProfile.sitemap_url_count : null,
+                0
+            ) || 0,
+            topicSignalCount: topicSignals.length,
+            entityCount: entities.length,
+            competitorCount: discoveryData && Array.isArray(discoveryData.competitors) ? discoveryData.competitors.length : 0,
+            activity: getActivityStatsSnapshot()
+        };
+    }
+
+    function renderStatusChip(label, tone) {
+        return '<span class="aeo-status-chip aeo-status-chip-' + esc(tone || 'idle') + '">' + esc(label || 'Waiting') + '</span>';
+    }
+
+    function renderMetricCard(metric) {
+        return ''
+            + '<div class="aeo-stage-metric aeo-stage-metric-' + esc(metric.tone || 'neutral') + '">'
+            +   '<div class="aeo-stage-metric-label">' + esc(metric.label || '') + '</div>'
+            +   '<div class="aeo-stage-metric-value">' + esc(String(metric.value == null ? '—' : metric.value)) + '</div>'
+            +   '<div class="aeo-stage-metric-detail">' + esc(metric.detail || '') + '</div>'
+            + '</div>';
+    }
+
+    function getStageState(stageId, context) {
+        var fixCritical = context.opportunityCritical + context.rewriteCritical;
+
+        switch (stageId) {
+            case 'connect':
+                if (!context.connected) return { tone: 'attention', label: 'Needs setup' };
+                if (!context.discoveryData && (discoveryUiState.phase === 'pending' || discoveryUiState.phase === 'loading')) {
+                    return { tone: 'progress', label: 'Starting up' };
+                }
+                return { tone: 'healthy', label: 'Ready' };
+            case 'discovery':
+                if (context.discovery && context.discovery.status === 'failed') return { tone: 'attention', label: 'Failed' };
+                if (context.discoveryData) return { tone: 'healthy', label: 'Ready' };
+                if (discoveryUiState.phase === 'pending' || discoveryUiState.phase === 'loading') return { tone: 'progress', label: 'Running' };
+                return { tone: context.connected ? 'progress' : 'idle', label: context.connected ? 'Queued' : 'Waiting' };
+            case 'diagnose':
+                if (!context.audit) return { tone: context.connected ? 'progress' : 'idle', label: context.connected ? 'Waiting' : 'Blocked' };
+                if (context.scorecardCritical + context.pageCritical > 0) return { tone: 'attention', label: 'Needs attention' };
+                if (context.scorecardModerate > 0) return { tone: 'progress', label: 'In progress' };
+                return { tone: 'healthy', label: 'Healthy' };
+            case 'fix':
+                if (!context.audit) return { tone: context.connected ? 'progress' : 'idle', label: context.connected ? 'Waiting' : 'Blocked' };
+                if (fixCritical > 0) return { tone: 'attention', label: 'Needs action' };
+                if (context.opportunityModels.length || context.rewriteCandidates.length) return { tone: 'progress', label: 'In progress' };
+                return { tone: 'healthy', label: 'Healthy' };
+            case 'track':
+                if (context.activity.errorCount > 0) return { tone: 'attention', label: 'Failures' };
+                if (context.activity.total > 0) return { tone: 'healthy', label: 'Active' };
+                return { tone: 'idle', label: 'Waiting' };
+            default:
+                return { tone: 'idle', label: 'Waiting' };
+        }
+    }
+
+    function getStageContextLine(stageId, context) {
+        var urgentDiagnose = context.scorecardCritical + context.pageCritical;
+        var urgentFix = context.opportunityCritical + context.rewriteCritical;
+
+        switch (stageId) {
+            case 'connect':
+                return context.connected
+                    ? 'This site is linked and ready to receive audit data and content actions.'
+                    : 'Finish this step first so discovery, diagnosis, and fixes can populate.';
+            case 'discovery':
+                return context.discoveryData
+                    ? 'Discovery surfaced ' + context.discoveryPagesCount + ' pages, ' + context.topicSignalCount + ' topic signals, and ' + context.entityCount + ' entities.'
+                    : 'The deterministic profile is still building. Results appear here as soon as the remote worker finishes.';
+            case 'diagnose':
+                return context.audit
+                    ? urgentDiagnose + ' critical issues are currently dragging the score down across criteria and pages.'
+                    : 'Diagnosis will populate automatically once the site audit completes.';
+            case 'fix':
+                return context.audit
+                    ? urgentFix + ' urgent fixes, ' + context.quickWins + ' quick wins, and ' + context.rewriteCandidates.length + ' rewrite candidates are ready now.'
+                    : 'Opportunity intelligence appears here after the first audit run completes.';
+            case 'track':
+                return context.activity.total
+                    ? 'Recent actions, reruns, and failures are logged here so the team can verify execution.'
+                    : 'This stage becomes useful once the platform starts sending actions into WordPress.';
+            default:
+                return '';
+        }
+    }
+
+    function getNextBestAction(stageId, context) {
+        if (stageId === 'connect') {
+            if (!context.connected) {
+                return {
+                    title: 'Finish the connection setup',
+                    body: 'Use the connection controls below so the first discovery and audit runs can complete.',
+                    ctaLabel: '',
+                    targetTab: ''
+                };
+            }
+            if (!context.discoveryData) {
+                return {
+                    title: 'Move into discovery',
+                    body: 'The site is connected. Review the extracted profile as soon as the first discovery pass finishes.',
+                    ctaLabel: 'Open Discover',
+                    targetTab: 'discovery'
+                };
+            }
+            return {
+                title: 'Start diagnosing the biggest score drag',
+                body: 'Connection is healthy. The next step is understanding which criteria and pages need attention first.',
+                ctaLabel: 'Open Diagnose',
+                targetTab: 'scoreboard'
+            };
+        }
+
+        if (stageId === 'discovery') {
+            if (context.discovery && context.discovery.status === 'failed') {
+                return {
+                    title: 'Retry discovery cleanly',
+                    body: 'Run a fresh audit and confirm the crawler can access the site without connection or indexing issues.',
+                    ctaLabel: 'Open Connect',
+                    targetTab: 'connect'
+                };
+            }
+            if (!context.discoveryData) {
+                return {
+                    title: 'Let discovery finish',
+                    body: 'The profile is still processing. Diagnose and Fix will fill in automatically as soon as the audit completes.',
+                    ctaLabel: '',
+                    targetTab: ''
+                };
+            }
+            return {
+                title: 'Move into diagnosis',
+                body: 'Use the extracted topics, entities, and content patterns as context while reviewing the critical issues.',
+                ctaLabel: 'Open Diagnose',
+                targetTab: 'scoreboard'
+            };
+        }
+
+        if (stageId === 'diagnose') {
+            if (!context.audit) {
+                return {
+                    title: 'Wait for audit data to arrive',
+                    body: 'The system is still scoring the site. Diagnose will populate with criteria and pages as soon as the audit completes.',
+                    ctaLabel: 'Open Discover',
+                    targetTab: 'discovery'
+                };
+            }
+            if (context.scorecardCritical >= context.pageCritical && context.scorecardCritical > 0) {
+                return {
+                    title: 'Start with the Site Audit view',
+                    body: 'Criterion-level failures reveal the structural issues that are affecting the whole site.',
+                    ctaLabel: 'Open Site Audit',
+                    targetTab: 'scoreboard'
+                };
+            }
+            if (context.pageCritical > 0) {
+                return {
+                    title: 'Inspect the Pages Audit next',
+                    body: 'Page-level triage shows exactly which URLs are clustering the highest-risk issues.',
+                    ctaLabel: 'Open Pages Audit',
+                    targetTab: 'site-audit'
+                };
+            }
+            return {
+                title: 'Diagnosis is stable; move into fixes',
+                body: 'The next best step is to work the highest-impact opportunities and rewrite candidates.',
+                ctaLabel: 'Open Fix',
+                targetTab: 'opportunities'
+            };
+        }
+
+        if (stageId === 'fix') {
+            if (!context.audit) {
+                return {
+                    title: 'Wait for fixes to populate',
+                    body: 'Opportunities and rewrite candidates are generated from the first completed audit.',
+                    ctaLabel: 'Open Discover',
+                    targetTab: 'discovery'
+                };
+            }
+            if (context.opportunityCritical > 0) {
+                return {
+                    title: 'Work the top opportunities first',
+                    body: 'These pair the clearest lift with linked pages, knowledge guides, and FAQs for fast execution.',
+                    ctaLabel: 'Open Opportunities',
+                    targetTab: 'opportunities'
+                };
+            }
+            if (context.rewriteCandidates.length > 0) {
+                return {
+                    title: 'Queue the lowest-ranking pages',
+                    body: 'The next wave of lift is likely to come from rewriting the weakest pages in the queue.',
+                    ctaLabel: 'Open Rewrite Queue',
+                    targetTab: 'rewrite'
+                };
+            }
+            return {
+                title: 'Shift into tracking mode',
+                body: 'The urgent fixes are under control. Monitor recent actions and rerun the audit after updates ship.',
+                ctaLabel: 'Open Track',
+                targetTab: 'activity'
+            };
+        }
+
+        if (context.activity.errorCount > 0) {
+            return {
+                title: 'Review the recent failures',
+                body: 'Some logged actions returned errors and may need manual cleanup or a rerun.',
+                ctaLabel: '',
+                targetTab: ''
+            };
+        }
+        if (context.activity.total > 0) {
+            return {
+                title: 'Use the log to confirm momentum',
+                body: 'Check recent actions before the next re-audit so resolved issues and failures stay visible.',
+                ctaLabel: '',
+                targetTab: ''
+            };
+        }
+        return {
+            title: 'This view will fill as work starts',
+            body: 'Command history and rerun signals appear here as soon as the platform starts pushing work into WordPress.',
+            ctaLabel: '',
+            targetTab: ''
+        };
+    }
+
+    function buildStageMetrics(stageId, context) {
+        var weakest = context.weakestPillar;
+
+        switch (stageId) {
+            case 'connect':
+                return [
+                    { label: 'Connection', value: context.connected ? 'Connected' : 'Action needed', detail: context.connected ? 'Platform link is healthy' : 'Setup is blocking the workflow', tone: context.connected ? 'healthy' : 'critical' },
+                    { label: 'Features enabled', value: context.featureCount, detail: 'Modules active on this site', tone: 'neutral' },
+                    { label: 'Latest site score', value: context.audit ? context.audit.overall_score : 'Pending', detail: context.audit ? 'Latest AEO site audit score' : 'Waiting for first audit data', tone: context.audit ? (context.audit.overall_score >= 70 ? 'healthy' : context.audit.overall_score >= 50 ? 'warning' : 'critical') : 'neutral' },
+                    { label: 'Critical fixes queued', value: context.opportunityCritical + context.rewriteCritical, detail: 'Items waiting in Diagnose and Fix', tone: (context.opportunityCritical + context.rewriteCritical) > 0 ? 'critical' : 'healthy' }
+                ];
+            case 'discovery':
+                return [
+                    { label: 'Discovery status', value: getDiscoveryStatusLabel(context), detail: context.discovery && context.discovery.current_stage ? context.discovery.current_stage : 'Remote worker state', tone: getStageState('discovery', context).tone },
+                    { label: 'Pages surfaced', value: context.discoveryPagesCount, detail: 'URLs discovered for the latest audit', tone: 'neutral' },
+                    { label: 'Topic signals', value: context.topicSignalCount, detail: 'Themes and phrases extracted so far', tone: 'neutral' },
+                    { label: 'Competitors', value: context.competitorCount, detail: context.entityCount + ' entities identified', tone: 'neutral' }
+                ];
+            case 'diagnose':
+                return [
+                    { label: 'Critical criteria', value: context.scorecardCritical, detail: 'Site-level scorecard failures', tone: context.scorecardCritical > 0 ? 'critical' : 'healthy' },
+                    { label: 'Critical pages', value: context.pageCritical, detail: 'Pages with high-risk issues', tone: context.pageCritical > 0 ? 'critical' : 'healthy' },
+                    { label: 'Avg AEO Rank', value: context.avgPageScore || '—', detail: 'Average across reviewed pages', tone: context.avgPageScore > 0 ? (context.avgPageScore >= 70 ? 'healthy' : context.avgPageScore >= 50 ? 'warning' : 'critical') : 'neutral' },
+                    { label: 'Weakest pillar', value: weakest ? weakest.label : '—', detail: weakest ? weakest.score + '/10 average score' : 'Awaiting site audit data', tone: weakest ? (weakest.score >= 7 ? 'healthy' : weakest.score >= 5 ? 'warning' : 'critical') : 'neutral' }
+                ];
+            case 'fix':
+                return [
+                    { label: 'Critical now', value: context.opportunityCritical + context.rewriteCritical, detail: 'Urgent items across opportunities and rewrites', tone: (context.opportunityCritical + context.rewriteCritical) > 0 ? 'critical' : 'healthy' },
+                    { label: 'Quick wins', value: context.quickWins, detail: 'Low-effort opportunities', tone: context.quickWins > 0 ? 'healthy' : 'neutral' },
+                    { label: 'Rewrite queue', value: context.rewriteCandidates.length, detail: 'Pages currently flagged for rewrite', tone: context.rewriteCandidates.length > 0 ? 'warning' : 'neutral' },
+                    { label: 'High-leverage pages', value: context.uniqueOpportunityPagesCount, detail: 'URLs linked to the top opportunities', tone: context.uniqueOpportunityPagesCount > 0 ? 'neutral' : 'healthy' }
+                ];
+            case 'track':
+                return [
+                    { label: 'Total actions', value: context.activity.total, detail: 'Logged commands from the platform', tone: 'neutral' },
+                    { label: 'Success rate', value: context.activity.successRate + '%', detail: 'Across recorded actions', tone: context.activity.successRate >= 90 ? 'healthy' : context.activity.successRate >= 70 ? 'warning' : 'critical' },
+                    { label: 'Last 24 hours', value: context.activity.last24h, detail: 'Actions recorded recently', tone: context.activity.last24h > 0 ? 'healthy' : 'neutral' },
+                    { label: 'Error entries', value: context.activity.errorCount, detail: context.activity.lastActionLabel, tone: context.activity.errorCount > 0 ? 'critical' : 'healthy' }
+                ];
+            default:
+                return [];
+        }
+    }
+
+    function renderNextActionCard(action) {
+        if (!action) return '';
+        var buttonHtml = action.ctaLabel && action.targetTab
+            ? '<a href="#" class="button button-primary aeo-stage-nav-link" data-target-tab="' + esc(action.targetTab) + '">' + esc(action.ctaLabel) + '</a>'
+            : '';
+
+        return ''
+            + '<aside class="aeo-next-action">'
+            +   '<div class="aeo-next-action-kicker">Next best action</div>'
+            +   '<h3 class="aeo-next-action-title">' + esc(action.title || '') + '</h3>'
+            +   '<p class="aeo-next-action-body">' + esc(action.body || '') + '</p>'
+            +   buttonHtml
+            + '</aside>';
+    }
+
+    function renderStageHero(stageId, context) {
+        var stage = STAGE_BY_ID[stageId];
+        if (!stage) return '';
+
+        var state = getStageState(stageId, context);
+        var action = getNextBestAction(stageId, context);
+
+        return ''
+            + '<div class="aeo-stage-hero-main">'
+            +   '<div class="aeo-stage-kicker">Step ' + stage.order + ' of ' + STAGE_CONFIGS.length + '</div>'
+            +   '<div class="aeo-stage-title-row">'
+            +     '<h2 class="aeo-stage-title">' + esc(stage.title) + '</h2>'
+            +     renderStatusChip(state.label, state.tone)
+            +   '</div>'
+            +   '<p class="aeo-stage-description">' + esc(getStageDescription(stageId)) + '</p>'
+            +   '<p class="aeo-stage-context">' + esc(getStageContextLine(stageId, context)) + '</p>'
+            + '</div>'
+            + renderNextActionCard(action);
+    }
+
+    function renderStageSummary(stageId, context) {
+        var metrics = buildStageMetrics(stageId, context);
+        if (!metrics.length) return '';
+        return metrics.map(renderMetricCard).join('');
+    }
+
+    function applyWorkflowStepState(stageId, state) {
+        var step = getPrimaryStep(stageId);
+        if (!step) return;
+        step.classList.remove('is-healthy', 'is-attention', 'is-progress', 'is-idle');
+        step.classList.add('is-' + (state.tone || 'idle'));
+        var stateEl = step.querySelector('.aeo-workflow-step-state');
+        if (stateEl) {
+            stateEl.textContent = state.label || 'Waiting';
+            stateEl.className = 'aeo-workflow-step-state is-' + (state.tone || 'idle');
+        }
+    }
+
+    function refreshWorkflowChrome() {
+        var context = buildWorkflowContext();
+        STAGE_CONFIGS.forEach(function (stage) {
+            var hero = document.getElementById('aeo-stage-hero-' + stage.id);
+            var summary = document.getElementById('aeo-stage-summary-' + stage.id);
+            if (hero) hero.innerHTML = renderStageHero(stage.id, context);
+            if (summary) summary.innerHTML = renderStageSummary(stage.id, context);
+            applyWorkflowStepState(stage.id, getStageState(stage.id, context));
+        });
+        updateWorkflowBadges(context);
+    }
+
     /* ── Render All ───────────────────────────────────── */
 
     function renderAudit(audit) {
@@ -2159,7 +2757,7 @@
             connectAudit.style.display = '';
         }
         refreshSiteAuditCount();
-        updateTabCriticalBadges(audit);
+        refreshWorkflowChrome();
     }
 
     /* ── Score Breakdown Modal ────────────────────────── */
@@ -2475,6 +3073,7 @@
                         }
                     });
                     startAuditRetry();
+                    refreshWorkflowChrome();
                 }
             })
             .catch(function (err) {
@@ -2488,6 +3087,7 @@
                     }
                 });
                 startAuditRetry();
+                refreshWorkflowChrome();
             });
     }
 
@@ -2507,14 +3107,17 @@
     }
 
     function renderPendingFresh(tab, payload) {
+        currentDiscoveryPayload = payload || null;
         tab.innerHTML = renderDiscoveryPending(payload);
         startDiscoveryTicker();
+        refreshWorkflowChrome();
     }
 
     function applyPendingUpdate(payload) {
         // Already showing the pending card — just patch the dynamic state and let
         // the ticker update the DOM. Avoids a full innerHTML replacement flash
         // and keeps the elapsed counter climbing smoothly.
+        currentDiscoveryPayload = payload || currentDiscoveryPayload;
         var st = discoveryUiState;
         st.status       = (payload && payload.status) || 'pending';
         st.currentStage = (payload && payload.current_stage) || null;
@@ -2523,6 +3126,7 @@
         // The Site Audit pending card mirrors discoveryUiState, so re-render
         // it if the audit data isn't in yet.
         if (!currentAuditData) setSiteAuditPending();
+        refreshWorkflowChrome();
     }
 
     function loadDiscovery(refresh) {
@@ -2545,6 +3149,7 @@
             .then(function (res) {
                 if (res.success) {
                     var payload = res.data;
+                    currentDiscoveryPayload = payload || null;
                     // If the remote job has reached completed, also refresh the
                     // audit endpoint so the Site Audit tab (and friends) can
                     // render the pages list as soon as it's available.
@@ -2557,6 +3162,8 @@
                         stopDiscoveryPolling();
                         stopDiscoveryTicker();
                         discoveryUiState.phase = 'error';
+                        discoveryUiState.status = 'failed';
+                        discoveryUiState.currentStage = (payload && payload.current_stage) || 'Audit failed.';
                         tab.innerHTML = renderDiscoveryFailed(payload);
                         setSiteAuditPending(); // will also show failed state via shared stage label
                     } else if (payload && payload.discovery) {
@@ -2564,6 +3171,8 @@
                         stopDiscoveryPolling();
                         stopDiscoveryTicker();
                         discoveryUiState.phase = 'ready';
+                        discoveryUiState.status = (payload && payload.status) || 'completed';
+                        discoveryUiState.currentStage = (payload && payload.current_stage) || 'Discovery complete.';
                         tab.innerHTML = renderDiscovery(payload);
                     } else if (discoveryUiState.phase === 'pending' && document.getElementById('aeo-disc-verb')) {
                         // Already in pending state with live DOM — patch in place.
@@ -2574,27 +3183,33 @@
                         renderPendingFresh(tab, payload);
                         startDiscoveryPolling();
                     }
+                    refreshWorkflowChrome();
                 } else {
                     if (checkAuthExpired(res)) return;
                     var msg = (res.data && res.data.message) ? res.data.message : 'Failed to load discovery.';
                     var code = (res.data && res.data.code) || '';
                     if (code === 'aeocas_no_discovery') {
+                        currentDiscoveryPayload = { status: 'pending', current_stage: 'Waiting for the audit job to be queued…' };
                         // No job row yet on the remote — probably the onboard insert
                         // hasn't landed yet, or the user arrived before connecting.
                         // Render the pending card and KEEP polling (this was the
                         // bug that made the UI look permanently stuck).
                         if (discoveryUiState.phase !== 'pending') {
-                            renderPendingFresh(tab, { status: 'pending', current_stage: 'Waiting for the audit job to be queued…' });
+                            renderPendingFresh(tab, currentDiscoveryPayload);
                         } else {
-                            applyPendingUpdate({ status: 'pending', current_stage: 'Waiting for the audit job to be queued…' });
+                            applyPendingUpdate(currentDiscoveryPayload);
                         }
                         startDiscoveryPolling();
                     } else {
                         stopDiscoveryPolling();
                         stopDiscoveryTicker();
                         discoveryUiState.phase = 'error';
+                        discoveryUiState.status = 'failed';
+                        discoveryUiState.currentStage = msg;
+                        currentDiscoveryPayload = { status: 'failed', current_stage: msg };
                         tab.innerHTML = '<div class="notice notice-error" style="padding:12px 16px;"><p>' + esc(msg) + '</p></div>';
                     }
+                    refreshWorkflowChrome();
                 }
             })
             .catch(function () {
@@ -2827,6 +3442,14 @@
         }
     });
 
+    wrap.addEventListener('click', function (e) {
+        var navLink = e.target.closest && e.target.closest('.aeo-stage-nav-link');
+        if (!navLink) return;
+        e.preventDefault();
+        var targetTab = navLink.getAttribute('data-target-tab');
+        if (targetTab) activateTab(targetTab);
+    });
+
     // Delegated handler for clicking the AEO score (opens breakdown modal).
     // Covers both the overall-score circle (Connect/Overview) and per-page
     // score badges in the Pages Audit table.
@@ -2904,12 +3527,13 @@
     loading.style.display = 'none';
     content.style.display = '';
 
-    initTabs();
+    initWorkflowRail();
+    initStageSubtabs();
     initAccordions();
 
-    // Honor ?tab=<slug> URL param: switch to that tab on load if it exists.
-    // Falls back to the data-requested-tab attribute written by the PHP
-    // template, which captures the same param server-side.
+    // Honor ?tab=<slug> URL param and map legacy flat-tab slugs into the new
+    // workflow stages. Grouped stages keep the child tab in the URL so deep
+    // links continue to work.
     (function () {
         var requested = wrap.getAttribute('data-requested-tab') || '';
         if (!requested) {
@@ -2918,16 +3542,10 @@
                 requested = params.get('tab') || '';
             } catch (e) { /* ignore */ }
         }
-        if (!requested) return;
-        var target = wrap.querySelector('.nav-tab[data-tab="' + requested + '"]');
-        var panel  = document.getElementById('tab-' + requested);
-        if (!target || !panel) return;
-        wrap.querySelectorAll('.nav-tab').forEach(function (t) { t.classList.remove('nav-tab-active'); });
-        wrap.querySelectorAll('.aeo-tab-panel').forEach(function (p) { p.style.display = 'none'; });
-        target.classList.add('nav-tab-active');
-        panel.style.display = '';
+        activateTab(normalizeRequestedView(requested), true);
     })();
 
+    refreshWorkflowChrome();
     loadDiscovery(false);
     loadAudit(false);
     loadLocalContentIndex();

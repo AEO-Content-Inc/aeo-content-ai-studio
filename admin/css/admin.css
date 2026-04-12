@@ -1,15 +1,44 @@
 /* AEO Content AI Studio - Admin Styles */
 
+#aeo-audit-wrap {
+    --aeo-bg: #f5f1e8;
+    --aeo-surface: #fffdf8;
+    --aeo-surface-strong: #ffffff;
+    --aeo-ink: #1f2a33;
+    --aeo-muted: #66717d;
+    --aeo-line: rgba(31, 42, 51, 0.12);
+    --aeo-line-strong: rgba(31, 42, 51, 0.2);
+    --aeo-accent: #0f766e;
+    --aeo-accent-soft: #dff4ef;
+    --aeo-warning: #b7791f;
+    --aeo-warning-soft: #fbf0d7;
+    --aeo-critical: #c43d3d;
+    --aeo-critical-soft: #fde7e2;
+    --aeo-success: #2f855a;
+    --aeo-success-soft: #e4f3e8;
+    --aeo-neutral-soft: #eef2f4;
+    --aeo-shadow: 0 18px 40px rgba(31, 42, 51, 0.08);
+    --aeo-shadow-strong: 0 22px 50px rgba(31, 42, 51, 0.14);
+    --aeo-radius-sm: 10px;
+    --aeo-radius-md: 16px;
+    --aeo-radius-lg: 24px;
+    color: var(--aeo-ink);
+}
+
 .aeo-settings h1 {
     margin-bottom: 0.5em;
 }
 
 .aeo-subtitle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
     font-size: 15px;
     font-weight: 500;
     line-height: 1.6;
     margin: 0 0 20px 0;
-    max-width: 800px;
+    max-width: 1100px;
 }
 
 .aeo-status-bar {
@@ -59,13 +88,14 @@
     max-width: 860px;
     padding: 20px 24px;
     margin-bottom: 24px;
-    background: #fff;
-    border: 1px solid #dcdcde;
-    border-radius: 8px;
+    background: var(--aeo-surface);
+    border: 1px solid var(--aeo-line);
+    border-radius: 18px;
+    box-shadow: var(--aeo-shadow);
 }
 
 .aeo-connect-card-disconnected {
-    border-color: #d63638;
+    border-color: rgba(196, 61, 61, 0.35);
     box-shadow: inset 0 0 0 1px rgba(214, 54, 56, 0.08);
 }
 
@@ -85,8 +115,8 @@
 
 .aeo-connect-meta-item {
     padding: 12px 14px;
-    background: #f6f7f7;
-    border-radius: 6px;
+    background: rgba(245, 241, 232, 0.85);
+    border-radius: 12px;
 }
 
 .aeo-connect-meta-label {
@@ -193,9 +223,10 @@
     max-width: 860px;
     margin: 0 0 24px;
     padding: 14px 18px;
-    background: #fff;
-    border: 1px solid #dcdcde;
-    border-radius: 8px;
+    background: var(--aeo-surface);
+    border: 1px solid var(--aeo-line);
+    border-radius: 18px;
+    box-shadow: var(--aeo-shadow);
 }
 
 .aeo-manual-connect summary {
@@ -239,9 +270,10 @@
     flex-direction: column;
     align-items: center;
     padding: 16px 24px;
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+    background: var(--aeo-surface);
+    border: 1px solid var(--aeo-line);
+    border-radius: 18px;
+    box-shadow: var(--aeo-shadow);
     min-width: 120px;
 }
 
@@ -406,41 +438,459 @@
     transition: width 0.5s ease;
 }
 
-.aeo-audit-tabs {
-    margin-bottom: 0;
+.aeo-workflow-rail {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 16px;
+    margin: 0 0 24px;
+    padding: 8px 0;
 }
 
-.aeo-audit-tabs .nav-tab {
+.aeo-workflow-rail::before {
+    content: '';
+    position: absolute;
+    top: 46px;
+    left: 60px;
+    right: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(15, 118, 110, 0.18), rgba(15, 118, 110, 0.08));
+    pointer-events: none;
+}
+
+.aeo-workflow-step {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 14px;
+    min-height: 126px;
+    padding: 18px 18px 16px;
+    border: 1px solid var(--aeo-line);
+    border-radius: 24px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 245, 236, 0.94));
+    box-shadow: var(--aeo-shadow);
+    cursor: pointer;
+    text-align: left;
+    color: var(--aeo-ink);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.aeo-workflow-step:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--aeo-shadow-strong);
+}
+
+.aeo-workflow-step:focus-visible,
+.aeo-subtab:focus-visible,
+.aeo-stage-nav-link:focus-visible {
+    outline: 2px solid var(--aeo-accent);
+    outline-offset: 3px;
+}
+
+.aeo-workflow-step.is-active {
+    border-color: rgba(15, 118, 110, 0.45);
+    box-shadow: var(--aeo-shadow-strong);
+    transform: translateY(-3px);
+}
+
+.aeo-workflow-step.is-attention {
+    background: linear-gradient(180deg, rgba(255, 250, 249, 0.98), rgba(253, 231, 226, 0.96));
+    border-color: rgba(196, 61, 61, 0.28);
+}
+
+.aeo-workflow-step.is-progress {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(223, 244, 239, 0.72));
+    border-color: rgba(15, 118, 110, 0.24);
+}
+
+.aeo-workflow-step.is-healthy {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(228, 243, 232, 0.92));
+    border-color: rgba(47, 133, 90, 0.28);
+}
+
+.aeo-workflow-step-index {
+    position: relative;
+    z-index: 1;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    background: var(--aeo-surface-strong);
+    border: 1px solid var(--aeo-line);
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: 0 10px 20px rgba(31, 42, 51, 0.08);
 }
 
-.aeo-tab-alert-count {
+.aeo-workflow-step.is-healthy .aeo-workflow-step-index::after {
+    content: '✓';
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    border-radius: 999px;
+    background: var(--aeo-success);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    box-shadow: 0 0 0 2px #fff;
+}
+
+.aeo-workflow-step-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    padding-right: 22px;
+}
+
+.aeo-workflow-step-title {
+    display: block;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.aeo-workflow-step-label {
+    display: block;
+    color: var(--aeo-muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.aeo-workflow-step-state,
+.aeo-status-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    max-width: 100%;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.aeo-workflow-step-state {
+    grid-column: 2;
+}
+
+.aeo-workflow-step-state.is-attention,
+.aeo-status-chip-attention {
+    background: var(--aeo-critical-soft);
+    color: var(--aeo-critical);
+}
+
+.aeo-workflow-step-state.is-progress,
+.aeo-status-chip-progress {
+    background: var(--aeo-accent-soft);
+    color: var(--aeo-accent);
+}
+
+.aeo-workflow-step-state.is-healthy,
+.aeo-status-chip-healthy {
+    background: var(--aeo-success-soft);
+    color: var(--aeo-success);
+}
+
+.aeo-workflow-step-state.is-idle,
+.aeo-status-chip-idle,
+.aeo-status-chip-neutral {
+    background: var(--aeo-neutral-soft);
+    color: var(--aeo-muted);
+}
+
+.aeo-status-chip-warning {
+    background: var(--aeo-warning-soft);
+    color: var(--aeo-warning);
+}
+
+.aeo-status-chip-critical,
+.aeo-stage-metric-critical .aeo-stage-metric-value {
+    color: var(--aeo-critical);
+}
+
+.aeo-workflow-badge,
+.aeo-subtab-badge {
     display: none;
     align-items: center;
     justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 6px;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
     border-radius: 999px;
-    background: #d63638;
+    background: var(--aeo-critical);
     color: #fff;
     font-size: 11px;
     font-weight: 700;
     line-height: 1;
-    box-shadow: 0 0 0 2px #fff;
+    box-shadow: 0 0 0 3px #fff;
 }
 
-.aeo-tab-alert-count.is-visible {
+.aeo-workflow-badge.is-visible,
+.aeo-subtab-badge.is-visible {
     display: inline-flex;
 }
 
+.aeo-workflow-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+}
+
+.aeo-stage-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.aeo-stage-chrome {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.aeo-stage-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.75fr);
+    gap: 16px;
+}
+
+.aeo-stage-hero-main,
+.aeo-next-action,
+.aeo-stage-metric,
 .aeo-tab-panel {
-    background: #fff;
-    border: 1px solid #ccd0d4;
-    border-top: none;
-    padding: 24px;
+    background: var(--aeo-surface);
+    border: 1px solid var(--aeo-line);
+    border-radius: var(--aeo-radius-lg);
+    box-shadow: var(--aeo-shadow);
+}
+
+.aeo-stage-hero-main,
+.aeo-next-action {
+    padding: 28px;
+}
+
+.aeo-stage-kicker,
+.aeo-next-action-kicker {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    margin: 0 0 14px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: rgba(15, 118, 110, 0.09);
+    color: var(--aeo-accent);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.aeo-stage-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.aeo-stage-title {
+    margin: 0;
+    font-size: 30px;
+    line-height: 1.1;
+}
+
+.aeo-stage-description,
+.aeo-stage-context,
+.aeo-next-action-body {
+    margin: 0;
+    color: var(--aeo-muted);
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+.aeo-stage-description {
+    margin-bottom: 10px;
+    max-width: 58ch;
+}
+
+.aeo-stage-context {
+    max-width: 64ch;
+}
+
+.aeo-next-action {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: linear-gradient(180deg, rgba(223, 244, 239, 0.72), rgba(255, 253, 248, 1));
+}
+
+.aeo-next-action-title {
+    margin: 0 0 10px;
+    font-size: 20px;
+    line-height: 1.25;
+}
+
+.aeo-next-action .button {
+    margin-top: 18px;
+    width: fit-content;
+}
+
+.aeo-stage-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.aeo-stage-metric {
+    padding: 18px 18px 16px;
+}
+
+.aeo-stage-metric-label {
+    color: var(--aeo-muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.aeo-stage-metric-value {
+    margin-top: 12px;
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--aeo-ink);
+}
+
+.aeo-stage-metric-detail {
+    margin-top: 8px;
+    color: var(--aeo-muted);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.aeo-stage-metric-healthy {
+    background: linear-gradient(180deg, rgba(228, 243, 232, 0.56), rgba(255, 253, 248, 1));
+}
+
+.aeo-stage-metric-healthy .aeo-stage-metric-value {
+    color: var(--aeo-success);
+}
+
+.aeo-stage-metric-warning {
+    background: linear-gradient(180deg, rgba(251, 240, 215, 0.66), rgba(255, 253, 248, 1));
+}
+
+.aeo-stage-metric-warning .aeo-stage-metric-value {
+    color: var(--aeo-warning);
+}
+
+.aeo-stage-metric-critical {
+    background: linear-gradient(180deg, rgba(253, 231, 226, 0.76), rgba(255, 253, 248, 1));
+}
+
+.aeo-stage-metric-neutral {
+    background: linear-gradient(180deg, rgba(238, 242, 244, 0.72), rgba(255, 253, 248, 1));
+}
+
+.aeo-subtabs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.aeo-subtab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--aeo-line);
+    background: rgba(255, 253, 248, 0.7);
+    color: var(--aeo-muted);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
+}
+
+.aeo-subtab:hover {
+    transform: translateY(-1px);
+    color: var(--aeo-ink);
+}
+
+.aeo-subtab.is-active {
+    background: var(--aeo-surface);
+    color: var(--aeo-ink);
+    border-color: rgba(15, 118, 110, 0.32);
+    box-shadow: 0 14px 28px rgba(31, 42, 51, 0.08);
+}
+
+.aeo-stage-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.aeo-tab-panel {
+    padding: 24px 26px;
+}
+
+@media (max-width: 1200px) {
+    .aeo-workflow-rail {
+        display: flex;
+        overflow-x: auto;
+        padding-bottom: 8px;
+    }
+
+    .aeo-workflow-rail::before {
+        display: none;
+    }
+
+    .aeo-workflow-step {
+        min-width: 240px;
+        flex: 0 0 240px;
+    }
+
+    .aeo-stage-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 960px) {
+    .aeo-stage-hero {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 782px) {
+    .aeo-stage-title {
+        font-size: 24px;
+    }
+
+    .aeo-stage-hero-main,
+    .aeo-next-action,
+    .aeo-tab-panel {
+        padding: 20px;
+    }
+
+    .aeo-stage-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .aeo-workflow-step {
+        min-height: 112px;
+    }
 }
 
 /* ── Overview: Hero ───────────────────────────────── */

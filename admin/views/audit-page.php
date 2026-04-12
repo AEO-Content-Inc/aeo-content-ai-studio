@@ -42,8 +42,23 @@ $aeocas_logs     = AEOCAS_Activity_Log::get_logs( $aeocas_log_page, $aeocas_log_
 $aeocas_stats    = AEOCAS_Activity_Log::get_stats();
 $aeocas_commands = AEOCAS_Activity_Log::get_commands();
 $aeocas_log_base = admin_url( 'admin.php?page=aeocas-audit-report' );
+$aeocas_log_last_action_label = $aeocas_stats['last_action']
+    ? sprintf(
+        /* translators: %s: human-readable time diff */
+        __( '%s ago', 'aeo-content-ai-studio' ),
+        human_time_diff( strtotime( $aeocas_stats['last_action'] ), time() )
+    )
+    : __( 'Never', 'aeo-content-ai-studio' );
+$aeocas_activity_error_count = 0;
+if ( ! empty( $aeocas_logs['items'] ) ) {
+    foreach ( $aeocas_logs['items'] as $aeocas_entry ) {
+        if ( 'success' !== $aeocas_entry['status'] ) {
+            $aeocas_activity_error_count++;
+        }
+    }
+}
 ?>
-<div class="wrap aeo-settings" id="aeo-audit-wrap" data-requested-tab="<?php echo esc_attr( $aeocas_requested_tab ); ?>">
+<div class="wrap aeo-settings" id="aeo-audit-wrap" data-requested-tab="<?php echo esc_attr( $aeocas_requested_tab ); ?>" data-connected="<?php echo $aeocas_connected ? '1' : '0'; ?>" data-feature-count="<?php echo esc_attr( count( $aeocas_features ) ); ?>">
     <h1><?php esc_html_e( 'AEO Content AI Studio', 'aeo-content-ai-studio' ); ?></h1>
     <p class="aeo-subtitle">
         <?php esc_html_e( 'AI Engine Optimization for WordPress. Powered by', 'aeo-content-ai-studio' ); ?>
@@ -80,159 +95,234 @@ $aeocas_log_base = admin_url( 'admin.php?page=aeocas-audit-report' );
     <!-- Audit content -->
     <div id="aeo-audit-content" style="display: none;">
 
-        <nav class="nav-tab-wrapper aeo-audit-tabs">
-            <a href="#" class="nav-tab nav-tab-active" data-tab="connect">
-                <?php esc_html_e( 'Connect', 'aeo-content-ai-studio' ); ?>
-            </a>
-            <a href="#" class="nav-tab" data-tab="discovery">
-                <?php esc_html_e( 'Discovery', 'aeo-content-ai-studio' ); ?>
-            </a>
-            <a href="#" class="nav-tab" data-tab="scoreboard">
-                <?php esc_html_e( 'Site Audit', 'aeo-content-ai-studio' ); ?>
-            </a>
-            <a href="#" class="nav-tab" data-tab="site-audit">
-                <?php esc_html_e( 'Pages Audit', 'aeo-content-ai-studio' ); ?>
-            </a>
-            <a href="#" class="nav-tab" data-tab="opportunities">
-                <?php esc_html_e( 'Opportunities', 'aeo-content-ai-studio' ); ?>
-            </a>
-            <a href="#" class="nav-tab" data-tab="rewrite">
-                <?php esc_html_e( 'Rewrite Candidates', 'aeo-content-ai-studio' ); ?>
-            </a>
-            <a href="#" class="nav-tab" data-tab="activity">
-                <?php esc_html_e( 'Activity Log', 'aeo-content-ai-studio' ); ?>
-            </a>
+        <nav class="aeo-workflow-rail" aria-label="<?php esc_attr_e( 'Audit workflow', 'aeo-content-ai-studio' ); ?>">
+            <button type="button" class="aeo-workflow-step is-active" data-stage="connect" data-default-tab="connect">
+                <span class="aeo-workflow-step-index">1</span>
+                <span class="aeo-workflow-step-body">
+                    <span class="aeo-workflow-step-title"><?php esc_html_e( 'Connect', 'aeo-content-ai-studio' ); ?></span>
+                    <span class="aeo-workflow-step-label"><?php esc_html_e( 'Link your site', 'aeo-content-ai-studio' ); ?></span>
+                </span>
+                <span class="aeo-workflow-step-state"></span>
+            </button>
+            <button type="button" class="aeo-workflow-step" data-stage="discovery" data-default-tab="discovery">
+                <span class="aeo-workflow-step-index">2</span>
+                <span class="aeo-workflow-step-body">
+                    <span class="aeo-workflow-step-title"><?php esc_html_e( 'Discover', 'aeo-content-ai-studio' ); ?></span>
+                    <span class="aeo-workflow-step-label"><?php esc_html_e( 'See what was found', 'aeo-content-ai-studio' ); ?></span>
+                </span>
+                <span class="aeo-workflow-step-state"></span>
+            </button>
+            <button type="button" class="aeo-workflow-step" data-stage="diagnose" data-default-tab="scoreboard">
+                <span class="aeo-workflow-step-index">3</span>
+                <span class="aeo-workflow-step-body">
+                    <span class="aeo-workflow-step-title"><?php esc_html_e( 'Diagnose', 'aeo-content-ai-studio' ); ?></span>
+                    <span class="aeo-workflow-step-label"><?php esc_html_e( 'Find critical issues', 'aeo-content-ai-studio' ); ?></span>
+                </span>
+                <span class="aeo-workflow-step-state"></span>
+            </button>
+            <button type="button" class="aeo-workflow-step" data-stage="fix" data-default-tab="opportunities">
+                <span class="aeo-workflow-step-index">4</span>
+                <span class="aeo-workflow-step-body">
+                    <span class="aeo-workflow-step-title"><?php esc_html_e( 'Fix', 'aeo-content-ai-studio' ); ?></span>
+                    <span class="aeo-workflow-step-label"><?php esc_html_e( 'Act on best opportunities', 'aeo-content-ai-studio' ); ?></span>
+                </span>
+                <span class="aeo-workflow-step-state"></span>
+            </button>
+            <button type="button" class="aeo-workflow-step" data-stage="track" data-default-tab="activity">
+                <span class="aeo-workflow-step-index">5</span>
+                <span class="aeo-workflow-step-body">
+                    <span class="aeo-workflow-step-title"><?php esc_html_e( 'Track', 'aeo-content-ai-studio' ); ?></span>
+                    <span class="aeo-workflow-step-label"><?php esc_html_e( 'Monitor progress', 'aeo-content-ai-studio' ); ?></span>
+                </span>
+                <span class="aeo-workflow-step-state"></span>
+            </button>
         </nav>
 
-        <div class="aeo-tab-panel" id="tab-connect">
-            <?php if ( 'disconnected' === $aeocas_notice ) : ?>
-                <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'This site has been disconnected from AEO Content.', 'aeo-content-ai-studio' ); ?></p></div>
-            <?php endif; ?>
-
-            <?php settings_errors(); ?>
-
-            <div class="aeo-status-bar <?php echo $aeocas_connected ? 'aeo-connected' : 'aeo-disconnected'; ?>">
-                <span class="aeo-status-dot"></span>
-                <span>
-                    <?php if ( $aeocas_connected ) : ?>
-                        <?php esc_html_e( 'Connected to AEO Content Platform', 'aeo-content-ai-studio' ); ?>
-                    <?php else : ?>
-                        <?php esc_html_e( 'Not connected yet. Click Continue with Google to create your account and connect this site.', 'aeo-content-ai-studio' ); ?>
-                    <?php endif; ?>
-                </span>
+        <section class="aeo-stage-shell is-active" id="stage-connect" data-stage="connect">
+            <div class="aeo-stage-chrome">
+                <div class="aeo-stage-hero" id="aeo-stage-hero-connect"></div>
+                <div class="aeo-stage-summary" id="aeo-stage-summary-connect"></div>
             </div>
+            <div class="aeo-stage-body">
+                <div class="aeo-tab-panel" id="tab-connect" data-tab-panel="connect">
+                    <?php if ( 'disconnected' === $aeocas_notice ) : ?>
+                        <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'This site has been disconnected from AEO Content.', 'aeo-content-ai-studio' ); ?></p></div>
+                    <?php endif; ?>
 
-            <h3><?php esc_html_e( 'Connection', 'aeo-content-ai-studio' ); ?></h3>
+                    <?php settings_errors(); ?>
 
-            <?php if ( $aeocas_connected ) : ?>
-                <div class="aeo-connect-card">
-                    <p class="aeo-connect-lead"><?php esc_html_e( 'Your site is connected. Manage your account in AEO Content or disconnect this site here if you need to reset the connection.', 'aeo-content-ai-studio' ); ?></p>
-
-                    <div class="aeo-connect-meta">
-                        <div class="aeo-connect-meta-item">
-                            <span class="aeo-connect-meta-label"><?php esc_html_e( 'Site URL', 'aeo-content-ai-studio' ); ?></span>
-                            <code><?php echo esc_html( $aeocas_site_url ); ?></code>
-                        </div>
-                        <div class="aeo-connect-meta-item">
-                            <span class="aeo-connect-meta-label"><?php esc_html_e( 'Platform URL', 'aeo-content-ai-studio' ); ?></span>
-                            <code><?php echo esc_html( $aeocas_platform ); ?></code>
-                        </div>
+                    <div class="aeo-status-bar <?php echo $aeocas_connected ? 'aeo-connected' : 'aeo-disconnected'; ?>">
+                        <span class="aeo-status-dot"></span>
+                        <span>
+                            <?php if ( $aeocas_connected ) : ?>
+                                <?php esc_html_e( 'Connected to AEO Content Platform', 'aeo-content-ai-studio' ); ?>
+                            <?php else : ?>
+                                <?php esc_html_e( 'Not connected yet. Click Continue with Google to create your account and connect this site.', 'aeo-content-ai-studio' ); ?>
+                            <?php endif; ?>
+                        </span>
                     </div>
 
-                    <div class="aeo-connect-actions">
-                        <a class="button button-primary" href="<?php echo esc_url( $aeocas_manage_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Manage Account', 'aeo-content-ai-studio' ); ?></a>
-                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="aeo-inline-form">
-                            <input type="hidden" name="action" value="aeocas_disconnect" />
-                            <?php wp_nonce_field( 'aeocas_disconnect' ); ?>
-                            <button type="submit" class="button button-secondary"><?php esc_html_e( 'Disconnect Site', 'aeo-content-ai-studio' ); ?></button>
+                    <h3><?php esc_html_e( 'Connection', 'aeo-content-ai-studio' ); ?></h3>
+
+                    <?php if ( $aeocas_connected ) : ?>
+                        <div class="aeo-connect-card">
+                            <p class="aeo-connect-lead"><?php esc_html_e( 'Your site is connected. Manage your account in AEO Content or disconnect this site here if you need to reset the connection.', 'aeo-content-ai-studio' ); ?></p>
+
+                            <div class="aeo-connect-meta">
+                                <div class="aeo-connect-meta-item">
+                                    <span class="aeo-connect-meta-label"><?php esc_html_e( 'Site URL', 'aeo-content-ai-studio' ); ?></span>
+                                    <code><?php echo esc_html( $aeocas_site_url ); ?></code>
+                                </div>
+                                <div class="aeo-connect-meta-item">
+                                    <span class="aeo-connect-meta-label"><?php esc_html_e( 'Platform URL', 'aeo-content-ai-studio' ); ?></span>
+                                    <code><?php echo esc_html( $aeocas_platform ); ?></code>
+                                </div>
+                            </div>
+
+                            <div class="aeo-connect-actions">
+                                <a class="button button-primary" href="<?php echo esc_url( $aeocas_manage_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Manage Account', 'aeo-content-ai-studio' ); ?></a>
+                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="aeo-inline-form">
+                                    <input type="hidden" name="action" value="aeocas_disconnect" />
+                                    <?php wp_nonce_field( 'aeocas_disconnect' ); ?>
+                                    <button type="submit" class="button button-secondary"><?php esc_html_e( 'Disconnect Site', 'aeo-content-ai-studio' ); ?></button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <form method="post" action="options.php">
+                            <?php settings_fields( 'aeocas_settings' ); ?>
+                            <h3><?php esc_html_e( 'Features', 'aeo-content-ai-studio' ); ?></h3>
+                            <p><?php esc_html_e( 'Toggle which optimization features are active on this site.', 'aeo-content-ai-studio' ); ?></p>
+                            <table class="form-table aeo-features-table">
+                                <?php foreach ( $aeocas_modules as $aeocas_slug ) :
+                                    $aeocas_info    = isset( $aeocas_module_labels[ $aeocas_slug ] ) ? $aeocas_module_labels[ $aeocas_slug ] : array( 'label' => $aeocas_slug, 'desc' => '' );
+                                    $aeocas_checked = in_array( $aeocas_slug, $aeocas_features, true );
+                                ?>
+                                <tr>
+                                    <th scope="row"><?php echo esc_html( $aeocas_info['label'] ); ?></th>
+                                    <td>
+                                        <label>
+                                            <input type="checkbox" name="aeocas_enabled_features[]" value="<?php echo esc_attr( $aeocas_slug ); ?>" <?php checked( $aeocas_checked ); ?> />
+                                            <?php echo esc_html( $aeocas_info['desc'] ); ?>
+                                        </label>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </table>
+                            <?php submit_button( __( 'Save Settings', 'aeo-content-ai-studio' ) ); ?>
                         </form>
-                    </div>
-                </div>
+                    <?php else : ?>
+                        <div class="aeo-connect-card aeo-connect-card-disconnected">
+                            <p class="aeo-connect-lead"><?php esc_html_e( 'Connect your site to AEO Content in one click with your Google account.', 'aeo-content-ai-studio' ); ?></p>
 
-                <form method="post" action="options.php">
-                    <?php settings_fields( 'aeocas_settings' ); ?>
-                    <h3><?php esc_html_e( 'Features', 'aeo-content-ai-studio' ); ?></h3>
-                    <p><?php esc_html_e( 'Toggle which optimization features are active on this site.', 'aeo-content-ai-studio' ); ?></p>
-                    <table class="form-table aeo-features-table">
-                        <?php foreach ( $aeocas_modules as $aeocas_slug ) :
-                            $aeocas_info    = isset( $aeocas_module_labels[ $aeocas_slug ] ) ? $aeocas_module_labels[ $aeocas_slug ] : array( 'label' => $aeocas_slug, 'desc' => '' );
-                            $aeocas_checked = in_array( $aeocas_slug, $aeocas_features, true );
-                        ?>
-                        <tr>
-                            <th scope="row"><?php echo esc_html( $aeocas_info['label'] ); ?></th>
-                            <td>
-                                <label>
-                                    <input type="checkbox" name="aeocas_enabled_features[]" value="<?php echo esc_attr( $aeocas_slug ); ?>" <?php checked( $aeocas_checked ); ?> />
-                                    <?php echo esc_html( $aeocas_info['desc'] ); ?>
-                                </label>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </table>
-                    <?php submit_button( __( 'Save Settings', 'aeo-content-ai-studio' ) ); ?>
-                </form>
-            <?php else : ?>
-                <div class="aeo-connect-card aeo-connect-card-disconnected">
-                    <p class="aeo-connect-lead"><?php esc_html_e( 'Connect your site to AEO Content in one click with your Google account.', 'aeo-content-ai-studio' ); ?></p>
+                            <div class="aeo-connect-meta">
+                                <div class="aeo-connect-meta-item">
+                                    <span class="aeo-connect-meta-label"><?php esc_html_e( 'Site URL', 'aeo-content-ai-studio' ); ?></span>
+                                    <code><?php echo esc_html( $aeocas_site_url ); ?></code>
+                                </div>
+                                <div class="aeo-connect-meta-item">
+                                    <span class="aeo-connect-meta-label"><?php esc_html_e( 'Platform URL', 'aeo-content-ai-studio' ); ?></span>
+                                    <code><?php echo esc_html( $aeocas_platform ); ?></code>
+                                </div>
+                            </div>
 
-                    <div class="aeo-connect-meta">
-                        <div class="aeo-connect-meta-item">
-                            <span class="aeo-connect-meta-label"><?php esc_html_e( 'Site URL', 'aeo-content-ai-studio' ); ?></span>
-                            <code><?php echo esc_html( $aeocas_site_url ); ?></code>
+                            <div class="aeo-connect-actions" id="aeo-google-connect-wrap">
+                                <button type="button" class="button button-hero aeo-google-btn" id="aeo-google-btn">
+                                    <svg class="aeo-google-icon" width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.26c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+                                    <?php esc_html_e( 'Continue with Google', 'aeo-content-ai-studio' ); ?>
+                                </button>
+                                <span id="aeo-google-status" class="aeo-google-status" style="display: none;"></span>
+                            </div>
+
+                            <div class="aeo-connect-divider"><span><?php esc_html_e( 'or', 'aeo-content-ai-studio' ); ?></span></div>
+
+                            <div class="aeo-connect-actions aeo-connect-actions-alt">
+                                <a class="button" href="<?php echo esc_url( $aeocas_connect_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Create Account Manually', 'aeo-content-ai-studio' ); ?></a>
+                                <a class="button" href="<?php echo esc_url( $aeocas_signin_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'I Already Have an Account', 'aeo-content-ai-studio' ); ?></a>
+                            </div>
+
+                            <p class="description aeo-connect-help"><?php esc_html_e( 'A secure popup will open for Google sign-in. Your account is created automatically.', 'aeo-content-ai-studio' ); ?></p>
                         </div>
-                        <div class="aeo-connect-meta-item">
-                            <span class="aeo-connect-meta-label"><?php esc_html_e( 'Platform URL', 'aeo-content-ai-studio' ); ?></span>
-                            <code><?php echo esc_html( $aeocas_platform ); ?></code>
-                        </div>
-                    </div>
 
-                    <div class="aeo-connect-actions" id="aeo-google-connect-wrap">
-                        <button type="button" class="button button-hero aeo-google-btn" id="aeo-google-btn">
-                            <svg class="aeo-google-icon" width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.26c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
-                            <?php esc_html_e( 'Continue with Google', 'aeo-content-ai-studio' ); ?>
-                        </button>
-                        <span id="aeo-google-status" class="aeo-google-status" style="display: none;"></span>
-                    </div>
+                        <details class="aeo-manual-connect">
+                            <summary><?php esc_html_e( 'Advanced: connect with an API key instead', 'aeo-content-ai-studio' ); ?></summary>
+                            <form method="post" action="options.php">
+                                <?php settings_fields( 'aeocas_connection_settings' ); ?>
+                                <table class="form-table">
+                                    <tr>
+                                        <th scope="row"><label for="aeocas_site_token"><?php esc_html_e( 'Site API Key', 'aeo-content-ai-studio' ); ?></label></th>
+                                        <td>
+                                            <input type="password" id="aeocas_site_token" name="aeocas_site_token" value="<?php echo esc_attr( $aeocas_token ); ?>" class="regular-text" autocomplete="off" />
+                                            <p class="description"><?php esc_html_e( 'Use manual setup only if the AEO Content team gave you a site API key directly.', 'aeo-content-ai-studio' ); ?></p>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <?php submit_button( __( 'Connect with API Key', 'aeo-content-ai-studio' ), 'secondary' ); ?>
+                            </form>
+                        </details>
+                    <?php endif; ?>
 
-                    <div class="aeo-connect-divider"><span><?php esc_html_e( 'or', 'aeo-content-ai-studio' ); ?></span></div>
-
-                    <div class="aeo-connect-actions aeo-connect-actions-alt">
-                        <a class="button" href="<?php echo esc_url( $aeocas_connect_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Create Account Manually', 'aeo-content-ai-studio' ); ?></a>
-                        <a class="button" href="<?php echo esc_url( $aeocas_signin_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'I Already Have an Account', 'aeo-content-ai-studio' ); ?></a>
-                    </div>
-
-                    <p class="description aeo-connect-help"><?php esc_html_e( 'A secure popup will open for Google sign-in. Your account is created automatically.', 'aeo-content-ai-studio' ); ?></p>
+                    <!-- Audit Overview (rendered by JS when audit data arrives) -->
+                    <div id="aeo-connect-audit-section" style="display:none;"></div>
                 </div>
+            </div>
+        </section>
 
-                <details class="aeo-manual-connect">
-                    <summary><?php esc_html_e( 'Advanced: connect with an API key instead', 'aeo-content-ai-studio' ); ?></summary>
-                    <form method="post" action="options.php">
-                        <?php settings_fields( 'aeocas_connection_settings' ); ?>
-                        <table class="form-table">
-                            <tr>
-                                <th scope="row"><label for="aeocas_site_token"><?php esc_html_e( 'Site API Key', 'aeo-content-ai-studio' ); ?></label></th>
-                                <td>
-                                    <input type="password" id="aeocas_site_token" name="aeocas_site_token" value="<?php echo esc_attr( $aeocas_token ); ?>" class="regular-text" autocomplete="off" />
-                                    <p class="description"><?php esc_html_e( 'Use manual setup only if the AEO Content team gave you a site API key directly.', 'aeo-content-ai-studio' ); ?></p>
-                                </td>
-                            </tr>
-                        </table>
-                        <?php submit_button( __( 'Connect with API Key', 'aeo-content-ai-studio' ), 'secondary' ); ?>
-                    </form>
-                </details>
-            <?php endif; ?>
+        <section class="aeo-stage-shell" id="stage-discovery" data-stage="discovery" style="display: none;">
+            <div class="aeo-stage-chrome">
+                <div class="aeo-stage-hero" id="aeo-stage-hero-discovery"></div>
+                <div class="aeo-stage-summary" id="aeo-stage-summary-discovery"></div>
+            </div>
+            <div class="aeo-stage-body">
+                <div class="aeo-tab-panel" id="tab-discovery" data-tab-panel="discovery"></div>
+            </div>
+        </section>
 
-            <!-- Audit Overview (rendered by JS when audit data arrives) -->
-            <div id="aeo-connect-audit-section" style="display:none;"></div>
-        </div>
+        <section class="aeo-stage-shell" id="stage-diagnose" data-stage="diagnose" style="display: none;">
+            <div class="aeo-stage-chrome">
+                <div class="aeo-stage-hero" id="aeo-stage-hero-diagnose"></div>
+                <div class="aeo-stage-summary" id="aeo-stage-summary-diagnose"></div>
+            </div>
+            <nav class="aeo-subtabs" data-subtabs-for="diagnose" aria-label="<?php esc_attr_e( 'Diagnose views', 'aeo-content-ai-studio' ); ?>">
+                <button type="button" class="aeo-subtab is-active" data-tab="scoreboard">
+                    <?php esc_html_e( 'Site Audit', 'aeo-content-ai-studio' ); ?>
+                </button>
+                <button type="button" class="aeo-subtab" data-tab="site-audit">
+                    <?php esc_html_e( 'Pages Audit', 'aeo-content-ai-studio' ); ?>
+                </button>
+            </nav>
+            <div class="aeo-stage-body aeo-stage-body-grouped">
+                <div class="aeo-tab-panel" id="tab-scoreboard" data-tab-panel="scoreboard"></div>
+                <div class="aeo-tab-panel" id="tab-site-audit" data-tab-panel="site-audit" style="display: none;"></div>
+            </div>
+        </section>
 
-        <div class="aeo-tab-panel" id="tab-discovery" style="display: none;"></div>
-        <div class="aeo-tab-panel" id="tab-site-audit" style="display: none;"></div>
-        <div class="aeo-tab-panel" id="tab-scoreboard" style="display: none;"></div>
-        <div class="aeo-tab-panel" id="tab-opportunities" style="display: none;"></div>
-        <div class="aeo-tab-panel" id="tab-rewrite" style="display: none;"></div>
+        <section class="aeo-stage-shell" id="stage-fix" data-stage="fix" style="display: none;">
+            <div class="aeo-stage-chrome">
+                <div class="aeo-stage-hero" id="aeo-stage-hero-fix"></div>
+                <div class="aeo-stage-summary" id="aeo-stage-summary-fix"></div>
+            </div>
+            <nav class="aeo-subtabs" data-subtabs-for="fix" aria-label="<?php esc_attr_e( 'Fix views', 'aeo-content-ai-studio' ); ?>">
+                <button type="button" class="aeo-subtab is-active" data-tab="opportunities">
+                    <?php esc_html_e( 'Opportunities', 'aeo-content-ai-studio' ); ?>
+                </button>
+                <button type="button" class="aeo-subtab" data-tab="rewrite">
+                    <?php esc_html_e( 'Rewrite Candidates', 'aeo-content-ai-studio' ); ?>
+                </button>
+            </nav>
+            <div class="aeo-stage-body aeo-stage-body-grouped">
+                <div class="aeo-tab-panel" id="tab-opportunities" data-tab-panel="opportunities"></div>
+                <div class="aeo-tab-panel" id="tab-rewrite" data-tab-panel="rewrite" style="display: none;"></div>
+            </div>
+        </section>
 
-        <div class="aeo-tab-panel" id="tab-activity" style="display: none;">
+        <section class="aeo-stage-shell" id="stage-track" data-stage="track" data-activity-total="<?php echo esc_attr( $aeocas_stats['total'] ); ?>" data-activity-success-rate="<?php echo esc_attr( $aeocas_stats['success_rate'] ); ?>" data-activity-last24h="<?php echo esc_attr( $aeocas_stats['last_24h'] ); ?>" data-activity-last-action-label="<?php echo esc_attr( $aeocas_log_last_action_label ); ?>" data-activity-error-count="<?php echo esc_attr( $aeocas_activity_error_count ); ?>" style="display: none;">
+            <div class="aeo-stage-chrome">
+                <div class="aeo-stage-hero" id="aeo-stage-hero-track"></div>
+                <div class="aeo-stage-summary" id="aeo-stage-summary-track"></div>
+            </div>
+            <div class="aeo-stage-body">
+                <div class="aeo-tab-panel" id="tab-activity" data-tab-panel="activity">
             <div class="aeo-log-stats" style="margin-top:20px;">
                 <div class="aeo-stat-card">
                     <span class="aeo-stat-number"><?php echo esc_html( $aeocas_stats['total'] ); ?></span>
@@ -338,7 +428,9 @@ $aeocas_log_base = admin_url( 'admin.php?page=aeocas-audit-report' );
                     </div>
                 <?php endif; ?>
             <?php endif; ?>
-        </div>
+                </div>
+            </div>
+        </section>
 
     </div>
 
