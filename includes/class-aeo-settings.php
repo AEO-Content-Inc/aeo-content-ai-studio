@@ -46,23 +46,23 @@ class AEOCAS_Settings {
     }
 
     /**
-     * Return a compact, transparent admin menu icon.
-     *
-     * The richer app logo uses a soft tile background for the page header,
-     * but the wp-admin sidebar needs a clean mark that sits directly on the
-     * dark menu background without its own box.
+     * Return the site favicon as an inline admin menu icon.
      *
      * @return string
      */
     private static function get_menu_icon_data_uri() {
         $svg = <<<'SVG'
-<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
-  <g fill="none" stroke="#72A2FF" stroke-width="2.15" stroke-linecap="round">
-    <path d="M10 17.5C4.2 17.5 2 12.2 5.8 6.55" opacity="0.52"/>
-    <path d="M10 15.55C6.15 15.55 4.7 12.15 7.1 7.8" opacity="0.76"/>
-    <path d="M10 13.6C8.05 13.6 7.05 12 7.95 8.95"/>
-  </g>
-  <circle cx="10" cy="10" r="2.05" fill="#3E76E6"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 32 32" fill="none">
+  <rect width="32" height="32" rx="8" fill="#121313"/>
+  <circle cx="16" cy="15.93" r="1.8" fill="#A03EE6"/>
+  <circle cx="16" cy="15.93" r="4.49" stroke="#D9D9D9" stroke-width="1" opacity="0.4"/>
+  <circle cx="16" cy="15.93" r="7.71" stroke="#FFFFFF" stroke-width="1" opacity="0.6"/>
+  <circle cx="16" cy="15.93" r="11.23" stroke="#FFFFFF" stroke-width="1" opacity="0.8"/>
+  <circle cx="22.08" cy="10.81" r="1.5" fill="#3EE6B5" stroke="#121313" stroke-width="0.5"/>
+  <circle cx="19.21" cy="26.50" r="1.5" fill="#3EE6B5" stroke="#121313" stroke-width="0.5"/>
+  <circle cx="22.47" cy="20.04" r="1.5" fill="#3EE6B5" stroke="#121313" stroke-width="0.5"/>
+  <circle cx="14.80" cy="8.22" r="1.5" fill="#3EE6B5" stroke="#121313" stroke-width="0.5"/>
+  <circle cx="12.00" cy="13.14" r="1.5" fill="#3EE6B5" stroke="#121313" stroke-width="0.5"/>
 </svg>
 SVG;
 

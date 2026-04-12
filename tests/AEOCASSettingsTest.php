@@ -105,7 +105,7 @@ final class AEOCASSettingsTest extends TestCase {
         $this->assertNotEmpty( $GLOBALS['aeocas_test_options']['aeocas_plugin_token'] ?? '' );
     }
 
-    public function test_add_menu_uses_inline_svg_icon_for_dark_admin_sidebar(): void {
+    public function test_add_menu_uses_inline_svg_favicon_for_admin_sidebar(): void {
         $settings = new AEOCAS_Settings();
 
         $settings->add_menu();
@@ -117,7 +117,7 @@ final class AEOCASSettingsTest extends TestCase {
         );
     }
 
-    public function test_menu_icon_svg_is_transparent_and_not_the_header_tile(): void {
+    public function test_menu_icon_svg_matches_the_site_favicon_palette(): void {
         $method = new ReflectionMethod( AEOCAS_Settings::class, 'get_menu_icon_data_uri' );
         $method->setAccessible( true );
 
@@ -126,8 +126,8 @@ final class AEOCASSettingsTest extends TestCase {
 
         $this->assertIsString( $svg );
         $this->assertStringContainsString( '<svg', $svg );
-        $this->assertStringContainsString( 'fill="none"', $svg );
-        $this->assertStringContainsString( '#3E76E6', $svg );
-        $this->assertStringNotContainsString( '<rect', $svg );
+        $this->assertStringContainsString( '#121313', $svg );
+        $this->assertStringContainsString( '#A03EE6', $svg );
+        $this->assertStringContainsString( '<rect', $svg );
     }
 }
