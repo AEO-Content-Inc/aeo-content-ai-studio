@@ -1811,6 +1811,33 @@
         return items;
     }
 
+    function renderHeaderRewriteAction(url, score) {
+        var state = getRewriteActionState(url, score);
+        if (state.kind === 'rewrite') {
+            var rewriteHref = buildRewriteStudioUrl(url);
+            if (!rewriteHref) {
+                return '<span class="aeo-rewrite-state-pill">Studio unavailable</span>';
+            }
+            return '<a class="button button-primary aeo-rewrite-row-action" href="' + esc(rewriteHref) + '" target="_blank" rel="noopener">Rewrite</a>';
+        }
+        if (state.kind === 'draft') {
+            return '<a class="button button-secondary" href="' + esc(state.href) + '">Open Draft</a>';
+        }
+        if (state.kind === 'awaiting' || state.kind === 'busy') {
+            return '<span class="aeo-rewrite-state-pill">' + esc(state.label) + '</span>';
+        }
+        if (state.kind === 'starter') {
+            return '<span class="aeo-rewrite-state-pill">Trial required</span>';
+        }
+        if (state.kind === 'upgrade') {
+            return '<span class="aeo-rewrite-state-pill">Upgrade</span>';
+        }
+        if (state.kind === 'unavailable') {
+            return '<span class="aeo-rewrite-state-pill">Locked</span>';
+        }
+        return '';
+    }
+
     function renderHeaderRewritePriorityCard(audit) {
         if (!audit || !audit.pages_reviewed || !audit.pages_reviewed.length) {
             if (auditUiState.phase === 'error') {
@@ -1831,8 +1858,8 @@
 
             return ''
                 + '<div class="aeo-header-priority-empty">'
-                +   '<strong>Loading rewrite priorities…</strong>'
-                +   '<p>Run or refresh the audit to surface the lowest-scoring blog articles here.</p>'
+                +   '<strong>Waiting on a completed audit.</strong>'
+                +   '<p>Rewrite priorities appear here after the next full audit snapshot lands.</p>'
                 + '</div>';
         }
 
@@ -1865,15 +1892,15 @@
         html += '<div class="aeo-header-priority-card">';
         html +=   '<div class="aeo-header-priority-head">';
         html +=     '<div>';
-        html +=       '<span class="aeo-header-priority-kicker">Rewrite Priority</span>';
-        html +=       '<h2>Top 5 Articles To Rewrite</h2>';
-        html +=       '<p>Lowest-scoring blog posts from the latest audit, ranked worst first.</p>';
+        html +=       '<span class="aeo-header-priority-kicker">Rewrite Queue</span>';
+        html +=       '<h2>Lowest-scoring posts</h2>';
+        html +=       '<p>The top rewrite opportunities from the latest audit, ranked by urgency.</p>';
         html +=     '</div>';
-        html +=     '<span class="aeo-header-priority-total">' + ranked.length + ' queued</span>';
+        html +=     '<span class="aeo-header-priority-total">' + ranked.length + ' flagged</span>';
         html +=   '</div>';
         html +=   '<div class="aeo-header-priority-list">';
 
-        ranked.slice(0, 5).forEach(function (entry, index) {
+        ranked.slice(0, 3).forEach(function (entry, index) {
             var candidate = entry.candidate;
             var weakest = candidate.weakest ? candidate.weakest.name : 'Weakest pillar pending';
             var score = candidate.score || 0;
@@ -1892,14 +1919,14 @@
             html +=   '</div>';
             html +=   '<div class="aeo-header-priority-side">';
             html +=     '<span class="aeo-score-badge-pill" style="background:' + scoreBg + ';color:' + scoreColor + ';">' + esc(String(score || '—')) + '</span>';
-            html +=     renderRewriteActionCell(candidate.url, score);
+            html +=     renderHeaderRewriteAction(candidate.url, score);
             html +=   '</div>';
             html += '</article>';
         });
 
         html +=   '</div>';
         html +=   '<div class="aeo-header-priority-footer">';
-        html +=     '<a href="#" class="aeo-header-priority-link" data-aeo-open-lowest-pages="1">See all audited pages sorted low to high</a>';
+        html +=     '<a href="#" class="aeo-header-priority-link" data-aeo-open-lowest-pages="1">Open the full rewrite queue</a>';
         html +=   '</div>';
         html += '</div>';
         return html;
@@ -1969,8 +1996,8 @@
         if (!discovery || discoveryUiState.phase === 'loading') {
             return ''
                 + '<div class="aeo-header-priority-empty">'
-                +   '<strong>Loading content suggestions…</strong>'
-                +   '<p>Discovery is still assembling topic gaps and intent signals.</p>'
+                +   '<strong>Discovery is still assembling content ideas.</strong>'
+                +   '<p>New article suggestions appear here after the latest discovery pass finishes.</p>'
                 + '</div>';
         }
 
@@ -1979,6 +2006,7 @@
                 + '<div class="aeo-header-priority-empty">'
                 +   '<strong>Discovery is still running…</strong>'
                 +   '<p>New content suggestions appear after the latest discovery pass finishes.</p>'
+                +   '<a href="#" class="aeo-header-priority-link aeo-stage-nav-link" data-target-tab="discovery">Open Discovery</a>'
                 + '</div>';
         }
 
@@ -1987,6 +2015,7 @@
                 + '<div class="aeo-header-priority-empty">'
                 +   '<strong>Content suggestions are not ready yet.</strong>'
                 +   '<p>Open Discovery to inspect the latest site profile or rerun the analysis.</p>'
+                +   '<a href="#" class="aeo-header-priority-link aeo-stage-nav-link" data-target-tab="discovery">Open Discovery</a>'
                 + '</div>';
         }
 
@@ -1996,6 +2025,7 @@
                 + '<div class="aeo-header-priority-empty">'
                 +   '<strong>No fresh content suggestions yet.</strong>'
                 +   '<p>Discovery did not return enough content gaps or intent clusters to rank new article ideas.</p>'
+                +   '<a href="#" class="aeo-header-priority-link aeo-stage-nav-link" data-target-tab="discovery">Open Discovery</a>'
                 + '</div>';
         }
 
@@ -2004,14 +2034,14 @@
         html +=   '<div class="aeo-header-priority-head">';
         html +=     '<div>';
         html +=       '<span class="aeo-header-priority-kicker">New Content</span>';
-        html +=       '<h2>Top 5 Content Suggestions</h2>';
-        html +=       '<p>Discovery gaps and intent signals worth turning into new articles.</p>';
+        html +=       '<h2>Fresh article angles</h2>';
+        html +=       '<p>Discovery signals worth turning into net-new AEO articles.</p>';
         html +=     '</div>';
         html +=     '<span class="aeo-header-priority-total">' + suggestions.length + ' suggested</span>';
         html +=   '</div>';
         html +=   '<div class="aeo-header-priority-list">';
 
-        suggestions.forEach(function (suggestion, index) {
+        suggestions.slice(0, 3).forEach(function (suggestion, index) {
             html += '<article class="aeo-header-priority-item">';
             html +=   '<span class="aeo-header-priority-rank">' + (index + 1) + '</span>';
             html +=   '<div class="aeo-header-priority-main">';
@@ -2029,7 +2059,7 @@
 
         html +=   '</div>';
         html +=   '<div class="aeo-header-priority-footer">';
-        html +=     '<a href="#" class="aeo-header-priority-link aeo-stage-nav-link" data-target-tab="discovery">Open discovery signals</a>';
+        html +=     '<a href="#" class="aeo-header-priority-link aeo-stage-nav-link" data-target-tab="discovery">Open full discovery signals</a>';
         html +=   '</div>';
         html += '</div>';
         return html;
@@ -2051,8 +2081,8 @@
         var upgradeUrl = getRewriteUpgradeUrl();
         var cardClass = 'aeo-header-trial-offer';
         var kicker = '$1 Starter Trial';
-        var title = 'Checking article trial availability...';
-        var body = 'A one-time Stripe Checkout charge can unlock ' + starterArticles + ' AEO article credits for rewrites or new articles in Studio.';
+        var title = 'Syncing starter trial status...';
+        var body = 'A one-time Stripe Checkout payment unlocks ' + starterArticles + ' AEO article credits for rewrites or new articles.';
         var note = '';
         var actionHtml = '';
 
@@ -2068,16 +2098,16 @@
             cardClass += ' is-active';
             kicker = planLabel || 'AEO Article Credits';
             title = available + ' of ' + (limit > 0 ? limit : starterArticles) + ' article credits remaining';
-            body = 'Use these credits on full AEO rewrites or brand-new article runs in Studio.';
+            body = 'Use them on full rewrites or brand-new article runs in Studio.';
             note = canManagePlugin ? ('The ' + (planLabel || 'active plan') + ' balance is attached to this connected account.') : 'A site administrator manages billing for this connected account.';
             if (canManagePlugin && upgradeUrl) {
                 actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Manage in Studio</a>';
             }
         } else if (data.checkoutEnabled && data.starterEligible) {
-            title = 'Upgrade for ' + starterPrice + ' and unlock ' + starterArticles + ' AEO articles';
+            title = starterArticles + ' AEO articles for ' + starterPrice;
             if (canManagePlugin) {
-                body = 'Use them on full rewrites or new article creation in Studio. Stripe Checkout securely collects card details for a one-time ' + starterPrice + ' charge.';
-                note = 'This starter trial is designed as a fast path out of the free plan.';
+                body = 'Move this account out of Free with a one-time Stripe Checkout payment. Use the credits on rewrites or new article creation in Studio.';
+                note = 'Stripe Checkout collects card details for the one-time starter payment.';
                 actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening Stripe checkout...' : ('Upgrade for ' + starterPrice)) + '</button>';
             } else {
                 body = 'No AEO article credits remain on this account.';

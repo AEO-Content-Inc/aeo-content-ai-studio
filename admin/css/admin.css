@@ -34,16 +34,20 @@
 .aeo-header {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    align-items: stretch;
-    gap: 22px;
+    align-items: start;
+    gap: 18px;
     margin: 6px 0 24px;
-    padding: 24px 28px;
+    padding: 22px 24px;
     background:
         radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 36%),
         linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 245, 236, 0.96));
     border: 1px solid var(--aeo-line);
-    border-radius: 28px;
+    border-radius: 26px;
     box-shadow: var(--aeo-shadow);
+}
+
+.aeo-header.has-insights {
+    grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
 }
 
 .aeo-header.has-side {
@@ -54,14 +58,15 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 18px;
+    gap: 16px;
     min-width: 0;
+    align-self: start;
 }
 
 .aeo-header-copy {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     min-width: 0;
 }
 
@@ -74,7 +79,7 @@
 
 .aeo-header-wordmark-wrap {
     display: block;
-    width: min(360px, 100%);
+    width: min(320px, 100%);
     max-width: 100%;
 }
 
@@ -88,11 +93,11 @@
 .aeo-header-trial-offer {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    width: min(100%, 540px);
-    padding: 18px 20px;
+    gap: 10px;
+    width: 100%;
+    padding: 16px 18px;
     border: 1px solid rgba(15, 118, 110, 0.18);
-    border-radius: 22px;
+    border-radius: 20px;
     background:
         radial-gradient(circle at top right, rgba(251, 240, 215, 0.9), transparent 42%),
         linear-gradient(180deg, rgba(255,255,255,0.98), rgba(223,244,239,0.82));
@@ -118,16 +123,16 @@
 
 .aeo-header-trial-title {
     margin: 0;
-    font-size: 22px;
-    line-height: 1.15;
+    font-size: 18px;
+    line-height: 1.2;
     color: var(--aeo-ink);
 }
 
 .aeo-header-trial-body,
 .aeo-header-trial-note {
     margin: 0;
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: 13px;
+    line-height: 1.55;
     color: #50575e;
 }
 
@@ -143,8 +148,8 @@
 }
 
 .aeo-header-trial-actions .button {
-    min-height: 40px;
-    padding-inline: 16px;
+    min-height: 36px;
+    padding-inline: 14px;
 }
 
 .aeo-header-trial-offer.is-active {
@@ -274,11 +279,19 @@
     display: none !important;
 }
 
+.aeo-header-insights-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    min-width: 0;
+    align-self: start;
+}
+
 .aeo-header-priority {
-    min-height: 232px;
-    padding: 20px 22px;
+    min-height: 0;
+    padding: 18px;
     border: 1px solid rgba(31, 42, 51, 0.1);
-    border-radius: 24px;
+    border-radius: 20px;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(223, 244, 239, 0.5));
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
@@ -286,8 +299,8 @@
 .aeo-header-priority-card {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    min-height: 100%;
+    gap: 14px;
+    min-height: 0;
 }
 
 .aeo-header-priority-head {
@@ -314,15 +327,15 @@
 
 .aeo-header-priority-head h2 {
     margin: 0;
-    font-size: 24px;
-    line-height: 1.15;
+    font-size: 20px;
+    line-height: 1.2;
 }
 
 .aeo-header-priority-head p {
-    margin: 10px 0 0;
+    margin: 8px 0 0;
     color: var(--aeo-muted);
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: 13px;
+    line-height: 1.55;
 }
 
 .aeo-header-priority-total {
@@ -342,17 +355,17 @@
 .aeo-header-priority-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
 .aeo-header-priority-item {
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) auto;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
+    gap: 10px;
+    padding: 10px 12px;
     border: 1px solid rgba(31, 42, 51, 0.08);
-    border-radius: 18px;
+    border-radius: 16px;
     background: rgba(255, 255, 255, 0.84);
 }
 
@@ -360,28 +373,28 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
     border-radius: 999px;
     background: rgba(15, 118, 110, 0.08);
     color: var(--aeo-accent);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 800;
 }
 
 .aeo-header-priority-main {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     min-width: 0;
 }
 
 .aeo-header-priority-title {
     display: block;
     color: var(--aeo-ink);
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
-    line-height: 1.45;
+    line-height: 1.35;
 }
 
 .aeo-header-priority-meta {
@@ -408,7 +421,9 @@
 }
 
 .aeo-header-priority-side .button {
-    min-height: 36px;
+    min-height: 32px;
+    padding-inline: 10px;
+    font-size: 12px;
 }
 
 .aeo-header-priority-source {
@@ -428,8 +443,8 @@
 }
 
 .aeo-header-priority-footer {
-    margin-top: auto;
-    padding-top: 2px;
+    margin-top: 2px;
+    padding-top: 0;
 }
 
 .aeo-header-priority-link {
@@ -448,21 +463,21 @@
 .aeo-header-priority-empty {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    min-height: 188px;
-    gap: 10px;
+    justify-content: flex-start;
+    min-height: 0;
+    gap: 8px;
     color: var(--aeo-muted);
 }
 
 .aeo-header-priority-empty p {
     margin: 0;
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: 13px;
+    line-height: 1.55;
 }
 
 .aeo-header-priority-empty strong {
     color: var(--aeo-ink);
-    font-size: 16px;
+    font-size: 15px;
 }
 
 .aeo-header-priority-side .aeo-rewrite-unavailable {
@@ -472,6 +487,7 @@
 
 .aeo-header-priority-side .aeo-rewrite-state-pill {
     white-space: nowrap;
+    font-size: 11px;
 }
 
 .aeo-connect-card {
@@ -1839,6 +1855,14 @@
 }
 
 @media (max-width: 1200px) {
+    .aeo-header.has-insights {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .aeo-header-insights-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .aeo-workflow-rail {
         display: flex;
         overflow-x: auto;
@@ -1860,7 +1884,8 @@
 }
 
 @media (max-width: 960px) {
-    .aeo-header-insights {
+    .aeo-header-insights,
+    .aeo-header-insights-grid {
         grid-template-columns: minmax(0, 1fr);
     }
 
@@ -1883,6 +1908,10 @@
 @media (max-width: 782px) {
     .aeo-header {
         padding: 18px 20px;
+    }
+
+    .aeo-header.has-insights {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .aeo-header-brand {
