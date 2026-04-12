@@ -18,11 +18,17 @@ class AEOCAS_Audit_Api {
     /** @var int Short cache lifetime while a remote job is still running (60s). */
     const SHORT_CACHE_TTL = MINUTE_IN_SECONDS;
 
+    /** @var int Cache lifetime for visibility snapshots (10 minutes). */
+    const VISIBILITY_CACHE_TTL = 10 * MINUTE_IN_SECONDS;
+
     /** @var string Transient key prefix for cached audit payloads. */
     const TRANSIENT_PREFIX = 'aeocas_audit_';
 
     /** @var string Transient key prefix for cached discovery payloads. */
     const DISCOVERY_TRANSIENT_PREFIX = 'aeocas_discovery_';
+
+    /** @var string Transient key prefix for cached visibility payloads. */
+    const VISIBILITY_TRANSIENT_PREFIX = 'aeocas_visibility_';
 
     /**
      * Build a lightweight local content index for admin-side page enrichment.
@@ -107,6 +113,28 @@ class AEOCAS_Audit_Api {
     }
 
     /**
+     * Extract a visibility snapshot from a payload when present.
+     *
+     * @param mixed $payload Raw payload.
+     * @return array|null
+     */
+    private static function extract_visibility_payload( $payload ) {
+        if ( ! is_array( $payload ) ) {
+            return null;
+        }
+
+        if ( ! empty( $payload['visibility'] ) && is_array( $payload['visibility'] ) ) {
+            return $payload['visibility'];
+        }
+
+        if ( ! empty( $payload['data']['visibility'] ) && is_array( $payload['data']['visibility'] ) ) {
+            return $payload['data']['visibility'];
+        }
+
+        return null;
+    }
+
+    /**
      * Fetch audit data from the platform API.
      *
      * @param bool $force_refresh Skip cache and fetch fresh data.
@@ -182,6 +210,7 @@ class AEOCAS_Audit_Api {
         if ( $slug ) {
             delete_transient( self::TRANSIENT_PREFIX . $slug );
             delete_transient( self::DISCOVERY_TRANSIENT_PREFIX . $slug );
+            delete_transient( self::VISIBILITY_TRANSIENT_PREFIX . $slug );
         }
     }
 
@@ -256,6 +285,97 @@ class AEOCAS_Audit_Api {
         set_transient( $transient_key, $payload, $ttl );
 
         return $payload;
+    }
+
+    /**
+     * Fetch AI visibility data from the platform API.
+     *
+     * @param bool $force_refresh Skip cache and fetch fresh data.
+     * @return array|WP_Error
+     */
+    public static function get_visibility( $force_refresh = false ) {
+        $api_key = get_option( 'aeocas_site_token', '' );
+        if ( empty( $api_key ) ) {
+            return new WP_Error( 'aeocas_no_key', __( 'Site connection is not configured. Go to Settings to connect your site.', 'aeo-content-ai-studio' ) );
+        }
+
+        $slug = self::get_site_slug();
+        if ( empty( $slug ) ) {
+            return new WP_Error( 'aeocas_no_slug', __( 'Could not determine site slug.', 'aeo-content-ai-studio' ) );
+        }
+
+        $transient_key = self::VISIBILITY_TRANSIENT_PREFIX . $slug;
+
+        if ( ! $force_refresh ) {
+            $cached = get_transient( $transient_key );
+            if ( false !== $cached ) {
+                return $cached;
+            }
+        }
+
+        $cached_audit = get_transient( self::TRANSIENT_PREFIX . $slug );
+        $cached_visibility = self::extract_visibility_payload( $cached_audit );
+        if ( $cached_visibility ) {
+            set_transient( $transient_key, $cached_visibility, self::VISIBILITY_CACHE_TTL );
+            return $cached_visibility;
+        }
+
+        $url = trailingslashit( AEOCAS_PLATFORM_URL ) . 'api/v1/audits/' . $slug . '/visibility';
+
+        $response = wp_remote_get( $url, array(
+            'headers' => array(
+                'Authorization' => 'Bearer ' . $api_key,
+                'Accept'        => 'application/json',
+            ),
+            'timeout' => 20,
+        ) );
+
+        if ( is_wp_error( $response ) ) {
+            return new WP_Error( 'aeocas_api_error', $response->get_error_message() );
+        }
+
+        $status = wp_remote_retrieve_response_code( $response );
+        $body   = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( 401 === $status || 403 === $status ) {
+            return self::handle_auth_failure();
+        }
+
+        if ( 404 === $status ) {
+            $audit = self::get_audit( $force_refresh );
+            if ( ! is_wp_error( $audit ) ) {
+                $audit_visibility = self::extract_visibility_payload( $audit );
+                if ( $audit_visibility ) {
+                    set_transient( $transient_key, $audit_visibility, self::VISIBILITY_CACHE_TTL );
+                    return $audit_visibility;
+                }
+            }
+            return new WP_Error( 'aeocas_no_visibility', __( 'AI visibility data is not available yet. Open the admin workspace for the latest sync status.', 'aeo-content-ai-studio' ) );
+        }
+
+        if ( 200 !== $status ) {
+            $message = isset( $body['error']['message'] ) ? $body['error']['message'] : __( 'Unexpected visibility response.', 'aeo-content-ai-studio' );
+            return new WP_Error( 'aeocas_api_error', $message );
+        }
+
+        $payload = isset( $body['data'] ) ? $body['data'] : $body;
+        $visibility = self::extract_visibility_payload( $payload );
+        if ( ! $visibility && is_array( $payload ) ) {
+            $visibility = $payload;
+        }
+
+        if ( empty( $visibility ) || ! is_array( $visibility ) ) {
+            return new WP_Error( 'aeocas_no_visibility', __( 'AI visibility data is not available yet. Open the admin workspace for the latest sync status.', 'aeo-content-ai-studio' ) );
+        }
+
+        $visibility_status = isset( $visibility['status'] ) ? sanitize_key( $visibility['status'] ) : '';
+        $ttl = in_array( $visibility_status, array( 'pending', 'refreshing', 'building', 'queued' ), true )
+            ? self::SHORT_CACHE_TTL
+            : self::VISIBILITY_CACHE_TTL;
+
+        set_transient( $transient_key, $visibility, $ttl );
+
+        return $visibility;
     }
 
     /**
@@ -428,6 +548,26 @@ class AEOCAS_Audit_Api {
     }
 
     /**
+     * AJAX handler for fetching AI visibility data.
+     */
+    public static function ajax_get_visibility() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
+        }
+
+        check_ajax_referer( 'aeocas_audit_nonce', 'nonce' );
+
+        $force      = ! empty( $_POST['refresh'] ) && sanitize_text_field( wp_unslash( $_POST['refresh'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified above.
+        $visibility = self::get_visibility( $force );
+
+        if ( is_wp_error( $visibility ) ) {
+            wp_send_json_error( array( 'message' => $visibility->get_error_message(), 'code' => $visibility->get_error_code() ) );
+        }
+
+        wp_send_json_success( $visibility );
+    }
+
+    /**
      * AJAX handler for polling audit status.
      */
     public static function ajax_audit_status() {
@@ -469,6 +609,7 @@ class AEOCAS_Audit_Api {
         add_action( 'wp_ajax_aeocas_reaudit', array( __CLASS__, 'ajax_reaudit' ) );
         add_action( 'wp_ajax_aeocas_audit_status', array( __CLASS__, 'ajax_audit_status' ) );
         add_action( 'wp_ajax_aeocas_get_discovery', array( __CLASS__, 'ajax_get_discovery' ) );
+        add_action( 'wp_ajax_aeocas_get_visibility', array( __CLASS__, 'ajax_get_visibility' ) );
         add_action( 'wp_ajax_aeocas_get_local_content_index', array( __CLASS__, 'ajax_get_local_content_index' ) );
     }
 }

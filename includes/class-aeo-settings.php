@@ -175,6 +175,24 @@ class AEOCAS_Settings {
     }
 
     /**
+     * Build the admin URL for the wp-plugin console in AEO admin.
+     *
+     * @return string
+     */
+    public static function get_admin_plugin_url() {
+        return add_query_arg(
+            array(
+                'site_url'     => self::get_site_url(),
+                'return_url'   => admin_url( 'admin.php?page=aeocas-audit-report&tab=visibility-overview' ),
+                'utm_source'   => 'wordpress-plugin',
+                'utm_medium'   => 'plugin',
+                'utm_campaign' => 'wp-admin',
+            ),
+            trailingslashit( AEOCAS_ADMIN_URL ) . 'wp-plugin'
+        );
+    }
+
+    /**
      * Build the popup URL for Google-based connect flow.
      *
      * @return string
@@ -310,16 +328,17 @@ class AEOCAS_Settings {
             true
         );
         wp_localize_script( 'aeocas-audit', 'aeocasAudit', array(
-            'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
-            'nonce'    => wp_create_nonce( 'aeocas_audit_nonce' ),
-            'favicon'  => get_site_icon_url( 48, '' ),
+            'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+            'nonce'          => wp_create_nonce( 'aeocas_audit_nonce' ),
+            'favicon'        => get_site_icon_url( 48, '' ),
+            'adminPluginUrl' => self::get_admin_plugin_url(),
         ) );
     }
 
     // The old render_page() (Settings) and render_activity_log() methods were
-    // removed when the plugin consolidated to a single page with tabs. Their
+    // removed when the plugin consolidated to a single workflow screen. Their
     // content now lives inside admin/views/audit-page.php under the Connect
-    // and Activity Log tabs.
+    // and AI Visibility stages.
 
     public function render_audit_report() {
         if ( ! current_user_can( 'manage_options' ) ) {

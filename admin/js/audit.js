@@ -11,21 +11,19 @@
     var errorBox = document.getElementById('aeo-audit-error');
     var content  = document.getElementById('aeo-audit-content');
     var STAGE_CONFIGS = [
-        { id: 'connect',   order: 1, title: 'Connect',   label: 'Link your site',              tabs: ['connect'],       defaultTab: 'connect' },
-        { id: 'discovery', order: 2, title: 'Discover',  label: 'See what was found',          tabs: ['discovery'],     defaultTab: 'discovery' },
-        { id: 'diagnose',  order: 3, title: 'Diagnose',  label: 'Find critical issues',        tabs: ['scoreboard', 'site-audit'], defaultTab: 'scoreboard' },
-        { id: 'fix',       order: 4, title: 'Fix',       label: 'Act on best opportunities',   tabs: ['opportunities', 'rewrite'], defaultTab: 'opportunities' },
-        { id: 'track',     order: 5, title: 'Track',     label: 'Monitor progress',            tabs: ['activity'],      defaultTab: 'activity' }
+        { id: 'connect',   order: 1, title: 'Connect',   label: 'Connect and review discovery', tabs: ['connect', 'discovery'], defaultTab: 'connect' },
+        { id: 'diagnose',  order: 2, title: 'Diagnose',  label: 'Find critical issues',         tabs: ['scoreboard', 'site-audit'], defaultTab: 'scoreboard' },
+        { id: 'fix',       order: 3, title: 'Fix',       label: 'Act on best opportunities',    tabs: ['opportunities', 'rewrite'], defaultTab: 'opportunities' },
+        { id: 'visibility', order: 4, title: 'AI Visibility', label: 'Monitor mentions and trends', tabs: ['visibility-overview', 'visibility-citations', 'visibility-competitors', 'visibility-trends'], defaultTab: 'visibility-overview' }
     ];
     var STAGE_BY_ID = {};
     var TAB_TO_STAGE = {};
     var activeStageId = 'connect';
     var stageTabState = {
         connect: 'connect',
-        discovery: 'discovery',
         diagnose: 'scoreboard',
         fix: 'opportunities',
-        track: 'activity'
+        visibility: 'visibility-overview'
     };
 
     STAGE_CONFIGS.forEach(function (stage) {
@@ -88,10 +86,12 @@
             if (step) {
                 step.classList.toggle('is-active', stage.id === stageId);
                 step.setAttribute('aria-current', stage.id === stageId ? 'step' : 'false');
-                updateLinkTabParam(step, activeTab);
             }
 
             var activeTab = getCurrentTabForStage(stage.id);
+            if (step) {
+                updateLinkTabParam(step, activeTab);
+            }
             stage.tabs.forEach(function (tabId) {
                 var panel = document.getElementById('tab-' + tabId);
                 if (!panel) return;
@@ -131,6 +131,7 @@
 
     function normalizeRequestedView(requested) {
         if (!requested) return 'connect';
+        if (requested === 'activity' || requested === 'visibility') return 'visibility-overview';
         if (TAB_TO_STAGE[requested]) return requested;
         if (STAGE_BY_ID[requested]) return STAGE_BY_ID[requested].defaultTab;
         return 'connect';
@@ -1734,13 +1735,19 @@
     /* ── Discovery Tab ────────────────────────────────── */
 
     // Tab IDs that are driven by audit JSON data (and thus get a loading /
-    // empty state when no audit is loaded). Connect and Activity have their
-    // own server-rendered content and are excluded.
+    // empty state when no audit is loaded). Connect has server-rendered
+    // content, while visibility is fetched separately.
     var AUDIT_TAB_IDS = ['site-audit', 'scoreboard', 'opportunities', 'rewrite'];
+    var VISIBILITY_TAB_IDS = ['visibility-overview', 'visibility-citations', 'visibility-competitors', 'visibility-trends'];
     var discoveryPollTimer = null;
     var auditRetryTimer = null;
     var currentAuditData = null;
     var currentDiscoveryPayload = null;
+    var currentVisibilityPayload = null;
+    var visibilityUiState = {
+        phase: 'idle',
+        message: ''
+    };
     var localContentByUrlKey = {};
     var localContentIndexPromise = null;
     var siteAuditFilters = {
@@ -1826,19 +1833,26 @@
     }
 
     function buildStageCounts(context) {
+        var discoveryFailed = (context.discovery && context.discovery.status === 'failed') || discoveryUiState.phase === 'error';
+        var visibility = context.visibility || buildVisibilitySnapshot();
         return {
             stages: {
-                connect: context.connected ? 0 : 1,
-                discovery: context.discovery && context.discovery.status === 'failed' ? 1 : 0,
+                connect: (context.connected ? 0 : 1) + (discoveryFailed ? 1 : 0),
                 diagnose: context.scorecardCritical + context.pageCritical,
                 fix: context.opportunityCritical + context.rewriteCritical,
-                track: context.activity.errorCount
+                visibility: visibility.criticalCount
             },
             subtabs: {
+                connect: context.connected ? 0 : 1,
+                discovery: discoveryFailed ? 1 : 0,
                 scoreboard: context.scorecardCritical,
                 'site-audit': context.pageCritical,
                 opportunities: context.opportunityCritical,
-                rewrite: context.rewriteCritical
+                rewrite: context.rewriteCritical,
+                'visibility-overview': visibility.criticalCount,
+                'visibility-citations': visibility.citationIssueCount,
+                'visibility-competitors': visibility.competitorThreatCount,
+                'visibility-trends': visibility.trendIssueCount + visibility.staleCount
             }
         };
     }
@@ -1937,6 +1951,340 @@
             }
         }
         return out;
+    }
+
+    function toNumber(value) {
+        if (typeof value === 'number') {
+            return isNaN(value) ? null : value;
+        }
+        if (typeof value === 'string') {
+            var cleaned = value.replace(/[^0-9.+-]/g, '');
+            if (!cleaned) return null;
+            var parsed = parseFloat(cleaned);
+            return isNaN(parsed) ? null : parsed;
+        }
+        return null;
+    }
+
+    function firstNumber() {
+        for (var i = 0; i < arguments.length; i++) {
+            var num = toNumber(arguments[i]);
+            if (num !== null) return num;
+        }
+        return null;
+    }
+
+    function hasNumber(value) {
+        return toNumber(value) !== null;
+    }
+
+    function clampNumber(value, min, max) {
+        if (!hasNumber(value)) return min;
+        return Math.min(max, Math.max(min, toNumber(value)));
+    }
+
+    function formatCompactNumber(value) {
+        if (!hasNumber(value)) return '—';
+        var num = Math.round(toNumber(value));
+        try {
+            return num.toLocaleString();
+        } catch (e) {
+            return String(num);
+        }
+    }
+
+    function formatSignedDelta(value) {
+        if (!hasNumber(value)) return '—';
+        var num = toNumber(value);
+        var rounded = Math.round(num * 10) / 10;
+        var sign = rounded > 0 ? '+' : '';
+        return sign + rounded;
+    }
+
+    function normalizeVisibilitySeverity(value) {
+        var severity = String(value || '').toLowerCase();
+        if (['critical', 'high', 'error', 'failed', 'danger'].indexOf(severity) !== -1) return 'critical';
+        if (['warning', 'warn', 'medium', 'moderate', 'attention'].indexOf(severity) !== -1) return 'warning';
+        if (['healthy', 'success', 'good', 'ok', 'resolved'].indexOf(severity) !== -1) return 'healthy';
+        return 'neutral';
+    }
+
+    function extractVisibilityPayload(payload) {
+        if (!payload || typeof payload !== 'object') return null;
+        if (payload.visibility && typeof payload.visibility === 'object') return payload.visibility;
+        if (payload.data && payload.data.visibility && typeof payload.data.visibility === 'object') return payload.data.visibility;
+        return payload;
+    }
+
+    function getVisibilityAdminUrl(snapshot) {
+        if (snapshot && snapshot.adminUrl) return snapshot.adminUrl;
+        var stage = getStageShell('visibility');
+        if (stage) {
+            var stageUrl = stage.getAttribute('data-admin-url');
+            if (stageUrl) return stageUrl;
+        }
+        return (aeocasAudit && aeocasAudit.adminPluginUrl) ? aeocasAudit.adminPluginUrl : '';
+    }
+
+    function buildVisibilitySnapshot(payload) {
+        if (payload && typeof payload === 'object' && payload.available !== undefined && Array.isArray(payload.alerts) && Array.isArray(payload.trendPoints)) {
+            return payload;
+        }
+
+        var raw = extractVisibilityPayload(payload);
+        if (!raw || typeof raw !== 'object') {
+            return {
+                available: false,
+                status: '',
+                adminUrl: getVisibilityAdminUrl(),
+                score: null,
+                delta7: null,
+                delta30: null,
+                citationsCount: 0,
+                engineCount: 0,
+                criticalAlerts: 0,
+                warningAlerts: 0,
+                criticalCount: 0,
+                citationIssueCount: 0,
+                competitorThreatCount: 0,
+                trendIssueCount: 0,
+                alerts: [],
+                citations: [],
+                topPages: [],
+                engines: [],
+                competitors: [],
+                trendPoints: [],
+                lastSyncedAt: '',
+                isStale: false,
+                staleCount: 0
+            };
+        }
+
+        var status = String(firstNonEmpty(raw.status, raw.state, raw.sync_status, '') || '').toLowerCase();
+        var score = firstNumber(raw.visibility_score, raw.ai_visibility_score, raw.score, raw.overall_score);
+        var delta7 = firstNumber(raw.delta_7d, raw.score_delta_7d, raw.visibility_delta_7d, raw.weekly_delta);
+        var delta30 = firstNumber(raw.delta_30d, raw.score_delta_30d, raw.visibility_delta_30d, raw.monthly_delta);
+        var lastSyncedAt = firstNonEmpty(raw.last_synced_at, raw.last_refreshed_at, raw.updated_at, raw.synced_at, raw.generated_at, '');
+        var alertsRaw = firstNonEmpty(raw.alerts, raw.visibility_alerts, raw.issues, raw.notifications, []);
+        var citationsRaw = firstNonEmpty(raw.top_citations, raw.citations, raw.mentions, raw.recent_citations, raw.top_mentions, []);
+        var competitorsRaw = firstNonEmpty(raw.competitors, raw.competitor_scores, raw.competitor_snapshot, []);
+        var enginesRaw = firstNonEmpty(raw.engines, raw.engine_breakdown, raw.engine_counts, raw.sources, []);
+        var trendRaw = firstNonEmpty(raw.trend_points_30d, raw.trend_points, raw.points, raw.history, raw.timeline, []);
+        var adminUrl = firstNonEmpty(raw.admin_url, getVisibilityAdminUrl());
+        var alerts = [];
+        var citations = [];
+        var competitors = [];
+        var engines = [];
+        var trendPoints = [];
+        var topPagesMap = {};
+        var engineMap = {};
+
+        (Array.isArray(alertsRaw) ? alertsRaw : []).forEach(function (item, index) {
+            if (!item) return;
+            if (typeof item === 'string') {
+                alerts.push({
+                    id: 'alert-' + index,
+                    severity: 'warning',
+                    title: item,
+                    detail: '',
+                    category: '',
+                    engine: ''
+                });
+                return;
+            }
+
+            alerts.push({
+                id: firstNonEmpty(item.id, item.slug, 'alert-' + index),
+                severity: normalizeVisibilitySeverity(firstNonEmpty(item.severity, item.level, item.tone, item.status)),
+                title: firstNonEmpty(item.title, item.heading, item.label, item.name, 'Visibility alert'),
+                detail: firstNonEmpty(item.detail, item.description, item.message, ''),
+                category: String(firstNonEmpty(item.category, item.type, item.area, item.scope, '') || '').toLowerCase(),
+                engine: firstNonEmpty(item.engine, item.source, item.platform, '')
+            });
+        });
+
+        (Array.isArray(citationsRaw) ? citationsRaw : []).forEach(function (item, index) {
+            if (!item) return;
+            if (typeof item === 'string') {
+                item = { query: item };
+            }
+
+            var engine = firstNonEmpty(item.engine, item.source, item.platform, 'AI Engine');
+            var pageUrl = firstNonEmpty(item.page_url, item.url, item.target_url, item.cited_url, '');
+            var pageTitle = firstNonEmpty(item.page_title, item.title, item.page, item.page_name, pageUrl || 'Cited page');
+            var severity = normalizeVisibilitySeverity(firstNonEmpty(item.severity, item.level, item.status));
+            var normalized = {
+                id: firstNonEmpty(item.id, 'citation-' + index),
+                engine: engine,
+                query: firstNonEmpty(item.query, item.topic, item.prompt, item.keyword, ''),
+                pageUrl: pageUrl,
+                pageTitle: pageTitle,
+                citedAt: firstNonEmpty(item.cited_at, item.detected_at, item.timestamp, item.date, ''),
+                snippet: firstNonEmpty(item.snippet, item.quote, item.excerpt, ''),
+                severity: severity
+            };
+
+            citations.push(normalized);
+            if (engine) {
+                engineMap[engine] = (engineMap[engine] || 0) + 1;
+            }
+            var pageKey = pageUrl || pageTitle;
+            if (pageKey) {
+                if (!topPagesMap[pageKey]) {
+                    topPagesMap[pageKey] = {
+                        title: pageTitle,
+                        url: pageUrl,
+                        count: 0
+                    };
+                }
+                topPagesMap[pageKey].count += 1;
+            }
+        });
+
+        if (Array.isArray(enginesRaw)) {
+            enginesRaw.forEach(function (item, index) {
+                if (item == null) return;
+                if (typeof item === 'string') {
+                    engines.push({ id: 'engine-' + index, name: item, count: engineMap[item] || 0 });
+                    return;
+                }
+
+                var name = firstNonEmpty(item.name, item.engine, item.source, item.platform);
+                if (!name) return;
+                engines.push({
+                    id: firstNonEmpty(item.id, 'engine-' + index),
+                    name: name,
+                    count: firstNumber(item.count, item.citations, item.mentions, item.total, engineMap[name]) || 0
+                });
+            });
+        }
+
+        if (!engines.length) {
+            Object.keys(engineMap).forEach(function (name, index) {
+                engines.push({ id: 'engine-derived-' + index, name: name, count: engineMap[name] });
+            });
+        }
+
+        (Array.isArray(competitorsRaw) ? competitorsRaw : []).forEach(function (item, index) {
+            if (!item) return;
+            if (typeof item === 'string') {
+                competitors.push({
+                    id: 'competitor-' + index,
+                    name: item,
+                    visibilityScore: null,
+                    delta30: null,
+                    citationShare: null
+                });
+                return;
+            }
+
+            competitors.push({
+                id: firstNonEmpty(item.id, item.slug, 'competitor-' + index),
+                name: firstNonEmpty(item.name, item.domain, item.site, item.competitor, 'Competitor ' + (index + 1)),
+                visibilityScore: firstNumber(item.visibility_score, item.score, item.ai_visibility_score),
+                delta30: firstNumber(item.delta_30d, item.score_delta_30d, item.delta, item.change),
+                citationShare: firstNumber(item.citation_share, item.share, item.share_pct, item.percentage)
+            });
+        });
+
+        if (Array.isArray(trendRaw) && trendRaw.length) {
+            trendRaw.forEach(function (item, index) {
+                if (item == null) return;
+                if (typeof item === 'number' || typeof item === 'string') {
+                    var primitiveScore = toNumber(item);
+                    if (primitiveScore === null) return;
+                    trendPoints.push({ id: 'trend-' + index, label: String(index + 1), date: '', score: primitiveScore });
+                    return;
+                }
+
+                var pointScore = firstNumber(item.score, item.visibility_score, item.value);
+                if (pointScore === null) return;
+                trendPoints.push({
+                    id: firstNonEmpty(item.id, 'trend-' + index),
+                    label: firstNonEmpty(item.label, item.date, item.day, String(index + 1)),
+                    date: firstNonEmpty(item.date, item.day, item.label, ''),
+                    score: pointScore
+                });
+            });
+        }
+
+        if (!trendPoints.length && score !== null) {
+            var baseline30 = delta30 !== null ? score - delta30 : score;
+            var baseline7 = delta7 !== null ? score - delta7 : score;
+            trendPoints = [
+                { id: 'trend-30d', label: '30d', date: '30d ago', score: baseline30 },
+                { id: 'trend-7d', label: '7d', date: '7d ago', score: baseline7 },
+                { id: 'trend-now', label: 'Now', date: 'Now', score: score }
+            ];
+        }
+
+        var topPages = Object.keys(topPagesMap).map(function (key) { return topPagesMap[key]; })
+            .sort(function (a, b) { return b.count - a.count; })
+            .slice(0, 5);
+
+        engines.sort(function (a, b) { return (b.count || 0) - (a.count || 0); });
+        competitors.sort(function (a, b) {
+            var aScore = a.visibilityScore == null ? -Infinity : a.visibilityScore;
+            var bScore = b.visibilityScore == null ? -Infinity : b.visibilityScore;
+            return bScore - aScore;
+        });
+
+        var citationsCount = firstNumber(raw.citations_count, raw.citation_count, raw.mentions_count, raw.total_citations, citations.length) || 0;
+        var criticalAlerts = alerts.filter(function (alert) { return alert.severity === 'critical'; }).length;
+        var warningAlerts = alerts.filter(function (alert) { return alert.severity === 'warning'; }).length;
+        var citationIssueCount = citations.filter(function (citation) { return citation.severity === 'critical'; }).length
+            + alerts.filter(function (alert) { return (alert.category || '').indexOf('citation') !== -1; }).length;
+        var competitorThreatCount = competitors.filter(function (competitor) {
+            return hasNumber(score) && hasNumber(competitor.visibilityScore) && competitor.visibilityScore >= score + 10;
+        }).length;
+        var trendIssueCount = 0;
+        if (delta7 !== null && delta7 <= -5) trendIssueCount += 1;
+        if (delta30 !== null && delta30 <= -10) trendIssueCount += 1;
+        var isStale = false;
+        if (lastSyncedAt) {
+            var syncedDate = new Date(lastSyncedAt);
+            if (!isNaN(syncedDate.getTime())) {
+                isStale = (Date.now() - syncedDate.getTime()) > (24 * 60 * 60 * 1000);
+            }
+        }
+        var staleCount = isStale ? 1 : 0;
+        var criticalCount = criticalAlerts + trendIssueCount + staleCount;
+        var hasStructuredData = !!(
+            score !== null ||
+            citationsCount > 0 ||
+            alerts.length ||
+            competitors.length ||
+            engines.length ||
+            trendPoints.length
+        );
+        var available = hasStructuredData || ['ready', 'completed', 'active', 'synced', 'healthy'].indexOf(status) !== -1;
+
+        return {
+            available: available,
+            raw: raw,
+            status: status,
+            adminUrl: adminUrl,
+            score: score,
+            delta7: delta7,
+            delta30: delta30,
+            citationsCount: citationsCount,
+            engineCount: engines.length,
+            criticalAlerts: criticalAlerts,
+            warningAlerts: warningAlerts,
+            criticalCount: criticalCount,
+            citationIssueCount: citationIssueCount,
+            competitorThreatCount: competitorThreatCount,
+            trendIssueCount: trendIssueCount,
+            alerts: alerts,
+            citations: citations,
+            topPages: topPages,
+            engines: engines,
+            competitors: competitors,
+            trendPoints: trendPoints,
+            lastSyncedAt: lastSyncedAt,
+            isStale: isStale,
+            staleCount: staleCount
+        };
     }
 
     function fieldRow(label, value) {
@@ -2285,20 +2633,376 @@
             + '<div class="aeo-discovery-grid">' + cards + '</div>';
     }
 
+    /* ── Visibility Tab ──────────────────────────────── */
+
+    function renderVisibilityLoading(message) {
+        return '<div class="aeo-tab-loading"><span class="spinner is-active" style="float:none;margin:0 8px 0 0;"></span>' + esc(message || 'Loading AI visibility...') + '</div>';
+    }
+
+    function renderVisibilityAction(url, label, isPrimary) {
+        if (!url) return '';
+        return '<a href="' + esc(url) + '" class="button ' + (isPrimary ? 'button-primary' : 'button-secondary') + '" target="_blank" rel="noopener">' + esc(label) + '</a>';
+    }
+
+    function renderVisibilityCard(title, description, body, classes) {
+        return ''
+            + '<section class="aeo-visibility-card ' + esc(classes || '') + '">'
+            +   '<div class="aeo-visibility-card-head">'
+            +     '<div>'
+            +       '<h3 class="aeo-visibility-card-title">' + esc(title || '') + '</h3>'
+            +       (description ? '<p class="aeo-visibility-card-description">' + esc(description) + '</p>' : '')
+            +     '</div>'
+            +   '</div>'
+            +   body
+            + '</section>';
+    }
+
+    function renderVisibilityEmptyState(title, body, snapshot) {
+        var adminUrl = getVisibilityAdminUrl(snapshot);
+        return ''
+            + '<div class="aeo-visibility-empty-state">'
+            +   '<div class="aeo-visibility-empty-icon"><span class="dashicons dashicons-visibility"></span></div>'
+            +   '<h3>' + esc(title || 'Visibility data is not ready yet') + '</h3>'
+            +   '<p>' + esc(body || 'The plugin is waiting for a visibility snapshot from AEO Content Studio.') + '</p>'
+            +   '<div class="aeo-visibility-empty-actions">'
+            +     renderVisibilityAction(adminUrl, 'Open Full Admin', true)
+            +   '</div>'
+            + '</div>';
+    }
+
+    function renderVisibilityAdminCard(snapshot, compact) {
+        var adminUrl = getVisibilityAdminUrl(snapshot);
+        var classes = 'aeo-visibility-admin-card' + (compact ? ' aeo-visibility-card-compact' : '');
+        var body = ''
+            + '<div class="aeo-visibility-admin-body">'
+            +   '<p class="aeo-visibility-admin-copy">The WordPress plugin now shows visibility insights only. Operational logs, command history, and deeper troubleshooting live in AEO admin.</p>'
+            +   '<div class="aeo-visibility-admin-actions">'
+            +     renderVisibilityAction(adminUrl, 'Open Full Admin', true)
+            +   '</div>'
+            + '</div>';
+        return renderVisibilityCard('Admin workspace', 'Logs moved out of the plugin', body, classes);
+    }
+
+    function renderVisibilityAlertList(snapshot) {
+        var alerts = snapshot && snapshot.alerts ? snapshot.alerts.slice(0, 5) : [];
+        var items = '';
+
+        if (snapshot && snapshot.isStale) {
+            items += ''
+                + '<li class="aeo-visibility-alert-item is-warning">'
+                +   '<span class="aeo-visibility-alert-pill">Stale</span>'
+                +   '<div class="aeo-visibility-alert-copy">'
+                +     '<strong>Visibility snapshot is stale</strong>'
+                +     '<span>Last synced ' + esc(snapshot.lastSyncedAt ? formatDate(snapshot.lastSyncedAt) : 'more than 24 hours ago') + '.</span>'
+                +   '</div>'
+                + '</li>';
+        }
+
+        alerts.forEach(function (alert) {
+            items += ''
+                + '<li class="aeo-visibility-alert-item is-' + esc(alert.severity || 'neutral') + '">'
+                +   '<span class="aeo-visibility-alert-pill">' + esc((alert.severity || 'notice').toUpperCase()) + '</span>'
+                +   '<div class="aeo-visibility-alert-copy">'
+                +     '<strong>' + esc(alert.title || 'Visibility alert') + '</strong>'
+                +     (alert.detail ? '<span>' + esc(alert.detail) + '</span>' : '')
+                +   '</div>'
+                + '</li>';
+        });
+
+        if (!items) {
+            return '<div class="aeo-visibility-empty"><strong>No urgent visibility alerts.</strong><span>The latest snapshot looks stable.</span></div>';
+        }
+
+        return '<ul class="aeo-visibility-alerts">' + items + '</ul>';
+    }
+
+    function renderVisibilityEngineRows(snapshot) {
+        if (!snapshot || !snapshot.engines || !snapshot.engines.length) {
+            return '<div class="aeo-visibility-empty"><strong>Engine coverage will appear here.</strong><span>The first completed visibility sync will populate engine-level citations.</span></div>';
+        }
+
+        var max = snapshot.engines.reduce(function (largest, engine) {
+            return Math.max(largest, engine.count || 0);
+        }, 1);
+
+        return '<div class="aeo-visibility-engine-list">' + snapshot.engines.slice(0, 6).map(function (engine) {
+            var pct = clampNumber(((engine.count || 0) / max) * 100, 0, 100);
+            return ''
+                + '<div class="aeo-visibility-engine-row">'
+                +   '<div class="aeo-visibility-engine-head">'
+                +     '<strong>' + esc(engine.name || 'Engine') + '</strong>'
+                +     '<span>' + esc(formatCompactNumber(engine.count || 0)) + '</span>'
+                +   '</div>'
+                +   '<div class="aeo-visibility-engine-bar"><span style="width:' + pct + '%;"></span></div>'
+                + '</div>';
+        }).join('') + '</div>';
+    }
+
+    function renderVisibilitySparkline(snapshot) {
+        var points = (snapshot && snapshot.trendPoints) || [];
+        if (!points.length) {
+            return '<div class="aeo-visibility-empty"><strong>Trend data will appear after the first sync.</strong><span>Once visibility history is available, this chart will show the score trajectory.</span></div>';
+        }
+
+        var width = 320;
+        var height = 120;
+        var pad = 12;
+        var scores = points.map(function (point) { return point.score; });
+        var min = Math.min.apply(null, scores);
+        var max = Math.max.apply(null, scores);
+        if (min === max) {
+            min -= 1;
+            max += 1;
+        }
+
+        var coords = points.map(function (point, index) {
+            var x = pad + ((width - (pad * 2)) * (points.length === 1 ? 0.5 : (index / (points.length - 1))));
+            var y = height - pad - (((point.score - min) / (max - min)) * (height - (pad * 2)));
+            return { x: x, y: y, point: point };
+        });
+
+        var polyline = coords.map(function (coord) {
+            return coord.x.toFixed(1) + ',' + coord.y.toFixed(1);
+        }).join(' ');
+        var lastCoord = coords[coords.length - 1];
+        var firstLabel = points[0] && (points[0].date || points[0].label) ? (points[0].date || points[0].label) : '';
+        var lastLabel = lastCoord.point && (lastCoord.point.date || lastCoord.point.label) ? (lastCoord.point.date || lastCoord.point.label) : '';
+
+        return ''
+            + '<div class="aeo-visibility-trend-chart">'
+            +   '<svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="none" role="img" aria-label="Visibility score trend">'
+            +     '<path d="M ' + coords[0].x.toFixed(1) + ' ' + (height - pad) + ' L ' + polyline.replace(/ /g, ' L ') + ' L ' + lastCoord.x.toFixed(1) + ' ' + (height - pad) + ' Z" fill="rgba(15,118,110,0.12)"></path>'
+            +     '<polyline fill="none" stroke="#0f766e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="' + polyline + '"></polyline>'
+            +     '<circle cx="' + lastCoord.x.toFixed(1) + '" cy="' + lastCoord.y.toFixed(1) + '" r="5" fill="#0f766e"></circle>'
+            +   '</svg>'
+            +   '<div class="aeo-visibility-trend-foot">'
+            +     '<span>' + esc(String(firstLabel || 'Start')) + '</span>'
+            +     '<span>' + esc(String(lastLabel || 'Now')) + '</span>'
+            +   '</div>'
+            + '</div>';
+    }
+
+    function renderVisibilityTopPages(snapshot) {
+        if (!snapshot || !snapshot.topPages || !snapshot.topPages.length) {
+            return '<div class="aeo-visibility-empty"><strong>No cited pages yet.</strong><span>Top cited URLs will appear after the first visibility capture.</span></div>';
+        }
+
+        return '<div class="aeo-visibility-list">' + snapshot.topPages.map(function (page) {
+            var titleHtml = page.url
+                ? '<a href="' + esc(page.url) + '" target="_blank" rel="noopener">' + esc(page.title || page.url) + '</a>'
+                : '<span>' + esc(page.title || 'Page') + '</span>';
+            return ''
+                + '<div class="aeo-visibility-list-row">'
+                +   '<div class="aeo-visibility-list-copy">'
+                +     '<strong>' + titleHtml + '</strong>'
+                +     (page.url ? '<span>' + esc(page.url) + '</span>' : '')
+                +   '</div>'
+                +   '<span class="aeo-visibility-list-count">' + esc(formatCompactNumber(page.count || 0)) + '</span>'
+                + '</div>';
+        }).join('') + '</div>';
+    }
+
+    function renderVisibilityCitationRows(snapshot) {
+        if (!snapshot || !snapshot.citations || !snapshot.citations.length) {
+            return '<div class="aeo-visibility-empty"><strong>No citations recorded yet.</strong><span>Recent mentions from AI engines will populate here once the visibility sync completes.</span></div>';
+        }
+
+        return '<div class="aeo-visibility-list">' + snapshot.citations.slice(0, 12).map(function (citation) {
+            var tone = citation.severity === 'critical' ? ' aeo-visibility-list-row-critical' : '';
+            var pageHtml = citation.pageUrl
+                ? '<a href="' + esc(citation.pageUrl) + '" target="_blank" rel="noopener">' + esc(citation.pageTitle || citation.pageUrl) + '</a>'
+                : '<span>' + esc(citation.pageTitle || 'Cited page') + '</span>';
+            var meta = [citation.engine, citation.query, citation.citedAt ? formatDate(citation.citedAt) : ''].filter(Boolean).join(' · ');
+
+            return ''
+                + '<div class="aeo-visibility-list-row' + tone + '">'
+                +   '<div class="aeo-visibility-list-copy">'
+                +     '<strong>' + pageHtml + '</strong>'
+                +     (meta ? '<span>' + esc(meta) + '</span>' : '')
+                +     (citation.snippet ? '<em>' + esc(citation.snippet) + '</em>' : '')
+                +   '</div>'
+                +   '<span class="aeo-visibility-list-count">' + esc(citation.engine || 'AI Engine') + '</span>'
+                + '</div>';
+        }).join('') + '</div>';
+    }
+
+    function renderVisibilityCompetitorGrid(snapshot) {
+        if (!snapshot || !snapshot.competitors || !snapshot.competitors.length) {
+            return '<div class="aeo-visibility-empty"><strong>No competitor snapshot yet.</strong><span>Competitor visibility data appears as soon as Studio compares this site against the surrounding set.</span></div>';
+        }
+
+        return '<div class="aeo-visibility-competitor-grid">' + snapshot.competitors.slice(0, 6).map(function (competitor) {
+            var scoreValue = hasNumber(competitor.visibilityScore) ? Math.round(competitor.visibilityScore) : '—';
+            var deltaValue = competitor.delta30 !== null ? formatSignedDelta(competitor.delta30) : '—';
+            var shareValue = competitor.citationShare !== null ? Math.round(competitor.citationShare) + '%' : '—';
+            var tone = (hasNumber(snapshot.score) && hasNumber(competitor.visibilityScore) && competitor.visibilityScore >= snapshot.score + 10) ? 'critical' : 'neutral';
+
+            return ''
+                + '<article class="aeo-visibility-competitor-card">'
+                +   '<div class="aeo-visibility-competitor-head">'
+                +     '<h4>' + esc(competitor.name || 'Competitor') + '</h4>'
+                +     '<span class="aeo-status-chip aeo-status-chip-' + esc(tone) + '">' + (tone === 'critical' ? 'Ahead' : 'Observed') + '</span>'
+                +   '</div>'
+                +   '<div class="aeo-visibility-competitor-metrics">'
+                +     '<div><span>Visibility</span><strong>' + esc(String(scoreValue)) + '</strong></div>'
+                +     '<div><span>30d delta</span><strong>' + esc(String(deltaValue)) + '</strong></div>'
+                +     '<div><span>Citation share</span><strong>' + esc(String(shareValue)) + '</strong></div>'
+                +   '</div>'
+                + '</article>';
+        }).join('') + '</div>';
+    }
+
+    function renderVisibilityStat(label, value, detail, tone) {
+        return ''
+            + '<div class="aeo-visibility-stat aeo-visibility-stat-' + esc(tone || 'neutral') + '">'
+            +   '<span>' + esc(label) + '</span>'
+            +   '<strong>' + esc(String(value == null ? '—' : value)) + '</strong>'
+            +   (detail ? '<em>' + esc(detail) + '</em>' : '')
+            + '</div>';
+    }
+
+    function renderVisibilityOverview(snapshot) {
+        if (!snapshot || !snapshot.available) {
+            return renderVisibilityEmptyState(
+                'AI visibility is not ready yet',
+                visibilityUiState.message || 'Run the first visibility sync in AEO admin to populate this stage.',
+                snapshot
+            );
+        }
+
+        var scoreTone = snapshot.score === null ? 'neutral' : (snapshot.score >= 70 ? 'healthy' : snapshot.score >= 50 ? 'warning' : 'critical');
+        var summary = ''
+            + '<div class="aeo-visibility-summary">'
+            +   '<div class="aeo-visibility-score">'
+            +     '<span class="aeo-visibility-score-label">Visibility score</span>'
+            +     '<strong>' + esc(snapshot.score !== null ? Math.round(snapshot.score) : '—') + '</strong>'
+            +     '<em>' + esc(snapshot.lastSyncedAt ? 'Last synced ' + formatDate(snapshot.lastSyncedAt) : 'Awaiting refresh timestamp') + '</em>'
+            +   '</div>'
+            +   '<div class="aeo-visibility-stat-grid">'
+            +     renderVisibilityStat('7d delta', snapshot.delta7 !== null ? formatSignedDelta(snapshot.delta7) : '—', snapshot.delta7 > 0 ? 'Momentum is positive' : snapshot.delta7 < 0 ? 'Attention needed' : 'Stable', snapshot.delta7 > 0 ? 'healthy' : snapshot.delta7 < 0 ? 'critical' : 'neutral')
+            +     renderVisibilityStat('30d delta', snapshot.delta30 !== null ? formatSignedDelta(snapshot.delta30) : '—', snapshot.delta30 > 0 ? 'Month-over-month lift' : snapshot.delta30 < 0 ? 'Month-over-month decline' : 'Flat trend', snapshot.delta30 > 0 ? 'healthy' : snapshot.delta30 < 0 ? 'critical' : 'neutral')
+            +     renderVisibilityStat('Citations', formatCompactNumber(snapshot.citationsCount), snapshot.engineCount + ' engines captured', snapshot.citationsCount > 0 ? 'healthy' : 'neutral')
+            +     renderVisibilityStat('Critical alerts', formatCompactNumber(snapshot.criticalCount), snapshot.isStale ? 'Snapshot is stale' : 'Current sync freshness looks good', snapshot.criticalCount > 0 ? 'critical' : 'healthy')
+            +   '</div>'
+            + '</div>';
+
+        return ''
+            + '<div class="aeo-visibility-grid">'
+            +   renderVisibilityCard('Visibility snapshot', 'The fastest read on current AI presence, momentum, and sync freshness.', summary + renderVisibilitySparkline(snapshot), 'aeo-visibility-card-highlight aeo-visibility-card-wide aeo-visibility-card-' + scoreTone)
+            +   renderVisibilityCard('Critical alerts', 'What needs attention before the next visibility review.', renderVisibilityAlertList(snapshot))
+            +   renderVisibilityCard('Engine coverage', 'Where citations are appearing across answer engines.', renderVisibilityEngineRows(snapshot))
+            +   renderVisibilityCard('Top cited pages', 'Pages that are earning the most AI citations right now.', renderVisibilityTopPages(snapshot))
+            +   renderVisibilityAdminCard(snapshot)
+            + '</div>';
+    }
+
+    function renderVisibilityCitations(snapshot) {
+        if (!snapshot || !snapshot.available) {
+            return renderVisibilityEmptyState(
+                'Citations are not available yet',
+                visibilityUiState.message || 'Studio will populate recent mentions here after the first visibility refresh.',
+                snapshot
+            );
+        }
+
+        return ''
+            + '<div class="aeo-visibility-grid aeo-visibility-grid-compact">'
+            +   renderVisibilityCard('Recent citations', 'Latest captured mentions, quoted pages, and engine sources.', renderVisibilityCitationRows(snapshot), 'aeo-visibility-card-wide')
+            +   renderVisibilityAdminCard(snapshot, true)
+            + '</div>';
+    }
+
+    function renderVisibilityCompetitors(snapshot) {
+        if (!snapshot || !snapshot.available) {
+            return renderVisibilityEmptyState(
+                'Competitor visibility is not available yet',
+                visibilityUiState.message || 'Studio will populate the competitor set here after comparison data is ready.',
+                snapshot
+            );
+        }
+
+        return ''
+            + '<div class="aeo-visibility-grid aeo-visibility-grid-compact">'
+            +   renderVisibilityCard('Competitor set', 'Sites currently being compared against this domain inside the visibility workspace.', renderVisibilityCompetitorGrid(snapshot), 'aeo-visibility-card-wide')
+            +   renderVisibilityCard('Pressure points', 'Competitors far ahead of the site become the most urgent visibility gap to close.', renderVisibilityAlertList({
+                    alerts: snapshot.competitors.filter(function (competitor) {
+                        return hasNumber(snapshot.score) && hasNumber(competitor.visibilityScore) && competitor.visibilityScore >= snapshot.score + 10;
+                    }).slice(0, 4).map(function (competitor) {
+                        return {
+                            severity: 'critical',
+                            title: competitor.name + ' is ahead on visibility',
+                            detail: 'Score ' + Math.round(competitor.visibilityScore) + ' vs ' + Math.round(snapshot.score || 0)
+                        };
+                    }),
+                    isStale: false
+                }))
+            +   renderVisibilityAdminCard(snapshot, true)
+            + '</div>';
+    }
+
+    function renderVisibilityTrends(snapshot) {
+        if (!snapshot || !snapshot.available) {
+            return renderVisibilityEmptyState(
+                'Trend data is not available yet',
+                visibilityUiState.message || 'Studio will populate trend history here after score snapshots accumulate.',
+                snapshot
+            );
+        }
+
+        var trendBody = ''
+            + '<div class="aeo-visibility-summary aeo-visibility-summary-tight">'
+            +   '<div class="aeo-visibility-stat-grid">'
+            +     renderVisibilityStat('7d', snapshot.delta7 !== null ? formatSignedDelta(snapshot.delta7) : '—', 'Short-term momentum', snapshot.delta7 > 0 ? 'healthy' : snapshot.delta7 < 0 ? 'critical' : 'neutral')
+            +     renderVisibilityStat('30d', snapshot.delta30 !== null ? formatSignedDelta(snapshot.delta30) : '—', 'Longer-term trajectory', snapshot.delta30 > 0 ? 'healthy' : snapshot.delta30 < 0 ? 'critical' : 'neutral')
+            +     renderVisibilityStat('Trend flags', snapshot.trendIssueCount, snapshot.isStale ? 'Includes stale sync warning' : 'Derived from visibility deltas', snapshot.trendIssueCount > 0 ? 'critical' : 'healthy')
+            +   '</div>'
+            + '</div>'
+            + renderVisibilitySparkline(snapshot);
+
+        return ''
+            + '<div class="aeo-visibility-grid aeo-visibility-grid-compact">'
+            +   renderVisibilityCard('Visibility trend', 'How the visibility score is moving over time.', trendBody, 'aeo-visibility-card-wide')
+            +   renderVisibilityCard('Trend alerts', 'Negative swings and stale syncs that need review.', renderVisibilityAlertList(snapshot))
+            +   renderVisibilityAdminCard(snapshot, true)
+            + '</div>';
+    }
+
+    function renderVisibility(snapshot) {
+        var normalized = buildVisibilitySnapshot(snapshot);
+        currentVisibilityPayload = normalized;
+        var panels = {
+            'visibility-overview': renderVisibilityOverview(normalized),
+            'visibility-citations': renderVisibilityCitations(normalized),
+            'visibility-competitors': renderVisibilityCompetitors(normalized),
+            'visibility-trends': renderVisibilityTrends(normalized)
+        };
+
+        Object.keys(panels).forEach(function (tabId) {
+            var panel = document.getElementById('tab-' + tabId);
+            if (panel) panel.innerHTML = panels[tabId];
+        });
+        refreshWorkflowChrome();
+    }
+
+    function setVisibilityTabsLoading(message) {
+        VISIBILITY_TAB_IDS.forEach(function (tabId) {
+            var panel = document.getElementById('tab-' + tabId);
+            if (panel) panel.innerHTML = renderVisibilityLoading(message);
+        });
+    }
+
     /* ── Workflow Stage Chrome ───────────────────────── */
 
     function getStageDescription(stageId) {
         switch (stageId) {
             case 'connect':
-                return 'Configure the WordPress connection and confirm this site can receive content and audit data from aeocontent.ai.';
-            case 'discovery':
-                return 'Review the deterministic profile, extracted signals, and coverage before moving into deeper diagnosis.';
+                return 'Configure the WordPress connection, confirm readiness, and review discovery findings before moving into diagnosis.';
             case 'diagnose':
                 return 'Understand what is dragging AI visibility down at both the site level and the page level.';
             case 'fix':
                 return 'Prioritize the most valuable actions, then move straight into the pages and guidance that support each fix.';
-            case 'track':
-                return 'Monitor command history, reruns, and operational issues so the workflow keeps moving cleanly.';
+            case 'visibility':
+                return 'Monitor AI citations, engine coverage, competitors, and trend movement. Operational logs now live in the AEO admin workspace.';
             default:
                 return '';
         }
@@ -2309,24 +3013,6 @@
         if (checked) return checked;
         var fallback = parseInt(wrap.getAttribute('data-feature-count') || '0', 10);
         return isNaN(fallback) ? 0 : fallback;
-    }
-
-    function getActivityStatsSnapshot() {
-        var stage = getStageShell('track');
-        if (!stage) {
-            return { total: 0, successRate: 0, last24h: 0, lastActionLabel: 'Never', errorCount: 0 };
-        }
-        var total = parseInt(stage.getAttribute('data-activity-total') || '0', 10);
-        var successRate = parseInt(stage.getAttribute('data-activity-success-rate') || '0', 10);
-        var last24h = parseInt(stage.getAttribute('data-activity-last24h') || '0', 10);
-        var errorCount = parseInt(stage.getAttribute('data-activity-error-count') || '0', 10);
-        return {
-            total: isNaN(total) ? 0 : total,
-            successRate: isNaN(successRate) ? 0 : successRate,
-            last24h: isNaN(last24h) ? 0 : last24h,
-            lastActionLabel: stage.getAttribute('data-activity-last-action-label') || 'Never',
-            errorCount: isNaN(errorCount) ? 0 : errorCount
-        };
     }
 
     function getWeakestScorecardCategory(audit) {
@@ -2381,6 +3067,7 @@
         var scorecard = (audit && audit.scorecard) || [];
         var opportunityModels = audit ? buildOpportunityModels(audit) : [];
         var rewriteCandidates = audit ? buildRewriteCandidates(audit) : [];
+        var visibility = buildVisibilitySnapshot(currentVisibilityPayload || extractVisibilityPayload(audit));
         var uniqueOpportunityPages = {};
         var topicSignals = mergeArrays(
             deterministicProfile.topic_phrases,
@@ -2431,7 +3118,7 @@
             topicSignalCount: topicSignals.length,
             entityCount: entities.length,
             competitorCount: discoveryData && Array.isArray(discoveryData.competitors) ? discoveryData.competitors.length : 0,
-            activity: getActivityStatsSnapshot()
+            visibility: visibility
         };
     }
 
@@ -2450,19 +3137,18 @@
 
     function getStageState(stageId, context) {
         var fixCritical = context.opportunityCritical + context.rewriteCritical;
+        var discoveryFailed = (context.discovery && context.discovery.status === 'failed') || discoveryUiState.phase === 'error';
+        var visibility = context.visibility || buildVisibilitySnapshot();
 
         switch (stageId) {
             case 'connect':
                 if (!context.connected) return { tone: 'attention', label: 'Needs setup' };
+                if (discoveryFailed) return { tone: 'attention', label: 'Discovery failed' };
                 if (!context.discoveryData && (discoveryUiState.phase === 'pending' || discoveryUiState.phase === 'loading')) {
-                    return { tone: 'progress', label: 'Starting up' };
+                    return { tone: 'progress', label: 'Discovering' };
                 }
-                return { tone: 'healthy', label: 'Ready' };
-            case 'discovery':
-                if (context.discovery && context.discovery.status === 'failed') return { tone: 'attention', label: 'Failed' };
+                if (!context.discoveryData) return { tone: 'progress', label: 'Connected' };
                 if (context.discoveryData) return { tone: 'healthy', label: 'Ready' };
-                if (discoveryUiState.phase === 'pending' || discoveryUiState.phase === 'loading') return { tone: 'progress', label: 'Running' };
-                return { tone: context.connected ? 'progress' : 'idle', label: context.connected ? 'Queued' : 'Waiting' };
             case 'diagnose':
                 if (!context.audit) return { tone: context.connected ? 'progress' : 'idle', label: context.connected ? 'Waiting' : 'Blocked' };
                 if (context.scorecardCritical + context.pageCritical > 0) return { tone: 'attention', label: 'Needs attention' };
@@ -2473,10 +3159,16 @@
                 if (fixCritical > 0) return { tone: 'attention', label: 'Needs action' };
                 if (context.opportunityModels.length || context.rewriteCandidates.length) return { tone: 'progress', label: 'In progress' };
                 return { tone: 'healthy', label: 'Healthy' };
-            case 'track':
-                if (context.activity.errorCount > 0) return { tone: 'attention', label: 'Failures' };
-                if (context.activity.total > 0) return { tone: 'healthy', label: 'Active' };
-                return { tone: 'idle', label: 'Waiting' };
+            case 'visibility':
+                if (!context.connected) return { tone: 'idle', label: 'Blocked' };
+                if (visibilityUiState.phase === 'loading' || visibilityUiState.phase === 'refreshing') return { tone: 'progress', label: 'Syncing' };
+                if (visibilityUiState.phase === 'error' && !visibility.available) return { tone: 'attention', label: 'Needs refresh' };
+                if (!visibility.available) return { tone: 'progress', label: 'Waiting' };
+                if (visibility.criticalCount > 0) return { tone: 'attention', label: 'Needs attention' };
+                if ((visibility.warningAlerts || 0) > 0 || (visibility.delta7 !== null && visibility.delta7 < 0) || (visibility.delta30 !== null && visibility.delta30 < 0)) {
+                    return { tone: 'progress', label: 'Monitoring' };
+                }
+                return { tone: 'healthy', label: 'Visible' };
             default:
                 return { tone: 'idle', label: 'Waiting' };
         }
@@ -2485,13 +3177,17 @@
     function getStageContextLine(stageId, context) {
         var urgentDiagnose = context.scorecardCritical + context.pageCritical;
         var urgentFix = context.opportunityCritical + context.rewriteCritical;
+        var discoveryFailed = (context.discovery && context.discovery.status === 'failed') || discoveryUiState.phase === 'error';
+        var visibility = context.visibility || buildVisibilitySnapshot();
 
         switch (stageId) {
             case 'connect':
-                return context.connected
-                    ? 'This site is linked and ready to receive audit data and content actions.'
-                    : 'Finish this step first so discovery, diagnosis, and fixes can populate.';
-            case 'discovery':
+                if (!context.connected) {
+                    return 'Finish this step first so discovery, diagnosis, and fixes can populate.';
+                }
+                if (discoveryFailed) {
+                    return 'The site is connected, but the latest discovery pass failed and needs a clean rerun.';
+                }
                 return context.discoveryData
                     ? 'Discovery surfaced ' + context.discoveryPagesCount + ' pages, ' + context.topicSignalCount + ' topic signals, and ' + context.entityCount + ' entities.'
                     : 'The deterministic profile is still building. Results appear here as soon as the remote worker finishes.';
@@ -2503,10 +3199,18 @@
                 return context.audit
                     ? urgentFix + ' urgent fixes, ' + context.quickWins + ' quick wins, and ' + context.rewriteCandidates.length + ' rewrite candidates are ready now.'
                     : 'Opportunity intelligence appears here after the first audit run completes.';
-            case 'track':
-                return context.activity.total
-                    ? 'Recent actions, reruns, and failures are logged here so the team can verify execution.'
-                    : 'This stage becomes useful once the platform starts sending actions into WordPress.';
+            case 'visibility':
+                if (!context.connected) {
+                    return 'Visibility remains blocked until the site connection is complete.';
+                }
+                if (!visibility.available) {
+                    return visibilityUiState.message
+                        ? visibilityUiState.message
+                        : 'Visibility insights appear here after Studio finishes the first sync. Full logs now live in AEO admin.';
+                }
+                return 'Visibility score ' + (visibility.score !== null ? Math.round(visibility.score) : '—') + ' with '
+                    + visibility.citationsCount + ' citations across ' + visibility.engineCount + ' engines'
+                    + (visibility.lastSyncedAt ? ', last synced ' + formatDate(visibility.lastSyncedAt) + '.' : '.');
             default:
                 return '';
         }
@@ -2522,42 +3226,25 @@
                     targetTab: ''
                 };
             }
+            if ((context.discovery && context.discovery.status === 'failed') || discoveryUiState.phase === 'error') {
+                return {
+                    title: 'Review discovery and rerun the audit',
+                    body: 'The connection is healthy, but the latest discovery pass failed. Open Discovery and retry the pipeline cleanly.',
+                    ctaLabel: 'Open Discovery',
+                    targetTab: 'discovery'
+                };
+            }
             if (!context.discoveryData) {
                 return {
-                    title: 'Move into discovery',
+                    title: 'Watch discovery populate',
                     body: 'The site is connected. Review the extracted profile as soon as the first discovery pass finishes.',
-                    ctaLabel: 'Open Discover',
+                    ctaLabel: 'Open Discovery',
                     targetTab: 'discovery'
                 };
             }
             return {
                 title: 'Start diagnosing the biggest score drag',
                 body: 'Connection is healthy. The next step is understanding which criteria and pages need attention first.',
-                ctaLabel: 'Open Diagnose',
-                targetTab: 'scoreboard'
-            };
-        }
-
-        if (stageId === 'discovery') {
-            if (context.discovery && context.discovery.status === 'failed') {
-                return {
-                    title: 'Retry discovery cleanly',
-                    body: 'Run a fresh audit and confirm the crawler can access the site without connection or indexing issues.',
-                    ctaLabel: 'Open Connect',
-                    targetTab: 'connect'
-                };
-            }
-            if (!context.discoveryData) {
-                return {
-                    title: 'Let discovery finish',
-                    body: 'The profile is still processing. Diagnose and Fix will fill in automatically as soon as the audit completes.',
-                    ctaLabel: '',
-                    targetTab: ''
-                };
-            }
-            return {
-                title: 'Move into diagnosis',
-                body: 'Use the extracted topics, entities, and content patterns as context while reviewing the critical issues.',
                 ctaLabel: 'Open Diagnose',
                 targetTab: 'scoreboard'
             };
@@ -2622,54 +3309,82 @@
                 };
             }
             return {
-                title: 'Shift into tracking mode',
-                body: 'The urgent fixes are under control. Monitor recent actions and rerun the audit after updates ship.',
-                ctaLabel: 'Open Track',
-                targetTab: 'activity'
+                title: 'Start monitoring visibility lift',
+                body: 'The urgent fixes are under control. Watch citations and trend movement to confirm the work is improving AI presence.',
+                ctaLabel: 'Open AI Visibility',
+                targetTab: 'visibility-overview'
             };
         }
 
-        if (context.activity.errorCount > 0) {
+        if (!context.connected) {
             return {
-                title: 'Review the recent failures',
-                body: 'Some logged actions returned errors and may need manual cleanup or a rerun.',
-                ctaLabel: '',
-                targetTab: ''
+                title: 'Complete the site connection first',
+                body: 'Visibility insights only populate after the site is connected and Studio can sync the domain.',
+                ctaLabel: 'Open Connect',
+                targetTab: 'connect'
             };
         }
-        if (context.activity.total > 0) {
+
+        if (!context.visibility.available) {
             return {
-                title: 'Use the log to confirm momentum',
-                body: 'Check recent actions before the next re-audit so resolved issues and failures stay visible.',
-                ctaLabel: '',
-                targetTab: ''
+                title: 'Open the admin workspace',
+                body: 'The plugin is waiting for the latest visibility snapshot. Studio is the place to inspect sync status and logs.',
+                ctaLabel: 'Open Full Admin',
+                href: getVisibilityAdminUrl(context.visibility)
+            };
+        }
+        if (context.visibility.criticalCount > 0) {
+            return {
+                title: 'Review critical visibility alerts',
+                body: 'The latest snapshot shows urgent issues or stale data. Start in Overview and confirm the next sync in admin if needed.',
+                ctaLabel: 'Open Overview',
+                targetTab: 'visibility-overview'
+            };
+        }
+        if (context.visibility.competitorThreatCount > 0) {
+            return {
+                title: 'Inspect the competitor gap',
+                body: 'Competitors are outpacing the site on visibility. Use the competitor view to see where the pressure is highest.',
+                ctaLabel: 'Open Competitors',
+                targetTab: 'visibility-competitors'
+            };
+        }
+        if (context.visibility.trendIssueCount > 0) {
+            return {
+                title: 'Review the recent trend drop',
+                body: 'The short-term or monthly visibility delta slipped below the healthy range.',
+                ctaLabel: 'Open Trends',
+                targetTab: 'visibility-trends'
+            };
+        }
+        if (context.visibility.citations.length > 0) {
+            return {
+                title: 'Check the latest citations',
+                body: 'Recent engine mentions are flowing in. Review which pages and queries are earning them.',
+                ctaLabel: 'Open Citations',
+                targetTab: 'visibility-citations'
             };
         }
         return {
-            title: 'This view will fill as work starts',
-            body: 'Command history and rerun signals appear here as soon as the platform starts pushing work into WordPress.',
-            ctaLabel: '',
-            targetTab: ''
+            title: 'Stay close to the visibility workspace',
+            body: 'Use this stage to monitor score movement, citations, and competitors while deeper logs remain in admin.',
+            ctaLabel: 'Open Full Admin',
+            href: getVisibilityAdminUrl(context.visibility)
         };
     }
 
     function buildStageMetrics(stageId, context) {
         var weakest = context.weakestPillar;
+        var visibility = context.visibility || buildVisibilitySnapshot();
 
         switch (stageId) {
             case 'connect':
                 return [
                     { label: 'Connection', value: context.connected ? 'Connected' : 'Action needed', detail: context.connected ? 'Platform link is healthy' : 'Setup is blocking the workflow', tone: context.connected ? 'healthy' : 'critical' },
-                    { label: 'Features enabled', value: context.featureCount, detail: 'Modules active on this site', tone: 'neutral' },
-                    { label: 'Latest site score', value: context.audit ? context.audit.overall_score : 'Pending', detail: context.audit ? 'Latest AEO site audit score' : 'Waiting for first audit data', tone: context.audit ? (context.audit.overall_score >= 70 ? 'healthy' : context.audit.overall_score >= 50 ? 'warning' : 'critical') : 'neutral' },
-                    { label: 'Critical fixes queued', value: context.opportunityCritical + context.rewriteCritical, detail: 'Items waiting in Diagnose and Fix', tone: (context.opportunityCritical + context.rewriteCritical) > 0 ? 'critical' : 'healthy' }
-                ];
-            case 'discovery':
-                return [
-                    { label: 'Discovery status', value: getDiscoveryStatusLabel(context), detail: context.discovery && context.discovery.current_stage ? context.discovery.current_stage : 'Remote worker state', tone: getStageState('discovery', context).tone },
+                    { label: 'Discovery status', value: getDiscoveryStatusLabel(context), detail: context.discovery && context.discovery.current_stage ? context.discovery.current_stage : 'Remote worker state', tone: getStageState('connect', context).tone },
                     { label: 'Pages surfaced', value: context.discoveryPagesCount, detail: 'URLs discovered for the latest audit', tone: 'neutral' },
-                    { label: 'Topic signals', value: context.topicSignalCount, detail: 'Themes and phrases extracted so far', tone: 'neutral' },
-                    { label: 'Competitors', value: context.competitorCount, detail: context.entityCount + ' entities identified', tone: 'neutral' }
+                    { label: 'Topic signals', value: context.topicSignalCount, detail: context.competitorCount + ' competitors and ' + context.entityCount + ' entities identified', tone: 'neutral' },
+                    { label: 'Features enabled', value: context.featureCount, detail: 'Modules active on this site', tone: 'neutral' }
                 ];
             case 'diagnose':
                 return [
@@ -2685,12 +3400,13 @@
                     { label: 'Rewrite queue', value: context.rewriteCandidates.length, detail: 'Pages currently flagged for rewrite', tone: context.rewriteCandidates.length > 0 ? 'warning' : 'neutral' },
                     { label: 'High-leverage pages', value: context.uniqueOpportunityPagesCount, detail: 'URLs linked to the top opportunities', tone: context.uniqueOpportunityPagesCount > 0 ? 'neutral' : 'healthy' }
                 ];
-            case 'track':
+            case 'visibility':
                 return [
-                    { label: 'Total actions', value: context.activity.total, detail: 'Logged commands from the platform', tone: 'neutral' },
-                    { label: 'Success rate', value: context.activity.successRate + '%', detail: 'Across recorded actions', tone: context.activity.successRate >= 90 ? 'healthy' : context.activity.successRate >= 70 ? 'warning' : 'critical' },
-                    { label: 'Last 24 hours', value: context.activity.last24h, detail: 'Actions recorded recently', tone: context.activity.last24h > 0 ? 'healthy' : 'neutral' },
-                    { label: 'Error entries', value: context.activity.errorCount, detail: context.activity.lastActionLabel, tone: context.activity.errorCount > 0 ? 'critical' : 'healthy' }
+                    { label: 'Visibility score', value: visibility.score !== null ? Math.round(visibility.score) : '—', detail: visibility.lastSyncedAt ? 'Last synced ' + formatDate(visibility.lastSyncedAt) : 'Awaiting sync timestamp', tone: visibility.score !== null ? (visibility.score >= 70 ? 'healthy' : visibility.score >= 50 ? 'warning' : 'critical') : 'neutral' },
+                    { label: '7d delta', value: visibility.delta7 !== null ? formatSignedDelta(visibility.delta7) : '—', detail: 'Short-term score movement', tone: visibility.delta7 !== null ? (visibility.delta7 > 0 ? 'healthy' : visibility.delta7 < 0 ? 'critical' : 'neutral') : 'neutral' },
+                    { label: '30d delta', value: visibility.delta30 !== null ? formatSignedDelta(visibility.delta30) : '—', detail: 'Month-over-month trend', tone: visibility.delta30 !== null ? (visibility.delta30 > 0 ? 'healthy' : visibility.delta30 < 0 ? 'critical' : 'neutral') : 'neutral' },
+                    { label: 'Citations', value: visibility.citationsCount, detail: visibility.engineCount + ' engines currently contributing', tone: visibility.citationsCount > 0 ? 'healthy' : 'neutral' },
+                    { label: 'Critical alerts', value: visibility.criticalCount, detail: visibility.isStale ? 'Snapshot is stale' : 'Logs moved to admin', tone: visibility.criticalCount > 0 ? 'critical' : 'healthy' }
                 ];
             default:
                 return [];
@@ -2699,9 +3415,12 @@
 
     function renderNextActionCard(action) {
         if (!action) return '';
-        var buttonHtml = action.ctaLabel && action.targetTab
-            ? '<a href="#" class="button button-primary aeo-stage-nav-link" data-target-tab="' + esc(action.targetTab) + '">' + esc(action.ctaLabel) + '</a>'
-            : '';
+        var buttonHtml = '';
+        if (action.ctaLabel && action.targetTab) {
+            buttonHtml = '<a href="#" class="button button-primary aeo-stage-nav-link" data-target-tab="' + esc(action.targetTab) + '">' + esc(action.ctaLabel) + '</a>';
+        } else if (action.ctaLabel && action.href) {
+            buttonHtml = '<a href="' + esc(action.href) + '" class="button button-primary" target="_blank" rel="noopener">' + esc(action.ctaLabel) + '</a>';
+        }
 
         return ''
             + '<aside class="aeo-next-action">'
@@ -2776,6 +3495,12 @@
         if (connectAudit) {
             connectAudit.innerHTML = '<div class="aeo-connect-audit-header"><h2>Your Latest Audit</h2></div>' + renderOverview(audit);
             connectAudit.style.display = '';
+        }
+        var embeddedVisibility = extractVisibilityPayload(audit);
+        if (embeddedVisibility && typeof embeddedVisibility === 'object') {
+            visibilityUiState.phase = 'ready';
+            visibilityUiState.message = '';
+            renderVisibility(embeddedVisibility);
         }
         refreshSiteAuditCount();
         refreshWorkflowChrome();
@@ -3259,6 +3984,72 @@
             });
     }
 
+    function loadVisibility(refresh) {
+        if (!currentVisibilityPayload || !currentVisibilityPayload.available) {
+            setVisibilityTabsLoading(refresh ? 'Refreshing AI visibility...' : 'Loading AI visibility...');
+        }
+
+        visibilityUiState.phase = refresh ? 'refreshing' : 'loading';
+        visibilityUiState.message = '';
+        refreshWorkflowChrome();
+
+        var data = new FormData();
+        data.append('action', 'aeocas_get_visibility');
+        data.append('nonce', aeocasAudit.nonce);
+        if (refresh) data.append('refresh', '1');
+
+        fetch(aeocasAudit.ajaxUrl, { method: 'POST', body: data })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success) {
+                    visibilityUiState.phase = 'ready';
+                    visibilityUiState.message = '';
+                    renderVisibility(res.data);
+                    return;
+                }
+
+                if (checkAuthExpired(res)) return;
+
+                var msg = (res.data && res.data.message) ? res.data.message : 'Unable to load AI visibility.';
+                var code = (res.data && res.data.code) || '';
+
+                if (code === 'aeocas_no_visibility') {
+                    visibilityUiState.phase = 'empty';
+                    visibilityUiState.message = msg;
+                    if (currentVisibilityPayload && currentVisibilityPayload.available) {
+                        renderVisibility(currentVisibilityPayload);
+                    } else {
+                        currentVisibilityPayload = null;
+                        renderVisibility(null);
+                    }
+                    return;
+                }
+
+                visibilityUiState.phase = 'error';
+                visibilityUiState.message = msg;
+                if (currentVisibilityPayload && currentVisibilityPayload.available) {
+                    showError(msg + ' Showing the last completed visibility snapshot.');
+                    renderVisibility(currentVisibilityPayload);
+                    return;
+                }
+
+                currentVisibilityPayload = null;
+                renderVisibility(null);
+            })
+            .catch(function (err) {
+                visibilityUiState.phase = 'error';
+                visibilityUiState.message = 'Network error: ' + (err.message || 'Please try again.');
+                if (currentVisibilityPayload && currentVisibilityPayload.available) {
+                    showError(visibilityUiState.message + ' Showing the last completed visibility snapshot.');
+                    renderVisibility(currentVisibilityPayload);
+                    return;
+                }
+
+                currentVisibilityPayload = null;
+                renderVisibility(null);
+            });
+    }
+
     function showError(msg) {
         errorBox.innerHTML = '<div class="notice notice-error" style="padding:12px 16px;"><p style="font-size:14px;margin:0;">' + esc(msg) + '</p></div>';
     }
@@ -3270,6 +4061,8 @@
         refreshBtn.addEventListener('click', function (e) {
             e.preventDefault();
             loadAudit(true);
+            loadDiscovery(true);
+            loadVisibility(true);
         });
     }
 
@@ -3370,6 +4163,7 @@
                         hideReauditProgress();
                         loadAudit(true);
                         loadDiscovery(true);
+                        loadVisibility(true);
                     }, 1500);
                 } else if (status === 'failed') {
                     stopPolling();
@@ -3589,6 +4383,7 @@
     refreshWorkflowChrome();
     loadDiscovery(false);
     loadAudit(false);
+    loadVisibility(false);
     loadLocalContentIndex();
 
 })();
