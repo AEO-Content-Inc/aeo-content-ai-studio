@@ -10,19 +10,41 @@ jobs:
   lint:
     name: PHPCS Lint
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
           tools: composer
-
+          coverage: xdebug
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist
-
       - name: Run PHPCS
         run: composer run phpcs
+
+  test:
+    name: PHPUnit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+          coverage: xdebug
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+      - name: Run tests with coverage
+        run: vendor/bin/phpunit --coverage-clover coverage.xml --coverage-text
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(php -r "\$xml = simplexml_load_file('coverage.xml'); \$metrics = \$xml->project->metrics; \$pct = round(((int)\$metrics['coveredstatements'] / max((int)\$metrics['statements'], 1)) * 100, 1); echo \$pct;")
+          echo "Coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 90" | bc -l) )); then
+            echo "::error::Coverage ${COVERAGE}% is below the 90% threshold"
+            exit 1
+          fi

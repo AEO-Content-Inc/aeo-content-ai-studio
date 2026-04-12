@@ -14,6 +14,7 @@
     },
     "scripts": {
         "test": "phpunit --configuration phpunit.xml.dist",
+        "test:coverage": "phpunit --configuration phpunit.xml.dist --coverage-text --coverage-clover coverage.xml",
         "phpcs": "phpcs",
         "phpcbf": "phpcbf"
     },

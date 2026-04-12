@@ -14,3 +14,7 @@ composer.lock
 # OS
 .DS_Store
 Thumbs.db
+.phpunit.result.cache
+composer.phar
+composer-setup.php
+coverage.xml

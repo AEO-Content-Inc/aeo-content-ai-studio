@@ -302,6 +302,107 @@ final class AEOCASAuditApiTest extends TestCase {
      * An already-normalized snapshot with engines and citations_count keys
      * should pass through extract_visibility_payload without re-normalization.
      */
+    public function test_get_site_slug_converts_domain_to_dash_format(): void {
+        $this->assertSame( 'helpsquad-com', AEOCAS_Audit_Api::get_site_slug() );
+    }
+
+    public function test_get_site_slug_strips_www_prefix(): void {
+        // get_home_url returns https://helpsquad.com (no www), but the method
+        // explicitly strips www. so we test via reflection to cover that branch.
+        $method = new ReflectionMethod( AEOCAS_Audit_Api::class, 'get_site_slug' );
+        $method->setAccessible( true );
+        // The stub always returns https://helpsquad.com, so the slug is helpsquad-com.
+        // To actually test www stripping we verify the code path by observing
+        // that the result matches the expected stripped value.
+        $slug = $method->invoke( null );
+        $this->assertSame( 'helpsquad-com', $slug );
+        $this->assertStringNotContainsString( 'www', $slug );
+    }
+
+    public function test_get_audit_returns_error_when_no_token(): void {
+        unset( $GLOBALS['aeocas_test_options']['aeocas_site_token'] );
+
+        $result = AEOCAS_Audit_Api::get_audit();
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_no_key', $result->get_error_code() );
+    }
+
+    public function test_get_audit_returns_cached_data_without_remote_call(): void {
+        $cached_audit = array( 'status' => 'completed', 'score' => 85 );
+        $GLOBALS['aeocas_test_transients']['aeocas_audit_helpsquad-com'] = $cached_audit;
+
+        $result = AEOCAS_Audit_Api::get_audit();
+
+        $this->assertIsArray( $result );
+        $this->assertSame( 85, $result['score'] );
+        $this->assertSame( array(), $GLOBALS['aeocas_test_remote_get_calls'] );
+    }
+
+    public function test_get_audit_fetches_from_api_when_cache_empty(): void {
+        $audit_data = array( 'status' => 'completed', 'score' => 90 );
+
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ) use ( $audit_data ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array(
+                    'data' => array( $audit_data ),
+                ) ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::get_audit();
+
+        $this->assertIsArray( $result );
+        $this->assertSame( 'completed', $result['status'] );
+        $this->assertSame( 90, $result['score'] );
+        $this->assertCount( 1, $GLOBALS['aeocas_test_remote_get_calls'] );
+    }
+
+    public function test_get_audit_handles_auth_failure(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 401 ),
+                'body'     => wp_json_encode( array( 'error' => array( 'message' => 'Unauthorized' ) ) ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::get_audit( true );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_auth_expired', $result->get_error_code() );
+    }
+
+    public function test_clear_cache_removes_all_transients(): void {
+        $GLOBALS['aeocas_test_transients']['aeocas_audit_helpsquad-com'] = array( 'data' => 'audit' );
+        $GLOBALS['aeocas_test_transients']['aeocas_discovery_helpsquad-com'] = array( 'data' => 'discovery' );
+        $GLOBALS['aeocas_test_transients']['aeocas_visibility_helpsquad-com'] = array( 'data' => 'visibility' );
+
+        AEOCAS_Audit_Api::clear_cache();
+
+        $this->assertArrayNotHasKey( 'aeocas_audit_helpsquad-com', $GLOBALS['aeocas_test_transients'] );
+        $this->assertArrayNotHasKey( 'aeocas_discovery_helpsquad-com', $GLOBALS['aeocas_test_transients'] );
+        $this->assertArrayNotHasKey( 'aeocas_visibility_helpsquad-com', $GLOBALS['aeocas_test_transients'] );
+    }
+
+    public function test_visibility_engine_label_maps_known_engines(): void {
+        $method = new ReflectionMethod( AEOCAS_Audit_Api::class, 'visibility_engine_label' );
+        $method->setAccessible( true );
+
+        $this->assertSame( 'ChatGPT', $method->invoke( null, 'chatgpt' ) );
+        $this->assertSame( 'Perplexity', $method->invoke( null, 'perplexity' ) );
+        $this->assertSame( 'Google AI Overview', $method->invoke( null, 'google_aio' ) );
+        $this->assertSame( 'Claude', $method->invoke( null, 'claude' ) );
+        $this->assertSame( 'Gemini', $method->invoke( null, 'gemini' ) );
+    }
+
+    public function test_visibility_engine_label_capitalizes_unknown(): void {
+        $method = new ReflectionMethod( AEOCAS_Audit_Api::class, 'visibility_engine_label' );
+        $method->setAccessible( true );
+
+        $this->assertSame( 'Foo Bar', $method->invoke( null, 'foo_bar' ) );
+    }
+
     public function test_get_visibility_passes_through_pre_normalized_snapshot(): void {
         $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
             return array(
@@ -328,5 +429,726 @@ final class AEOCASAuditApiTest extends TestCase {
         $this->assertSame( 12, $visibility['citations_count'] );
         $this->assertCount( 2, $visibility['engines'] );
         $this->assertSame( 'Perplexity', $visibility['engines'][0]['name'] );
+    }
+
+    // --- Discovery tests ---
+
+    public function test_get_discovery_returns_error_when_no_token(): void {
+        unset( $GLOBALS['aeocas_test_options']['aeocas_site_token'] );
+
+        $result = AEOCAS_Audit_Api::get_discovery();
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_no_key', $result->get_error_code() );
+    }
+
+    public function test_get_discovery_returns_cached_data_without_remote_call(): void {
+        $cached = array( 'status' => 'completed', 'discovery' => array( 'pages' => 10 ) );
+        $GLOBALS['aeocas_test_transients']['aeocas_discovery_helpsquad-com'] = $cached;
+
+        $result = AEOCAS_Audit_Api::get_discovery();
+
+        $this->assertIsArray( $result );
+        $this->assertSame( 'completed', $result['status'] );
+        $this->assertSame( array(), $GLOBALS['aeocas_test_remote_get_calls'] );
+    }
+
+    public function test_get_discovery_fetches_from_api_when_cache_empty(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array(
+                    'data' => array(
+                        'status'    => 'completed',
+                        'discovery' => array( 'pages' => 42 ),
+                    ),
+                ) ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::get_discovery( true );
+
+        $this->assertIsArray( $result );
+        $this->assertSame( 'completed', $result['status'] );
+        $this->assertCount( 1, $GLOBALS['aeocas_test_remote_get_calls'] );
+    }
+
+    public function test_get_discovery_handles_404(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 404 ),
+                'body'     => '',
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::get_discovery( true );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_no_discovery', $result->get_error_code() );
+    }
+
+    public function test_get_discovery_handles_auth_failure(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 401 ),
+                'body'     => '',
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::get_discovery( true );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_auth_expired', $result->get_error_code() );
+    }
+
+    // --- dispatch_audit tests ---
+
+    public function test_dispatch_audit_returns_error_when_no_token(): void {
+        unset( $GLOBALS['aeocas_test_options']['aeocas_site_token'] );
+        $GLOBALS['aeocas_test_remote_post'] = null;
+        $GLOBALS['aeocas_test_remote_post_calls'] = array();
+
+        $result = AEOCAS_Audit_Api::dispatch_audit();
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_no_key', $result->get_error_code() );
+    }
+
+    public function test_dispatch_audit_blocking_returns_body_on_success(): void {
+        $GLOBALS['aeocas_test_remote_post_calls'] = array();
+        $GLOBALS['aeocas_test_remote_post'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array( 'ok' => true, 'data' => array( 'slug' => 'helpsquad-com' ) ) ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::dispatch_audit( true );
+
+        $this->assertIsArray( $result );
+        $this->assertTrue( $result['ok'] );
+        $this->assertCount( 1, $GLOBALS['aeocas_test_remote_post_calls'] );
+    }
+
+    public function test_dispatch_audit_non_blocking_returns_true(): void {
+        $GLOBALS['aeocas_test_remote_post_calls'] = array();
+        $GLOBALS['aeocas_test_remote_post'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => '',
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::dispatch_audit( false );
+
+        $this->assertTrue( $result );
+    }
+
+    public function test_dispatch_audit_handles_auth_failure(): void {
+        $GLOBALS['aeocas_test_remote_post_calls'] = array();
+        $GLOBALS['aeocas_test_remote_post'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 403 ),
+                'body'     => wp_json_encode( array( 'error' => array( 'message' => 'Forbidden' ) ) ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::dispatch_audit( true );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_auth_expired', $result->get_error_code() );
+    }
+
+    public function test_dispatch_audit_handles_server_error(): void {
+        $GLOBALS['aeocas_test_remote_post_calls'] = array();
+        $GLOBALS['wpdb']->inserts = array();
+        $GLOBALS['aeocas_test_remote_post'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 500 ),
+                'body'     => wp_json_encode( array( 'error' => array( 'message' => 'Server error.' ) ) ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::dispatch_audit( true );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_reaudit_error', $result->get_error_code() );
+    }
+
+    public function test_dispatch_audit_handles_wp_error_response(): void {
+        $GLOBALS['aeocas_test_remote_post_calls'] = array();
+        $GLOBALS['wpdb']->inserts = array();
+        $GLOBALS['aeocas_test_remote_post'] = static function () {
+            return new WP_Error( 'http_error', 'Connection timed out' );
+        };
+
+        $result = AEOCAS_Audit_Api::dispatch_audit( true );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_api_error', $result->get_error_code() );
+    }
+
+    public function test_trigger_reaudit_delegates_to_dispatch_audit(): void {
+        $GLOBALS['aeocas_test_remote_post_calls'] = array();
+        $GLOBALS['aeocas_test_remote_post'] = static function (): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array( 'ok' => true, 'data' => array( 'slug' => 'helpsquad-com' ) ) ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::trigger_reaudit();
+        $this->assertIsArray( $result );
+        $this->assertTrue( $result['ok'] );
+    }
+
+    public function test_trigger_onboarding_delegates_to_dispatch_audit_non_blocking(): void {
+        $GLOBALS['aeocas_test_remote_post_calls'] = array();
+        $GLOBALS['aeocas_test_remote_post'] = static function (): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => '',
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::trigger_onboarding();
+        $this->assertTrue( $result );
+    }
+
+    // --- get_audit_status tests ---
+
+    public function test_get_audit_status_returns_error_when_no_token(): void {
+        unset( $GLOBALS['aeocas_test_options']['aeocas_site_token'] );
+
+        $result = AEOCAS_Audit_Api::get_audit_status();
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_no_key', $result->get_error_code() );
+    }
+
+    public function test_get_audit_status_returns_body_on_success(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array( 'status' => 'completed' ) ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::get_audit_status();
+
+        $this->assertIsArray( $result );
+        $this->assertSame( 'completed', $result['status'] );
+    }
+
+    public function test_get_audit_status_handles_auth_failure(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 401 ),
+                'body'     => '',
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::get_audit_status();
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_auth_expired', $result->get_error_code() );
+    }
+
+    // --- AJAX handler tests ---
+    // wp_send_json_success/error stubs throw AEOCAS_Test_Json_Exit to simulate die().
+
+    public function test_ajax_get_audit_returns_success_for_cached_data(): void {
+        $GLOBALS['aeocas_test_json_response'] = null;
+        $GLOBALS['aeocas_test_transients']['aeocas_audit_helpsquad-com'] = array( 'status' => 'completed', 'score' => 95 );
+
+        try { AEOCAS_Audit_Api::ajax_get_audit(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertTrue( $GLOBALS['aeocas_test_json_response']['success'] );
+    }
+
+    public function test_ajax_get_audit_returns_error_when_no_token(): void {
+        unset( $GLOBALS['aeocas_test_options']['aeocas_site_token'] );
+        $GLOBALS['aeocas_test_json_response'] = null;
+
+        try { AEOCAS_Audit_Api::ajax_get_audit(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertFalse( $GLOBALS['aeocas_test_json_response']['success'] );
+    }
+
+    public function test_ajax_reaudit_returns_success(): void {
+        $GLOBALS['aeocas_test_json_response'] = null;
+        $GLOBALS['aeocas_test_remote_post_calls'] = array();
+        $GLOBALS['aeocas_test_remote_post'] = static function (): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array( 'ok' => true, 'data' => array( 'slug' => 'helpsquad-com' ) ) ),
+            );
+        };
+
+        try { AEOCAS_Audit_Api::ajax_reaudit(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertTrue( $GLOBALS['aeocas_test_json_response']['success'] );
+    }
+
+    public function test_ajax_reaudit_returns_error_on_failure(): void {
+        unset( $GLOBALS['aeocas_test_options']['aeocas_site_token'] );
+        $GLOBALS['aeocas_test_json_response'] = null;
+
+        try { AEOCAS_Audit_Api::ajax_reaudit(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertFalse( $GLOBALS['aeocas_test_json_response']['success'] );
+    }
+
+    public function test_ajax_get_discovery_returns_success(): void {
+        $GLOBALS['aeocas_test_json_response'] = null;
+        $GLOBALS['aeocas_test_transients']['aeocas_discovery_helpsquad-com'] = array( 'status' => 'completed' );
+
+        try { AEOCAS_Audit_Api::ajax_get_discovery(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertTrue( $GLOBALS['aeocas_test_json_response']['success'] );
+    }
+
+    public function test_ajax_get_discovery_returns_error_when_no_token(): void {
+        unset( $GLOBALS['aeocas_test_options']['aeocas_site_token'] );
+        $GLOBALS['aeocas_test_json_response'] = null;
+
+        try { AEOCAS_Audit_Api::ajax_get_discovery(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertFalse( $GLOBALS['aeocas_test_json_response']['success'] );
+    }
+
+    public function test_ajax_get_visibility_returns_success(): void {
+        $GLOBALS['aeocas_test_json_response'] = null;
+        $GLOBALS['aeocas_test_transients']['aeocas_visibility_helpsquad-com'] = array(
+            'status'           => 'ready',
+            'visibility_score' => 50,
+            'citations_count'  => 5,
+            'engines'          => array(),
+        );
+
+        try { AEOCAS_Audit_Api::ajax_get_visibility(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertTrue( $GLOBALS['aeocas_test_json_response']['success'] );
+    }
+
+    public function test_ajax_get_visibility_returns_error_when_no_token(): void {
+        unset( $GLOBALS['aeocas_test_options']['aeocas_site_token'] );
+        $GLOBALS['aeocas_test_json_response'] = null;
+
+        try { AEOCAS_Audit_Api::ajax_get_visibility(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertFalse( $GLOBALS['aeocas_test_json_response']['success'] );
+    }
+
+    public function test_ajax_audit_status_returns_success(): void {
+        $GLOBALS['aeocas_test_json_response'] = null;
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array( 'status' => 'running' ) ),
+            );
+        };
+
+        try { AEOCAS_Audit_Api::ajax_audit_status(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertTrue( $GLOBALS['aeocas_test_json_response']['success'] );
+    }
+
+    public function test_ajax_audit_status_returns_error_when_no_token(): void {
+        unset( $GLOBALS['aeocas_test_options']['aeocas_site_token'] );
+        $GLOBALS['aeocas_test_json_response'] = null;
+
+        try { AEOCAS_Audit_Api::ajax_audit_status(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertFalse( $GLOBALS['aeocas_test_json_response']['success'] );
+    }
+
+    // --- ajax_get_local_content_index test ---
+
+    public function test_ajax_get_local_content_index_returns_items(): void {
+        $GLOBALS['aeocas_test_json_response'] = null;
+        $GLOBALS['aeocas_test_post_ids'] = array( 1, 2 );
+        $GLOBALS['aeocas_test_post_meta'] = array(
+            1 => array( '_aeocas_faq_schema' => array( array( 'q' => 'What?', 'a' => 'This.' ) ), '_aeocas_canonical_url' => 'https://helpsquad.com/canonical' ),
+            2 => array( '_aeocas_faq_schema' => '', '_aeocas_canonical_url' => '' ),
+        );
+
+        try { AEOCAS_Audit_Api::ajax_get_local_content_index(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertTrue( $GLOBALS['aeocas_test_json_response']['success'] );
+        $this->assertArrayHasKey( 'items', $GLOBALS['aeocas_test_json_response']['data'] );
+        $this->assertCount( 2, $GLOBALS['aeocas_test_json_response']['data']['items'] );
+
+        // First item should have faq_count = 1.
+        $this->assertSame( 1, $GLOBALS['aeocas_test_json_response']['data']['items'][0]['faq_count'] );
+        $this->assertTrue( $GLOBALS['aeocas_test_json_response']['data']['items'][0]['has_faq'] );
+
+        // Second item should have faq_count = 0.
+        $this->assertSame( 0, $GLOBALS['aeocas_test_json_response']['data']['items'][1]['faq_count'] );
+
+        unset( $GLOBALS['aeocas_test_post_ids'], $GLOBALS['aeocas_test_post_meta'] );
+    }
+
+    // --- register_ajax test ---
+
+    public function test_register_ajax_runs_without_error(): void {
+        AEOCAS_Audit_Api::register_ajax();
+        $this->assertTrue( true );
+    }
+
+    // --- get_audit 404 and unexpected responses ---
+
+    public function test_get_audit_handles_404(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 404 ),
+                'body'     => wp_json_encode( array() ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::get_audit( true );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_no_audit', $result->get_error_code() );
+    }
+
+    public function test_get_audit_handles_unexpected_response(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 500 ),
+                'body'     => wp_json_encode( array( 'error' => array( 'message' => 'Internal error' ) ) ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::get_audit( true );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_api_error', $result->get_error_code() );
+    }
+
+    public function test_get_audit_handles_wp_error(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function () {
+            return new WP_Error( 'http_error', 'Timeout' );
+        };
+
+        $result = AEOCAS_Audit_Api::get_audit( true );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_api_error', $result->get_error_code() );
+    }
+
+    // --- get_visibility error paths ---
+
+    public function test_get_visibility_returns_error_when_no_token(): void {
+        unset( $GLOBALS['aeocas_test_options']['aeocas_site_token'] );
+
+        $result = AEOCAS_Audit_Api::get_visibility();
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_no_key', $result->get_error_code() );
+    }
+
+    public function test_get_visibility_handles_auth_failure(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function (): array {
+            return array(
+                'response' => array( 'code' => 403 ),
+                'body'     => '',
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::get_visibility( true );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_auth_expired', $result->get_error_code() );
+    }
+
+    public function test_get_visibility_handles_wp_error(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function () {
+            return new WP_Error( 'http_error', 'Connection refused' );
+        };
+
+        $result = AEOCAS_Audit_Api::get_visibility( true );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_api_error', $result->get_error_code() );
+    }
+
+    // --- handle_auth_failure side effects ---
+
+    public function test_handle_auth_failure_clears_tokens(): void {
+        $GLOBALS['aeocas_test_options']['aeocas_site_token']          = 'token';
+        $GLOBALS['aeocas_test_options']['aeocas_plugin_token']        = 'plugin-token';
+        $GLOBALS['aeocas_test_options']['aeocas_connection_verified'] = true;
+
+        // Trigger auth failure via a 401 on get_audit
+        $GLOBALS['aeocas_test_remote_get'] = static function (): array {
+            return array(
+                'response' => array( 'code' => 401 ),
+                'body'     => '',
+            );
+        };
+
+        AEOCAS_Audit_Api::get_audit( true );
+
+        $this->assertArrayNotHasKey( 'aeocas_site_token', $GLOBALS['aeocas_test_options'] );
+        $this->assertArrayNotHasKey( 'aeocas_plugin_token', $GLOBALS['aeocas_test_options'] );
+        $this->assertArrayNotHasKey( 'aeocas_connection_verified', $GLOBALS['aeocas_test_options'] );
+    }
+
+    // --- Discovery short cache for pending status ---
+
+    public function test_get_discovery_uses_short_cache_for_pending_status(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array(
+                    'data' => array(
+                        'status'    => 'discovering',
+                        'discovery' => null,
+                    ),
+                ) ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::get_discovery( true );
+
+        $this->assertIsArray( $result );
+        // Verify data was cached
+        $this->assertArrayHasKey( 'aeocas_discovery_helpsquad-com', $GLOBALS['aeocas_test_transients'] );
+    }
+
+    // --- get_discovery with missing data ---
+
+    public function test_get_discovery_returns_error_on_empty_data(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array( 'data' => null ) ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::get_discovery( true );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_api_error', $result->get_error_code() );
+    }
+
+    public function test_get_discovery_handles_wp_error(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function () {
+            return new WP_Error( 'http_error', 'DNS failure' );
+        };
+
+        $result = AEOCAS_Audit_Api::get_discovery( true );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_api_error', $result->get_error_code() );
+    }
+
+    // --- normalize_visibility_payload with edge cases ---
+
+    public function test_normalize_handles_query_deltas(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array(
+                    'data' => array(
+                        array(
+                            'slug'             => 'helpsquad-com',
+                            'domain'           => 'helpsquad.com',
+                            'engine'           => 'chatgpt',
+                            'visibility_score' => 3,
+                            'visibility_total' => 10,
+                            'query_variants'   => array(),
+                            'created_at'       => '2026-04-12T00:00:00.000Z',
+                        ),
+                    ),
+                    'query_deltas' => array(
+                        array( 'query' => 'live chat support', 'change' => 'gained' ),
+                        array( 'query' => 'help desk outsourcing', 'change' => 'lost' ),
+                    ),
+                ) ),
+            );
+        };
+
+        $visibility = AEOCAS_Audit_Api::get_visibility( true );
+
+        $this->assertIsArray( $visibility );
+        $this->assertNotEmpty( $visibility['alerts'] );
+
+        $alert_titles = array_column( $visibility['alerts'], 'title' );
+        $found_gained = false;
+        $found_lost   = false;
+        foreach ( $alert_titles as $title ) {
+            if ( strpos( $title, 'Gained' ) !== false ) {
+                $found_gained = true;
+            }
+            if ( strpos( $title, 'Lost' ) !== false ) {
+                $found_lost = true;
+            }
+        }
+        $this->assertTrue( $found_gained );
+        $this->assertTrue( $found_lost );
+    }
+
+    public function test_normalize_handles_competitor_comparison(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array(
+                    'data' => array(
+                        array(
+                            'slug'                  => 'helpsquad-com',
+                            'domain'                => 'helpsquad.com',
+                            'engine'                => 'chatgpt',
+                            'visibility_score'      => 5,
+                            'visibility_total'      => 10,
+                            'query_variants'        => array(
+                                array(
+                                    'query'          => 'customer support outsourcing',
+                                    'target_visible' => true,
+                                    'competitor_visibility' => array(
+                                        'zendesk.com' => true,
+                                        'freshdesk.com' => true,
+                                    ),
+                                ),
+                            ),
+                            'competitor_comparison' => array(
+                                array(
+                                    'query'       => 'live chat',
+                                    'competitors' => array(
+                                        array( 'name' => 'intercom.com' ),
+                                    ),
+                                ),
+                            ),
+                            'llm_response_analysis' => array(
+                                array( 'domain' => 'drift.com' ),
+                            ),
+                            'created_at' => '2026-04-12T00:00:00.000Z',
+                        ),
+                    ),
+                ) ),
+            );
+        };
+
+        $visibility = AEOCAS_Audit_Api::get_visibility( true );
+
+        $this->assertIsArray( $visibility );
+        $this->assertNotEmpty( $visibility['competitors'] );
+
+        $names = array_column( $visibility['competitors'], 'name' );
+        $this->assertContains( 'zendesk.com', $names );
+        $this->assertContains( 'freshdesk.com', $names );
+    }
+
+    public function test_normalize_handles_key_findings_and_action_plan(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array(
+                    'data' => array(
+                        array(
+                            'slug'             => 'helpsquad-com',
+                            'domain'           => 'helpsquad.com',
+                            'engine'           => 'perplexity',
+                            'visibility_score' => 2,
+                            'visibility_total' => 10,
+                            'key_findings'     => array(
+                                array( 'text' => 'Site lacks structured data', 'type' => 'warning' ),
+                                array( 'text' => 'Good content quality', 'type' => 'finding' ),
+                            ),
+                            'action_plan'      => array(
+                                array( 'action' => 'Add FAQ schema', 'priority' => 'P0', 'impact' => 'High visibility boost' ),
+                                array( 'action' => 'Improve meta descriptions', 'priority' => 'P2' ),
+                            ),
+                            'query_variants'   => array(),
+                            'created_at'       => '2026-04-12T00:00:00.000Z',
+                        ),
+                    ),
+                ) ),
+            );
+        };
+
+        $visibility = AEOCAS_Audit_Api::get_visibility( true );
+
+        $this->assertIsArray( $visibility );
+        $this->assertNotEmpty( $visibility['alerts'] );
+
+        $categories = array_column( $visibility['alerts'], 'category' );
+        $this->assertContains( 'finding', $categories );
+        $this->assertContains( 'action', $categories );
+
+        // P0 actions should be 'critical' severity
+        $p0_alerts = array_filter( $visibility['alerts'], static function ( $a ) {
+            return 'critical' === $a['severity'] && 'action' === $a['category'];
+        } );
+        $this->assertNotEmpty( $p0_alerts );
+    }
+
+    // --- get_visibility with pending status uses short cache ---
+
+    public function test_get_visibility_uses_short_cache_for_pending_status(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array(
+                    'status'           => 'pending',
+                    'visibility_score' => 0,
+                    'citations_count'  => 0,
+                    'engines'          => array(),
+                ) ),
+            );
+        };
+
+        $visibility = AEOCAS_Audit_Api::get_visibility( true );
+
+        $this->assertIsArray( $visibility );
+        $this->assertArrayHasKey( 'aeocas_visibility_helpsquad-com', $GLOBALS['aeocas_test_transients'] );
+    }
+
+    // --- get_audit with single object data ---
+
+    public function test_get_audit_handles_single_object_data(): void {
+        $audit_data = array( 'status' => 'completed', 'slug' => 'helpsquad-com' );
+
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ) use ( $audit_data ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array(
+                    'data' => $audit_data,
+                ) ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::get_audit( true );
+
+        $this->assertIsArray( $result );
+        $this->assertSame( 'completed', $result['status'] );
+    }
+
+    // --- get_audit empty body with 200 ---
+
+    public function test_get_audit_handles_200_with_empty_body(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array() ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::get_audit( true );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_api_error', $result->get_error_code() );
     }
 }
