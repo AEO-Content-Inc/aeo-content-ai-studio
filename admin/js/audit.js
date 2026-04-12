@@ -45,6 +45,19 @@
         return wrap.querySelector('.aeo-workflow-step[data-stage="' + stageId + '"]');
     }
 
+    function updateLinkTabParam(link, tabId) {
+        if (!link || !tabId) return;
+        var href = link.getAttribute('href');
+        if (!href) return;
+        try {
+            var url = new URL(href, window.location.href);
+            url.searchParams.set('tab', tabId);
+            link.setAttribute('href', url.toString());
+        } catch (e) {
+            // Ignore malformed URLs and keep the existing href.
+        }
+    }
+
     function updateUrlTab(tabId) {
         if (!tabId || !window.history || !window.history.replaceState) return;
         try {
@@ -75,6 +88,7 @@
             if (step) {
                 step.classList.toggle('is-active', stage.id === stageId);
                 step.setAttribute('aria-current', stage.id === stageId ? 'step' : 'false');
+                updateLinkTabParam(step, activeTab);
             }
 
             var activeTab = getCurrentTabForStage(stage.id);
@@ -91,6 +105,7 @@
                     var isActiveSubtab = btn.getAttribute('data-tab') === activeTab;
                     btn.classList.toggle('is-active', isActiveSubtab);
                     btn.setAttribute('aria-selected', isActiveSubtab ? 'true' : 'false');
+                    btn.setAttribute('aria-current', isActiveSubtab ? 'page' : 'false');
                 });
             }
         });
@@ -123,7 +138,8 @@
 
     function initWorkflowRail() {
         wrap.querySelectorAll('.aeo-workflow-step').forEach(function (step) {
-            step.addEventListener('click', function () {
+            step.addEventListener('click', function (e) {
+                e.preventDefault();
                 var stageId = this.getAttribute('data-stage');
                 activateStage(stageId);
             });
@@ -132,7 +148,8 @@
 
     function initStageSubtabs() {
         wrap.querySelectorAll('.aeo-subtab').forEach(function (subtab) {
-            subtab.addEventListener('click', function () {
+            subtab.addEventListener('click', function (e) {
+                e.preventDefault();
                 var tabId = this.getAttribute('data-tab');
                 activateTab(tabId);
             });
@@ -701,7 +718,10 @@
     }
 
     function isCriticalScorecardItem(item) {
-        return statusLabel(item && item.status) === 'critical';
+        var status = String(item && item.status || '').toLowerCase();
+        if (statusLabel(status) === 'critical') return true;
+        if (status === 'critical' || status === 'high' || status === 'fix immediately') return true;
+        return typeof (item && item.score) === 'number' && item.score > 0 && item.score < 4;
     }
 
     function getImpactColor(value) {
@@ -748,6 +768,8 @@
 
     function pageHasCriticalIssue(page) {
         if (!page) return false;
+        var pagePriority = String(page.priority || page.status || '').toLowerCase();
+        if (pagePriority === 'critical' || pagePriority === 'high') return true;
         if (getPageScore(page) > 0 && getPageScore(page) < 40) return true;
         return (page.issues || []).some(function (issue) {
             var sev = String(issue && issue.severity || '').toLowerCase();

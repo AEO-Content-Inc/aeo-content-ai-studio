@@ -26,19 +26,93 @@
 }
 
 .aeo-settings h1 {
-    margin-bottom: 0.5em;
+    margin: 0;
+    font-size: 32px;
+    line-height: 1.05;
 }
 
-.aeo-subtitle {
+.aeo-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 22px;
+    margin: 6px 0 24px;
+    padding: 24px 28px;
+    background:
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 36%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 245, 236, 0.96));
+    border: 1px solid var(--aeo-line);
+    border-radius: 28px;
+    box-shadow: var(--aeo-shadow);
+}
+
+.aeo-header-brand {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    min-width: 0;
+}
+
+.aeo-header-logo-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 76px;
+    height: 76px;
+    flex-shrink: 0;
+    border-radius: 22px;
+    background: linear-gradient(180deg, rgba(15, 118, 110, 0.12), rgba(255, 255, 255, 0.98));
+    border: 1px solid rgba(15, 118, 110, 0.18);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.aeo-header-logo {
+    width: 52px;
+    height: 52px;
+    display: block;
+}
+
+.aeo-header-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.aeo-header-kicker {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(15, 118, 110, 0.08);
+    color: var(--aeo-accent);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.aeo-header-actions {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: auto;
+}
+
+.aeo-header-actions .button {
+    min-height: 40px;
+    padding-inline: 16px;
+}
+
+.aeo-subtitle {
     font-size: 15px;
     font-weight: 500;
     line-height: 1.6;
-    margin: 0 0 20px 0;
-    max-width: 1100px;
+    margin: 0;
+    max-width: 70ch;
 }
 
 .aeo-status-bar {
@@ -79,9 +153,16 @@
 }
 
 .aeo-version {
-    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(31, 42, 51, 0.06);
+    color: var(--aeo-muted);
     font-size: 12px;
-    opacity: 0.7;
+    font-weight: 700;
 }
 
 .aeo-connect-card {
@@ -442,38 +523,38 @@
     position: relative;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 16px;
-    margin: 0 0 24px;
-    padding: 8px 0;
+    gap: 18px;
+    margin: 0 0 28px;
+    padding: 6px 0 10px;
 }
 
 .aeo-workflow-rail::before {
     content: '';
     position: absolute;
-    top: 46px;
-    left: 60px;
-    right: 60px;
-    height: 2px;
+    top: 52px;
+    left: 84px;
+    right: 84px;
+    height: 3px;
     background: linear-gradient(90deg, rgba(15, 118, 110, 0.18), rgba(15, 118, 110, 0.08));
     pointer-events: none;
 }
 
 .aeo-workflow-step {
     position: relative;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-    gap: 14px;
-    min-height: 126px;
-    padding: 18px 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 154px;
+    padding: 20px 20px 18px;
     border: 1px solid var(--aeo-line);
     border-radius: 24px;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 245, 236, 0.94));
     box-shadow: var(--aeo-shadow);
-    cursor: pointer;
     text-align: left;
+    text-decoration: none;
     color: var(--aeo-ink);
     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    overflow: visible;
 }
 
 .aeo-workflow-step:hover {
@@ -509,18 +590,26 @@
     border-color: rgba(47, 133, 90, 0.28);
 }
 
+.aeo-workflow-step-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    padding-right: 24px;
+}
+
 .aeo-workflow-step-index {
     position: relative;
     z-index: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     border-radius: 999px;
     background: var(--aeo-surface-strong);
     border: 1px solid var(--aeo-line);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
     box-shadow: 0 10px 20px rgba(31, 42, 51, 0.08);
 }
@@ -543,17 +632,66 @@
     box-shadow: 0 0 0 2px #fff;
 }
 
+.aeo-workflow-step-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    border: 1px solid rgba(15, 118, 110, 0.16);
+    background: rgba(15, 118, 110, 0.08);
+    color: var(--aeo-accent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.aeo-workflow-step-icon .dashicons {
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+}
+
+.aeo-workflow-step[data-stage="connect"] .aeo-workflow-step-icon {
+    background: rgba(15, 118, 110, 0.1);
+    border-color: rgba(15, 118, 110, 0.18);
+    color: #0f766e;
+}
+
+.aeo-workflow-step[data-stage="discovery"] .aeo-workflow-step-icon {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.18);
+    color: #2563eb;
+}
+
+.aeo-workflow-step[data-stage="diagnose"] .aeo-workflow-step-icon {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.2);
+    color: #b7791f;
+}
+
+.aeo-workflow-step[data-stage="fix"] .aeo-workflow-step-icon {
+    background: rgba(196, 61, 61, 0.12);
+    border-color: rgba(196, 61, 61, 0.18);
+    color: #c43d3d;
+}
+
+.aeo-workflow-step[data-stage="track"] .aeo-workflow-step-icon {
+    background: rgba(109, 40, 217, 0.12);
+    border-color: rgba(109, 40, 217, 0.18);
+    color: #7c3aed;
+}
+
 .aeo-workflow-step-body {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
     min-width: 0;
-    padding-right: 22px;
+    padding-right: 26px;
 }
 
 .aeo-workflow-step-title {
     display: block;
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 700;
     line-height: 1.2;
 }
@@ -561,8 +699,8 @@
 .aeo-workflow-step-label {
     display: block;
     color: var(--aeo-muted);
-    font-size: 13px;
-    line-height: 1.45;
+    font-size: 14px;
+    line-height: 1.55;
 }
 
 .aeo-workflow-step-state,
@@ -581,7 +719,7 @@
 }
 
 .aeo-workflow-step-state {
-    grid-column: 2;
+    margin-top: auto;
 }
 
 .aeo-workflow-step-state.is-attention,
@@ -624,16 +762,16 @@
     display: none;
     align-items: center;
     justify-content: center;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 7px;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 8px;
     border-radius: 999px;
     background: var(--aeo-critical);
     color: #fff;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     line-height: 1;
-    box-shadow: 0 0 0 3px #fff;
+    box-shadow: 0 0 0 4px #fff, 0 12px 24px rgba(196, 61, 61, 0.24);
 }
 
 .aeo-workflow-badge.is-visible,
@@ -643,8 +781,9 @@
 
 .aeo-workflow-badge {
     position: absolute;
-    top: 12px;
-    right: 12px;
+    top: 14px;
+    right: 14px;
+    z-index: 2;
 }
 
 .aeo-stage-shell {
@@ -805,35 +944,68 @@
 
 .aeo-subtabs {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
 .aeo-subtab {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 11px 16px;
-    border-radius: 999px;
+    gap: 10px;
+    min-height: 56px;
+    padding: 10px 16px 10px 12px;
+    border-radius: 18px;
     border: 1px solid var(--aeo-line);
-    background: rgba(255, 253, 248, 0.7);
+    background: linear-gradient(180deg, rgba(255, 253, 248, 0.9), rgba(245, 241, 232, 0.72));
     color: var(--aeo-muted);
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
-    cursor: pointer;
+    text-decoration: none;
     transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
 }
 
 .aeo-subtab:hover {
     transform: translateY(-1px);
     color: var(--aeo-ink);
+    box-shadow: 0 16px 28px rgba(31, 42, 51, 0.08);
 }
 
 .aeo-subtab.is-active {
     background: var(--aeo-surface);
     color: var(--aeo-ink);
     border-color: rgba(15, 118, 110, 0.32);
-    box-shadow: 0 14px 28px rgba(31, 42, 51, 0.08);
+    box-shadow: 0 18px 30px rgba(31, 42, 51, 0.1);
+}
+
+.aeo-subtab-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    background: rgba(15, 118, 110, 0.08);
+    color: var(--aeo-accent);
+    flex-shrink: 0;
+}
+
+.aeo-subtab-icon .dashicons {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+}
+
+.aeo-subtab-label {
+    line-height: 1.3;
+}
+
+.aeo-subtab-badge {
+    margin-left: auto;
+}
+
+.aeo-subtab.is-active .aeo-subtab-icon {
+    background: rgba(15, 118, 110, 0.12);
+    color: var(--aeo-accent);
 }
 
 .aeo-stage-body {
@@ -858,8 +1030,8 @@
     }
 
     .aeo-workflow-step {
-        min-width: 240px;
-        flex: 0 0 240px;
+        min-width: 270px;
+        flex: 0 0 270px;
     }
 
     .aeo-stage-summary {
@@ -874,6 +1046,28 @@
 }
 
 @media (max-width: 782px) {
+    .aeo-header {
+        padding: 18px 20px;
+    }
+
+    .aeo-header-brand {
+        width: 100%;
+    }
+
+    .aeo-header-logo-wrap {
+        width: 64px;
+        height: 64px;
+    }
+
+    .aeo-header-logo {
+        width: 46px;
+        height: 46px;
+    }
+
+    .aeo-settings h1 {
+        font-size: 28px;
+    }
+
     .aeo-stage-title {
         font-size: 24px;
     }
@@ -889,7 +1083,24 @@
     }
 
     .aeo-workflow-step {
-        min-height: 112px;
+        min-height: 132px;
+    }
+}
+
+@media (max-width: 640px) {
+    .aeo-header {
+        flex-direction: column;
+    }
+
+    .aeo-header-actions {
+        width: 100%;
+        justify-content: flex-start;
+        margin-left: 0;
+    }
+
+    .aeo-subtab {
+        width: 100%;
+        justify-content: flex-start;
     }
 }
 

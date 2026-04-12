@@ -42,6 +42,19 @@ $aeocas_logs     = AEOCAS_Activity_Log::get_logs( $aeocas_log_page, $aeocas_log_
 $aeocas_stats    = AEOCAS_Activity_Log::get_stats();
 $aeocas_commands = AEOCAS_Activity_Log::get_commands();
 $aeocas_log_base = admin_url( 'admin.php?page=aeocas-audit-report' );
+$aeocas_logo_url = AEOCAS_PLUGIN_URL . 'admin/images/icon.svg';
+$aeocas_valid_tabs = array( 'connect', 'discovery', 'scoreboard', 'site-audit', 'opportunities', 'rewrite', 'activity' );
+$aeocas_stage_by_tab = array(
+    'connect'       => 'connect',
+    'discovery'     => 'discovery',
+    'scoreboard'    => 'diagnose',
+    'site-audit'    => 'diagnose',
+    'opportunities' => 'fix',
+    'rewrite'       => 'fix',
+    'activity'      => 'track',
+);
+$aeocas_active_tab = in_array( $aeocas_requested_tab, $aeocas_valid_tabs, true ) ? $aeocas_requested_tab : 'connect';
+$aeocas_active_stage = isset( $aeocas_stage_by_tab[ $aeocas_active_tab ] ) ? $aeocas_stage_by_tab[ $aeocas_active_tab ] : 'connect';
 $aeocas_log_last_action_label = $aeocas_stats['last_action']
     ? sprintf(
         /* translators: %s: human-readable time diff */
@@ -52,18 +65,30 @@ $aeocas_log_last_action_label = $aeocas_stats['last_action']
 $aeocas_activity_error_count = isset( $aeocas_stats['error'] ) ? (int) $aeocas_stats['error'] : 0;
 ?>
 <div class="wrap aeo-settings" id="aeo-audit-wrap" data-requested-tab="<?php echo esc_attr( $aeocas_requested_tab ); ?>" data-connected="<?php echo $aeocas_connected ? '1' : '0'; ?>" data-feature-count="<?php echo esc_attr( count( $aeocas_features ) ); ?>">
-    <h1><?php esc_html_e( 'AEO Content AI Studio', 'aeo-content-ai-studio' ); ?></h1>
-    <p class="aeo-subtitle">
-        <?php esc_html_e( 'AI Engine Optimization for WordPress. Powered by', 'aeo-content-ai-studio' ); ?>
-        <a href="<?php echo esc_url( 'https://www.aeocontent.ai' ); ?>" target="_blank" rel="noopener">aeocontent.ai</a>
-        <a href="#" id="aeo-refresh-audit" class="button button-small" style="margin-left: 12px;">
-            <?php esc_html_e( 'Refresh', 'aeo-content-ai-studio' ); ?>
-        </a>
-        <a href="#" id="aeo-reaudit-btn" class="button button-primary button-small" style="margin-left: 4px;">
-            <?php esc_html_e( 'Re-audit', 'aeo-content-ai-studio' ); ?>
-        </a>
-        <span class="aeo-version" style="margin-left:auto;color:#646970;font-size:11px;">v<?php echo esc_html( AEOCAS_VERSION ); ?></span>
-    </p>
+    <div class="aeo-header">
+        <div class="aeo-header-brand">
+            <span class="aeo-header-logo-wrap">
+                <img class="aeo-header-logo" src="<?php echo esc_url( $aeocas_logo_url ); ?>" alt="" width="52" height="52" />
+            </span>
+            <div class="aeo-header-copy">
+                <span class="aeo-header-kicker"><?php esc_html_e( 'AEO Content Plugin', 'aeo-content-ai-studio' ); ?></span>
+                <h1><?php esc_html_e( 'AEO Content AI Studio', 'aeo-content-ai-studio' ); ?></h1>
+                <p class="aeo-subtitle">
+                    <?php esc_html_e( 'AI Engine Optimization for WordPress. Powered by', 'aeo-content-ai-studio' ); ?>
+                    <a href="<?php echo esc_url( 'https://www.aeocontent.ai' ); ?>" target="_blank" rel="noopener">aeocontent.ai</a>
+                </p>
+            </div>
+        </div>
+        <div class="aeo-header-actions">
+            <a href="#" id="aeo-refresh-audit" class="button button-secondary">
+                <?php esc_html_e( 'Refresh', 'aeo-content-ai-studio' ); ?>
+            </a>
+            <a href="#" id="aeo-reaudit-btn" class="button button-primary">
+                <?php esc_html_e( 'Re-audit', 'aeo-content-ai-studio' ); ?>
+            </a>
+            <span class="aeo-version">v<?php echo esc_html( AEOCAS_VERSION ); ?></span>
+        </div>
+    </div>
 
     <!-- Loading state -->
     <div id="aeo-audit-loading" class="aeo-audit-loading">
@@ -89,49 +114,69 @@ $aeocas_activity_error_count = isset( $aeocas_stats['error'] ) ? (int) $aeocas_s
     <div id="aeo-audit-content" style="display: none;">
 
         <nav class="aeo-workflow-rail" aria-label="<?php esc_attr_e( 'Audit workflow', 'aeo-content-ai-studio' ); ?>">
-            <button type="button" class="aeo-workflow-step is-active" data-stage="connect" data-default-tab="connect">
-                <span class="aeo-workflow-step-index">1</span>
+            <a href="<?php echo esc_url( $aeocas_log_base . '&tab=connect' ); ?>" class="aeo-workflow-step <?php echo 'connect' === $aeocas_active_stage ? 'is-active' : ''; ?>" data-stage="connect" data-default-tab="connect">
+                <span class="aeo-workflow-step-top">
+                    <span class="aeo-workflow-step-index">1</span>
+                    <span class="aeo-workflow-step-icon" aria-hidden="true"><span class="dashicons dashicons-admin-links"></span></span>
+                </span>
                 <span class="aeo-workflow-step-body">
                     <span class="aeo-workflow-step-title"><?php esc_html_e( 'Connect', 'aeo-content-ai-studio' ); ?></span>
                     <span class="aeo-workflow-step-label"><?php esc_html_e( 'Link your site', 'aeo-content-ai-studio' ); ?></span>
                 </span>
                 <span class="aeo-workflow-step-state"></span>
-            </button>
-            <button type="button" class="aeo-workflow-step" data-stage="discovery" data-default-tab="discovery">
-                <span class="aeo-workflow-step-index">2</span>
+                <span class="aeo-workflow-badge" aria-hidden="true"></span>
+            </a>
+            <a href="<?php echo esc_url( $aeocas_log_base . '&tab=discovery' ); ?>" class="aeo-workflow-step <?php echo 'discovery' === $aeocas_active_stage ? 'is-active' : ''; ?>" data-stage="discovery" data-default-tab="discovery">
+                <span class="aeo-workflow-step-top">
+                    <span class="aeo-workflow-step-index">2</span>
+                    <span class="aeo-workflow-step-icon" aria-hidden="true"><span class="dashicons dashicons-search"></span></span>
+                </span>
                 <span class="aeo-workflow-step-body">
                     <span class="aeo-workflow-step-title"><?php esc_html_e( 'Discover', 'aeo-content-ai-studio' ); ?></span>
                     <span class="aeo-workflow-step-label"><?php esc_html_e( 'See what was found', 'aeo-content-ai-studio' ); ?></span>
                 </span>
                 <span class="aeo-workflow-step-state"></span>
-            </button>
-            <button type="button" class="aeo-workflow-step" data-stage="diagnose" data-default-tab="scoreboard">
-                <span class="aeo-workflow-step-index">3</span>
+                <span class="aeo-workflow-badge" aria-hidden="true"></span>
+            </a>
+            <a href="<?php echo esc_url( $aeocas_log_base . '&tab=scoreboard' ); ?>" class="aeo-workflow-step <?php echo 'diagnose' === $aeocas_active_stage ? 'is-active' : ''; ?>" data-stage="diagnose" data-default-tab="scoreboard">
+                <span class="aeo-workflow-step-top">
+                    <span class="aeo-workflow-step-index">3</span>
+                    <span class="aeo-workflow-step-icon" aria-hidden="true"><span class="dashicons dashicons-chart-bar"></span></span>
+                </span>
                 <span class="aeo-workflow-step-body">
                     <span class="aeo-workflow-step-title"><?php esc_html_e( 'Diagnose', 'aeo-content-ai-studio' ); ?></span>
                     <span class="aeo-workflow-step-label"><?php esc_html_e( 'Find critical issues', 'aeo-content-ai-studio' ); ?></span>
                 </span>
                 <span class="aeo-workflow-step-state"></span>
-            </button>
-            <button type="button" class="aeo-workflow-step" data-stage="fix" data-default-tab="opportunities">
-                <span class="aeo-workflow-step-index">4</span>
+                <span class="aeo-workflow-badge" aria-hidden="true"></span>
+            </a>
+            <a href="<?php echo esc_url( $aeocas_log_base . '&tab=opportunities' ); ?>" class="aeo-workflow-step <?php echo 'fix' === $aeocas_active_stage ? 'is-active' : ''; ?>" data-stage="fix" data-default-tab="opportunities">
+                <span class="aeo-workflow-step-top">
+                    <span class="aeo-workflow-step-index">4</span>
+                    <span class="aeo-workflow-step-icon" aria-hidden="true"><span class="dashicons dashicons-admin-tools"></span></span>
+                </span>
                 <span class="aeo-workflow-step-body">
                     <span class="aeo-workflow-step-title"><?php esc_html_e( 'Fix', 'aeo-content-ai-studio' ); ?></span>
                     <span class="aeo-workflow-step-label"><?php esc_html_e( 'Act on best opportunities', 'aeo-content-ai-studio' ); ?></span>
                 </span>
                 <span class="aeo-workflow-step-state"></span>
-            </button>
-            <button type="button" class="aeo-workflow-step" data-stage="track" data-default-tab="activity">
-                <span class="aeo-workflow-step-index">5</span>
+                <span class="aeo-workflow-badge" aria-hidden="true"></span>
+            </a>
+            <a href="<?php echo esc_url( $aeocas_log_base . '&tab=activity' ); ?>" class="aeo-workflow-step <?php echo 'track' === $aeocas_active_stage ? 'is-active' : ''; ?>" data-stage="track" data-default-tab="activity">
+                <span class="aeo-workflow-step-top">
+                    <span class="aeo-workflow-step-index">5</span>
+                    <span class="aeo-workflow-step-icon" aria-hidden="true"><span class="dashicons dashicons-chart-line"></span></span>
+                </span>
                 <span class="aeo-workflow-step-body">
                     <span class="aeo-workflow-step-title"><?php esc_html_e( 'Track', 'aeo-content-ai-studio' ); ?></span>
                     <span class="aeo-workflow-step-label"><?php esc_html_e( 'Monitor progress', 'aeo-content-ai-studio' ); ?></span>
                 </span>
                 <span class="aeo-workflow-step-state"></span>
-            </button>
+                <span class="aeo-workflow-badge" aria-hidden="true"></span>
+            </a>
         </nav>
 
-        <section class="aeo-stage-shell is-active" id="stage-connect" data-stage="connect">
+        <section class="aeo-stage-shell <?php echo 'connect' === $aeocas_active_stage ? 'is-active' : ''; ?>" id="stage-connect" data-stage="connect" <?php echo 'connect' === $aeocas_active_stage ? '' : 'style="display: none;"'; ?>>
             <div class="aeo-stage-chrome">
                 <div class="aeo-stage-hero" id="aeo-stage-hero-connect"></div>
                 <div class="aeo-stage-summary" id="aeo-stage-summary-connect"></div>
@@ -261,7 +306,7 @@ $aeocas_activity_error_count = isset( $aeocas_stats['error'] ) ? (int) $aeocas_s
             </div>
         </section>
 
-        <section class="aeo-stage-shell" id="stage-discovery" data-stage="discovery" style="display: none;">
+        <section class="aeo-stage-shell <?php echo 'discovery' === $aeocas_active_stage ? 'is-active' : ''; ?>" id="stage-discovery" data-stage="discovery" <?php echo 'discovery' === $aeocas_active_stage ? '' : 'style="display: none;"'; ?>>
             <div class="aeo-stage-chrome">
                 <div class="aeo-stage-hero" id="aeo-stage-hero-discovery"></div>
                 <div class="aeo-stage-summary" id="aeo-stage-summary-discovery"></div>
@@ -271,45 +316,53 @@ $aeocas_activity_error_count = isset( $aeocas_stats['error'] ) ? (int) $aeocas_s
             </div>
         </section>
 
-        <section class="aeo-stage-shell" id="stage-diagnose" data-stage="diagnose" style="display: none;">
+        <section class="aeo-stage-shell <?php echo 'diagnose' === $aeocas_active_stage ? 'is-active' : ''; ?>" id="stage-diagnose" data-stage="diagnose" <?php echo 'diagnose' === $aeocas_active_stage ? '' : 'style="display: none;"'; ?>>
             <div class="aeo-stage-chrome">
                 <div class="aeo-stage-hero" id="aeo-stage-hero-diagnose"></div>
                 <div class="aeo-stage-summary" id="aeo-stage-summary-diagnose"></div>
             </div>
             <nav class="aeo-subtabs" data-subtabs-for="diagnose" aria-label="<?php esc_attr_e( 'Diagnose views', 'aeo-content-ai-studio' ); ?>">
-                <button type="button" class="aeo-subtab is-active" data-tab="scoreboard">
-                    <?php esc_html_e( 'Site Audit', 'aeo-content-ai-studio' ); ?>
-                </button>
-                <button type="button" class="aeo-subtab" data-tab="site-audit">
-                    <?php esc_html_e( 'Pages Audit', 'aeo-content-ai-studio' ); ?>
-                </button>
+                <a href="<?php echo esc_url( $aeocas_log_base . '&tab=scoreboard' ); ?>" class="aeo-subtab <?php echo 'scoreboard' === $aeocas_active_tab ? 'is-active' : ''; ?>" data-tab="scoreboard">
+                    <span class="aeo-subtab-icon" aria-hidden="true"><span class="dashicons dashicons-forms"></span></span>
+                    <span class="aeo-subtab-label"><?php esc_html_e( 'Site Audit', 'aeo-content-ai-studio' ); ?></span>
+                    <span class="aeo-subtab-badge" aria-hidden="true"></span>
+                </a>
+                <a href="<?php echo esc_url( $aeocas_log_base . '&tab=site-audit' ); ?>" class="aeo-subtab <?php echo 'site-audit' === $aeocas_active_tab ? 'is-active' : ''; ?>" data-tab="site-audit">
+                    <span class="aeo-subtab-icon" aria-hidden="true"><span class="dashicons dashicons-admin-page"></span></span>
+                    <span class="aeo-subtab-label"><?php esc_html_e( 'Pages Audit', 'aeo-content-ai-studio' ); ?></span>
+                    <span class="aeo-subtab-badge" aria-hidden="true"></span>
+                </a>
             </nav>
             <div class="aeo-stage-body aeo-stage-body-grouped">
-                <div class="aeo-tab-panel" id="tab-scoreboard" data-tab-panel="scoreboard"></div>
-                <div class="aeo-tab-panel" id="tab-site-audit" data-tab-panel="site-audit" style="display: none;"></div>
+                <div class="aeo-tab-panel" id="tab-scoreboard" data-tab-panel="scoreboard" <?php echo 'scoreboard' === $aeocas_active_tab ? '' : 'style="display: none;"'; ?>></div>
+                <div class="aeo-tab-panel" id="tab-site-audit" data-tab-panel="site-audit" <?php echo 'site-audit' === $aeocas_active_tab ? '' : 'style="display: none;"'; ?>></div>
             </div>
         </section>
 
-        <section class="aeo-stage-shell" id="stage-fix" data-stage="fix" style="display: none;">
+        <section class="aeo-stage-shell <?php echo 'fix' === $aeocas_active_stage ? 'is-active' : ''; ?>" id="stage-fix" data-stage="fix" <?php echo 'fix' === $aeocas_active_stage ? '' : 'style="display: none;"'; ?>>
             <div class="aeo-stage-chrome">
                 <div class="aeo-stage-hero" id="aeo-stage-hero-fix"></div>
                 <div class="aeo-stage-summary" id="aeo-stage-summary-fix"></div>
             </div>
             <nav class="aeo-subtabs" data-subtabs-for="fix" aria-label="<?php esc_attr_e( 'Fix views', 'aeo-content-ai-studio' ); ?>">
-                <button type="button" class="aeo-subtab is-active" data-tab="opportunities">
-                    <?php esc_html_e( 'Opportunities', 'aeo-content-ai-studio' ); ?>
-                </button>
-                <button type="button" class="aeo-subtab" data-tab="rewrite">
-                    <?php esc_html_e( 'Rewrite Candidates', 'aeo-content-ai-studio' ); ?>
-                </button>
+                <a href="<?php echo esc_url( $aeocas_log_base . '&tab=opportunities' ); ?>" class="aeo-subtab <?php echo 'opportunities' === $aeocas_active_tab ? 'is-active' : ''; ?>" data-tab="opportunities">
+                    <span class="aeo-subtab-icon" aria-hidden="true"><span class="dashicons dashicons-star-filled"></span></span>
+                    <span class="aeo-subtab-label"><?php esc_html_e( 'Opportunities', 'aeo-content-ai-studio' ); ?></span>
+                    <span class="aeo-subtab-badge" aria-hidden="true"></span>
+                </a>
+                <a href="<?php echo esc_url( $aeocas_log_base . '&tab=rewrite' ); ?>" class="aeo-subtab <?php echo 'rewrite' === $aeocas_active_tab ? 'is-active' : ''; ?>" data-tab="rewrite">
+                    <span class="aeo-subtab-icon" aria-hidden="true"><span class="dashicons dashicons-edit"></span></span>
+                    <span class="aeo-subtab-label"><?php esc_html_e( 'Rewrite Candidates', 'aeo-content-ai-studio' ); ?></span>
+                    <span class="aeo-subtab-badge" aria-hidden="true"></span>
+                </a>
             </nav>
             <div class="aeo-stage-body aeo-stage-body-grouped">
-                <div class="aeo-tab-panel" id="tab-opportunities" data-tab-panel="opportunities"></div>
-                <div class="aeo-tab-panel" id="tab-rewrite" data-tab-panel="rewrite" style="display: none;"></div>
+                <div class="aeo-tab-panel" id="tab-opportunities" data-tab-panel="opportunities" <?php echo 'opportunities' === $aeocas_active_tab ? '' : 'style="display: none;"'; ?>></div>
+                <div class="aeo-tab-panel" id="tab-rewrite" data-tab-panel="rewrite" <?php echo 'rewrite' === $aeocas_active_tab ? '' : 'style="display: none;"'; ?>></div>
             </div>
         </section>
 
-        <section class="aeo-stage-shell" id="stage-track" data-stage="track" data-activity-total="<?php echo esc_attr( $aeocas_stats['total'] ); ?>" data-activity-success-rate="<?php echo esc_attr( $aeocas_stats['success_rate'] ); ?>" data-activity-last24h="<?php echo esc_attr( $aeocas_stats['last_24h'] ); ?>" data-activity-last-action-label="<?php echo esc_attr( $aeocas_log_last_action_label ); ?>" data-activity-error-count="<?php echo esc_attr( $aeocas_activity_error_count ); ?>" style="display: none;">
+        <section class="aeo-stage-shell <?php echo 'track' === $aeocas_active_stage ? 'is-active' : ''; ?>" id="stage-track" data-stage="track" data-activity-total="<?php echo esc_attr( $aeocas_stats['total'] ); ?>" data-activity-success-rate="<?php echo esc_attr( $aeocas_stats['success_rate'] ); ?>" data-activity-last24h="<?php echo esc_attr( $aeocas_stats['last_24h'] ); ?>" data-activity-last-action-label="<?php echo esc_attr( $aeocas_log_last_action_label ); ?>" data-activity-error-count="<?php echo esc_attr( $aeocas_activity_error_count ); ?>" <?php echo 'track' === $aeocas_active_stage ? '' : 'style="display: none;"'; ?>>
             <div class="aeo-stage-chrome">
                 <div class="aeo-stage-hero" id="aeo-stage-hero-track"></div>
                 <div class="aeo-stage-summary" id="aeo-stage-summary-track"></div>
