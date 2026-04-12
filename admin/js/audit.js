@@ -125,8 +125,7 @@
         wrap.querySelectorAll('.aeo-workflow-step').forEach(function (step) {
             step.addEventListener('click', function () {
                 var stageId = this.getAttribute('data-stage');
-                var defaultTab = this.getAttribute('data-default-tab') || '';
-                activateStage(stageId, defaultTab);
+                activateStage(stageId);
             });
         });
     }
@@ -3059,10 +3058,25 @@
                 } else {
                     if (checkAuthExpired(res)) return;
                     var msg = 'Your first site audit is still running.';
+                    var code = '';
                     if (res.data) {
                         if (typeof res.data === 'string') msg = res.data;
-                        else if (res.data.message) msg = res.data.message;
+                        else {
+                            if (res.data.message) msg = res.data.message;
+                            code = res.data.code || '';
+                        }
                     }
+
+                    if (currentAuditData) {
+                        if (code === 'aeocas_no_audit') {
+                            startAuditRetry();
+                        } else {
+                            showError(msg + ' Showing the last completed audit snapshot.');
+                        }
+                        refreshWorkflowChrome();
+                        return;
+                    }
+
                     AUDIT_TAB_IDS.forEach(function (id) {
                         var el = document.getElementById('tab-' + id);
                         if (!el) return;
@@ -3077,6 +3091,11 @@
                 }
             })
             .catch(function (err) {
+                if (currentAuditData) {
+                    showError('Network error: ' + (err.message || 'Please try again.') + ' Showing the last completed audit snapshot.');
+                    refreshWorkflowChrome();
+                    return;
+                }
                 AUDIT_TAB_IDS.forEach(function (id) {
                     var el = document.getElementById('tab-' + id);
                     if (!el) return;

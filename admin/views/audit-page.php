@@ -49,14 +49,7 @@ $aeocas_log_last_action_label = $aeocas_stats['last_action']
         human_time_diff( strtotime( $aeocas_stats['last_action'] ), time() )
     )
     : __( 'Never', 'aeo-content-ai-studio' );
-$aeocas_activity_error_count = 0;
-if ( ! empty( $aeocas_logs['items'] ) ) {
-    foreach ( $aeocas_logs['items'] as $aeocas_entry ) {
-        if ( 'success' !== $aeocas_entry['status'] ) {
-            $aeocas_activity_error_count++;
-        }
-    }
-}
+$aeocas_activity_error_count = isset( $aeocas_stats['error'] ) ? (int) $aeocas_stats['error'] : 0;
 ?>
 <div class="wrap aeo-settings" id="aeo-audit-wrap" data-requested-tab="<?php echo esc_attr( $aeocas_requested_tab ); ?>" data-connected="<?php echo $aeocas_connected ? '1' : '0'; ?>" data-feature-count="<?php echo esc_attr( count( $aeocas_features ) ); ?>">
     <h1><?php esc_html_e( 'AEO Content AI Studio', 'aeo-content-ai-studio' ); ?></h1>
