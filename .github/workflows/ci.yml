@@ -16,31 +16,46 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.4'
           tools: composer
-          coverage: xdebug
+          coverage: none
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist
       - name: Run PHPCS
         run: composer run phpcs
 
   test:
-    name: PHPUnit Tests
+    name: PHPUnit Tests (PHP ${{ matrix.php-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php-version: '7.4'
+            coverage: none
+          - php-version: '8.2'
+            coverage: none
+          - php-version: '8.4'
+            coverage: xdebug
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: ${{ matrix.php-version }}
           tools: composer
-          coverage: xdebug
+          coverage: ${{ matrix.coverage }}
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist
+      - name: Run tests
+        if: matrix.coverage == 'none'
+        run: composer run test
       - name: Run tests with coverage
+        if: matrix.coverage != 'none'
         run: vendor/bin/phpunit --coverage-clover coverage.xml --coverage-text
       - name: Check coverage threshold
+        if: matrix.coverage != 'none'
         run: |
           COVERAGE=$(php -r "\$xml = simplexml_load_file('coverage.xml'); \$metrics = \$xml->project->metrics; \$pct = round(((int)\$metrics['coveredstatements'] / max((int)\$metrics['statements'], 1)) * 100, 1); echo \$pct;")
           echo "Coverage: ${COVERAGE}%"
