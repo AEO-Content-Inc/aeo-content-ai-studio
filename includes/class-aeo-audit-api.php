@@ -224,19 +224,18 @@ class AEOCAS_Audit_Api {
             return new WP_Error( 'aeocas_no_key', __( 'Site connection is not configured.', 'aeo-content-ai-studio' ) );
         }
 
-        $slug = self::get_site_slug();
-        if ( empty( $slug ) ) {
-            return new WP_Error( 'aeocas_no_slug', __( 'Could not determine site slug.', 'aeo-content-ai-studio' ) );
-        }
-
-        $url = trailingslashit( AEOCAS_PLATFORM_URL ) . 'api/v1/audits/' . $slug . '/reaudit';
+        // Use /plugin/onboard instead of /audits/{slug}/reaudit because
+        // onboard is idempotent, fires Modal directly, and works even when
+        // no published audit exists yet (fresh site or after a delete).
+        $url = trailingslashit( AEOCAS_PLATFORM_URL ) . 'api/v1/plugin/onboard';
 
         $response = wp_remote_post( $url, array(
             'headers' => array(
                 'Authorization' => 'Bearer ' . $api_key,
                 'Content-Type'  => 'application/json',
+                'Accept'        => 'application/json',
             ),
-            'body'    => '{}',
+            'body'    => wp_json_encode( array( 'site_url' => get_home_url() ) ),
             'timeout' => 20,
         ) );
 
@@ -255,7 +254,7 @@ class AEOCAS_Audit_Api {
         // Clear cached audit so next load fetches fresh data.
         self::clear_cache();
 
-        AEOCAS_Activity_Log::log( 'reaudit', 'success', array( 'message' => 'Re-audit triggered.', 'slug' => $slug ) );
+        AEOCAS_Activity_Log::log( 'reaudit', 'success', array( 'message' => 'Re-audit triggered via onboard endpoint.', 'response' => $body['data'] ?? null ) );
 
         return $body;
     }
