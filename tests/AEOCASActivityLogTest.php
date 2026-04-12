@@ -12,7 +12,9 @@ final class AEOCASActivityLogTest extends TestCase {
         $GLOBALS['wpdb']->get_var_result     = 0;
         $GLOBALS['wpdb']->get_results_result = array();
         $GLOBALS['wpdb']->get_col_result     = array();
-        $GLOBALS['aeocas_test_options']       = array();
+        $GLOBALS['aeocas_test_options']      = array();
+        $GLOBALS['aeocas_test_filters']      = array();
+        unset( $_SERVER['REMOTE_ADDR'] );
     }
 
     public function test_log_inserts_a_row_with_correct_data(): void {
@@ -45,6 +47,32 @@ final class AEOCASActivityLogTest extends TestCase {
 
         $this->assertCount( 1, $GLOBALS['wpdb']->inserts );
         $this->assertNull( $GLOBALS['wpdb']->inserts[0]['data']['details'] );
+    }
+
+    public function test_log_redacts_request_and_response_bodies(): void {
+        AEOCAS_Activity_Log::log(
+            'heartbeat',
+            'success',
+            array(
+                'request_body'  => array( 'payload' => str_repeat( 'a', 1200 ) ),
+                'response_body' => str_repeat( 'b', 1200 ),
+                'message'       => 'ok',
+            )
+        );
+
+        $details = json_decode( $GLOBALS['wpdb']->inserts[0]['data']['details'], true );
+
+        $this->assertSame( '[redacted]', $details['request_body'] );
+        $this->assertSame( '[redacted]', $details['response_body'] );
+        $this->assertSame( 'ok', $details['message'] );
+    }
+
+    public function test_log_does_not_store_ip_by_default(): void {
+        $_SERVER['REMOTE_ADDR'] = '203.0.113.20';
+
+        AEOCAS_Activity_Log::log( 'test_cmd', 'success', array( 'message' => 'ok' ) );
+
+        $this->assertNull( $GLOBALS['wpdb']->inserts[0]['data']['ip'] );
     }
 
     public function test_get_logs_returns_paginated_structure(): void {

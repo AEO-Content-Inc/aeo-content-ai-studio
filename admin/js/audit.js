@@ -4,28 +4,32 @@
 (function () {
     'use strict';
 
-    var wrap = document.getElementById('aeo-audit-wrap');
-    if (!wrap) return;
+    function bootAuditApp() {
+        var wrap = document.getElementById('aeo-audit-wrap');
+        if (!wrap) return false;
+        if (wrap.getAttribute('data-aeocas-booted') === '1') return true;
+        wrap.setAttribute('data-aeocas-booted', '1');
 
-    var loading  = document.getElementById('aeo-audit-loading');
-    var errorBox = document.getElementById('aeo-audit-error');
-    var content  = document.getElementById('aeo-audit-content');
-    var isConnected = wrap.getAttribute('data-connected') === '1';
-    var STAGE_CONFIGS = [
+        var loading  = document.getElementById('aeo-audit-loading');
+        var errorBox = document.getElementById('aeo-audit-error');
+        var content  = document.getElementById('aeo-audit-content');
+        var isConnected = wrap.getAttribute('data-connected') === '1';
+        var canManagePlugin = Boolean(aeocasAudit && aeocasAudit.canManage);
+        var STAGE_CONFIGS = [
         { id: 'connect',   order: 1, title: 'Connect',   label: 'Connect and review discovery', tabs: ['connect', 'discovery'], defaultTab: 'connect' },
         { id: 'diagnose',  order: 2, title: 'Diagnose',  label: 'Find critical issues',         tabs: ['scoreboard', 'site-audit'], defaultTab: 'scoreboard' },
         { id: 'fix',       order: 3, title: 'Fix',       label: 'Act on best opportunities',    tabs: ['opportunities', 'rewrite'], defaultTab: 'opportunities' },
         { id: 'visibility', order: 4, title: 'AI Visibility', label: 'Monitor mentions and trends', tabs: ['visibility-overview', 'visibility-citations', 'visibility-competitors', 'visibility-trends'], defaultTab: 'visibility-overview' }
-    ];
-    var STAGE_BY_ID = {};
-    var TAB_TO_STAGE = {};
-    var activeStageId = 'connect';
-    var stageTabState = {
+        ];
+        var STAGE_BY_ID = {};
+        var TAB_TO_STAGE = {};
+        var activeStageId = 'connect';
+        var stageTabState = {
         connect: 'connect',
         diagnose: 'scoreboard',
         fix: 'opportunities',
         visibility: 'visibility-overview'
-    };
+        };
 
     STAGE_CONFIGS.forEach(function (stage) {
         STAGE_BY_ID[stage.id] = stage;
@@ -2056,8 +2060,8 @@
             cardClass += ' is-error';
             title = 'Starter trial is temporarily unavailable';
             body = rewriteAvailabilityState.message || 'The plugin could not load article trial availability right now.';
-            note = 'You can still open Studio to manage billing directly.';
-            if (upgradeUrl) {
+            note = canManagePlugin ? 'You can still open Studio to manage billing directly.' : 'A site administrator can manage billing in Studio.';
+            if (canManagePlugin && upgradeUrl) {
                 actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Manage in Studio</a>';
             }
         } else if (available > 0) {
@@ -2065,22 +2069,27 @@
             kicker = planLabel || 'AEO Article Credits';
             title = available + ' of ' + (limit > 0 ? limit : starterArticles) + ' article credits remaining';
             body = 'Use these credits on full AEO rewrites or brand-new article runs in Studio.';
-            note = 'The ' + (planLabel || 'active plan') + ' balance is attached to this connected account.';
-            if (upgradeUrl) {
+            note = canManagePlugin ? ('The ' + (planLabel || 'active plan') + ' balance is attached to this connected account.') : 'A site administrator manages billing for this connected account.';
+            if (canManagePlugin && upgradeUrl) {
                 actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Manage in Studio</a>';
             }
         } else if (data.checkoutEnabled && data.starterEligible) {
             title = 'Upgrade for ' + starterPrice + ' and unlock ' + starterArticles + ' AEO articles';
-            body = 'Use them on full rewrites or new article creation in Studio. Stripe Checkout securely collects card details for a one-time ' + starterPrice + ' charge.';
-            note = 'This starter trial is designed as a fast path out of the free plan.';
-            actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening Stripe checkout...' : ('Upgrade for ' + starterPrice)) + '</button>';
+            if (canManagePlugin) {
+                body = 'Use them on full rewrites or new article creation in Studio. Stripe Checkout securely collects card details for a one-time ' + starterPrice + ' charge.';
+                note = 'This starter trial is designed as a fast path out of the free plan.';
+                actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening Stripe checkout...' : ('Upgrade for ' + starterPrice)) + '</button>';
+            } else {
+                body = 'No AEO article credits remain on this account.';
+                note = 'A site administrator must manage billing to unlock more article credits.';
+            }
         } else {
             cardClass += ' is-exhausted';
             kicker = planLabel || 'Starter Trial';
             title = planLabel === '$1 Trial Plan' ? 'Your $1 trial is exhausted' : 'Starter trial unavailable';
-            body = 'Upgrade in Studio to keep generating AEO rewrites and new articles after the trial credits are spent.';
-            note = 'Billing runs through Stripe Checkout as a one-time payment for the starter trial.';
-            if (upgradeUrl) {
+            body = canManagePlugin ? 'Upgrade in Studio to keep generating AEO rewrites and new articles after the trial credits are spent.' : 'No AEO article credits remain on this account.';
+            note = canManagePlugin ? 'Billing runs through Stripe Checkout as a one-time payment for the starter trial.' : 'A site administrator must manage billing to unlock more article credits.';
+            if (canManagePlugin && upgradeUrl) {
                 actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Upgrade in Studio</a>';
             }
         }
@@ -2290,7 +2299,7 @@
             body = 'Checking rewrite availability for this site...';
         } else if (rewriteAvailabilityState.phase === 'error') {
             body = rewriteAvailabilityState.message || 'Unable to load rewrite availability right now.';
-            if (upgradeUrl) {
+            if (canManagePlugin && upgradeUrl) {
                 actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Manage account</a>';
             }
         } else if (available > 0) {
@@ -2298,11 +2307,15 @@
             if (limit > 0) body += ' out of ' + limit + '.';
             else body += '.';
         } else if (data.checkoutEnabled && data.starterEligible) {
-            body = 'Unlock ' + starterArticles + ' AEO article credits for ' + starterPrice + '. Use them on rewrites or new articles in Studio.';
-            actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening checkout...' : ('Upgrade for ' + starterPrice)) + '</button>';
+            if (canManagePlugin) {
+                body = 'Unlock ' + starterArticles + ' AEO article credits for ' + starterPrice + '. Use them on rewrites or new articles in Studio.';
+                actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening checkout...' : ('Upgrade for ' + starterPrice)) + '</button>';
+            } else {
+                body = 'No AEO article credits remain on this account. Ask a site administrator to manage billing.';
+            }
         } else {
-            body = (planLabel ? planLabel + '. ' : '') + 'No AEO article credits remain on this account.';
-            if (upgradeUrl) {
+            body = (planLabel ? planLabel + '. ' : '') + (canManagePlugin ? 'No AEO article credits remain on this account.' : 'No AEO article credits remain on this account. Ask a site administrator to manage billing.');
+            if (canManagePlugin && upgradeUrl) {
                 actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Upgrade in Studio</a>';
             }
         }
@@ -2521,6 +2534,9 @@
             return { kind: 'unavailable', label: 'Unavailable', reason: rewriteAvailabilityState.message || 'Rewrite availability could not be loaded.' };
         }
         if (availability && availability.available <= 0) {
+            if (!canManagePlugin) {
+                return { kind: 'unavailable', label: 'Admin required', reason: 'A site administrator must manage billing for additional article credits.' };
+            }
             if (availability.checkoutEnabled && availability.starterEligible) {
                 return { kind: 'starter', label: 'Unlock for $1' };
             }
@@ -3371,7 +3387,7 @@
     }
 
     function renderDiscoveryFailed(payload) {
-        var stage = (payload && payload.current_stage) || 'Audit failed.';
+        var stage = humanizeStageToken(payload && payload.current_stage);
         return ''
             + '<div class="aeo-discovery-pending aeo-discovery-failed">'
             +   '<h2>Audit failed</h2>'
@@ -5050,6 +5066,18 @@
                 if (res.success) {
                     var payload = res.data;
                     currentDiscoveryPayload = payload || null;
+                    if (payload && isIgnoringStaleFailedStatus(payload.status)) {
+                        currentDiscoveryPayload = { status: 'pending', current_stage: 'Waiting for the audit worker…' };
+                        if (discoveryUiState.phase === 'pending' && document.getElementById('aeo-disc-verb')) {
+                            applyPendingUpdate(currentDiscoveryPayload);
+                        } else {
+                            renderPendingFresh(tab, currentDiscoveryPayload);
+                        }
+                        startDiscoveryPolling();
+                        return;
+                    }
+
+                    noteObservedReauditStatus(payload && payload.status);
                     // If the remote job has reached completed, also refresh the
                     // audit endpoint so the Site Audit tab (and friends) can
                     // render the pages list as soon as it's available.
@@ -5287,6 +5315,92 @@
 
     var lastPolledStatus = null;
     var STAGES_WITH_DISCOVERY = { auditing: 1, seeding: 1, visibility: 1, completed: 1 };
+    var ACTIVE_REAUDIT_STATUSES = { queued: 1, pending: 1, discovering: 1, auditing: 1, seeding: 1, visibility: 1, completed: 1 };
+    var reauditGraceState = {
+        requestedAt: 0,
+        awaitingFreshStatus: false
+    };
+
+    function normalizeStageStatus(status) {
+        var raw = String(status || '').toLowerCase().trim();
+        var aliases = {
+            queue: 'queued',
+            queued: 'queued',
+            crawl: 'discovering',
+            crawling: 'discovering',
+            discover: 'discovering',
+            discovering: 'discovering',
+            audit: 'auditing',
+            auditing: 'auditing',
+            seed: 'seeding',
+            seeding: 'seeding',
+            visibility: 'visibility',
+            complete: 'completed',
+            completed: 'completed',
+            fail: 'failed',
+            failed: 'failed'
+        };
+
+        return aliases[raw] || raw;
+    }
+
+    function humanizeStageToken(stage) {
+        var raw = String(stage || '').trim();
+        if (!raw) return 'Audit failed.';
+
+        var normalized = normalizeStageStatus(raw);
+        var labels = {
+            queued: 'Queue',
+            pending: 'Queue',
+            discovering: raw === 'crawl' || raw === 'crawling' ? 'Crawl' : 'Discovery',
+            auditing: 'Audit',
+            seeding: 'Seeding',
+            visibility: 'Visibility',
+            completed: 'Completed',
+            failed: 'Audit failed'
+        };
+
+        if (/^[a-z0-9_-]+$/i.test(raw) && labels[normalized]) {
+            return labels[normalized];
+        }
+
+        return raw
+            .replace(/[-_]+/g, ' ')
+            .replace(/\b([a-z])/g, function (match, ch) { return ch.toUpperCase(); });
+    }
+
+    function beginReauditGracePeriod() {
+        reauditGraceState.requestedAt = Date.now();
+        reauditGraceState.awaitingFreshStatus = true;
+    }
+
+    function clearReauditGracePeriod() {
+        reauditGraceState.requestedAt = 0;
+        reauditGraceState.awaitingFreshStatus = false;
+    }
+
+    function isIgnoringStaleFailedStatus(status) {
+        var normalized = normalizeStageStatus(status);
+        if (normalized !== 'failed' || !reauditGraceState.awaitingFreshStatus) return false;
+        return (Date.now() - reauditGraceState.requestedAt) < 30000;
+    }
+
+    function noteObservedReauditStatus(status) {
+        var normalized = normalizeStageStatus(status);
+        if (!ACTIVE_REAUDIT_STATUSES[normalized]) return;
+        clearReauditGracePeriod();
+    }
+
+    function primeDiscoveryPendingUi() {
+        stopDiscoveryTicker();
+        stopDiscoveryPolling();
+        discoveryUiState.phase = 'idle';
+
+        var discTab = document.getElementById('tab-discovery');
+        if (discTab) {
+            renderPendingFresh(discTab, { status: 'pending', current_stage: 'Waiting for the audit worker…' });
+        }
+    }
 
     function pollAuditStatus() {
         var data = new FormData();
@@ -5303,7 +5417,14 @@
                 }
 
                 var d = res.data.data || res.data;
-                var status = d.status || d.current_stage || 'pending';
+                var status = normalizeStageStatus(d.status || d.current_stage || 'pending');
+
+                if (isIgnoringStaleFailedStatus(status)) {
+                    showReauditProgress('queued');
+                    return;
+                }
+
+                noteObservedReauditStatus(status);
 
                 showReauditProgress(status);
 
@@ -5350,15 +5471,8 @@
         }
         lastPolledStatus = null;
         errorBox.innerHTML = '';
-        // Reset Discovery UI state so the elapsed counter starts at 0 and the
-        // pending card re-paints cleanly for the new audit run.
-        stopDiscoveryTicker();
-        stopDiscoveryPolling();
-        discoveryUiState.phase = 'idle';
-        // Keep the tab container visible so users watch Discovery populate live.
+        primeDiscoveryPendingUi();
         showReauditProgress('queued');
-        // Kick Discovery into "pending" state immediately.
-        loadDiscovery(true);
 
         var data = new FormData();
         data.append('action', 'aeocas_reaudit');
@@ -5369,21 +5483,27 @@
             .then(function (res) {
                 if (!res.success) {
                     if (checkAuthExpired(res)) return;
+                    clearReauditGracePeriod();
                     stopPolling();
                     hideReauditProgress();
                     showError(res.data && res.data.message ? res.data.message : 'Failed to trigger re-audit.');
+                    loadDiscovery(true);
                     return;
                 }
 
+                beginReauditGracePeriod();
+                startDiscoveryPolling();
                 // Start polling every 10 seconds.
                 pollTimer = setInterval(pollAuditStatus, 10000);
                 // Also poll immediately after a short delay.
                 setTimeout(pollAuditStatus, 3000);
             })
             .catch(function (err) {
+                clearReauditGracePeriod();
                 stopPolling();
                 hideReauditProgress();
                 showError('Network error: ' + (err.message || 'Please try again.'));
+                loadDiscovery(true);
             });
     }
 
@@ -5409,19 +5529,6 @@
         if (!target) return;
         e.preventDefault();
         if (pollTimer) return;
-
-        // Force Discovery UI back into its "running" state so the pending
-        // card paints immediately and the elapsed counter starts from zero.
-        stopDiscoveryTicker();
-        stopDiscoveryPolling();
-        discoveryUiState.phase = 'idle';
-
-        // Paint the pending card in the background (Discovery tab won't be
-        // visible right now unless the user was already there).
-        var discTab = document.getElementById('tab-discovery');
-        if (discTab) {
-            renderPendingFresh(discTab, { status: 'pending', current_stage: 'Waiting for the audit worker…' });
-        }
 
         triggerReaudit();
     });
@@ -5646,5 +5753,14 @@
         setTimeout(function () { loadRewriteAvailability(true); }, 2500);
     }
     loadLocalContentIndex();
+    return true;
+    }
 
+    if (!bootAuditApp()) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bootAuditApp, { once: true });
+        } else {
+            window.setTimeout(bootAuditApp, 0);
+        }
+    }
 })();

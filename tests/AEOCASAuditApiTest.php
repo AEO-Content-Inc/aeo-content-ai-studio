@@ -21,6 +21,7 @@ final class AEOCASAuditApiTest extends TestCase {
         $GLOBALS['aeocas_test_post_meta'] = array();
         $GLOBALS['aeocas_test_current_user_can'] = null;
         $GLOBALS['aeocas_test_wp_kses_post'] = null;
+        $GLOBALS['aeocas_test_filters'] = array();
     }
 
     public function test_get_visibility_returns_cached_visibility_snapshot_without_remote_call(): void {
@@ -317,7 +318,7 @@ final class AEOCASAuditApiTest extends TestCase {
         // get_home_url returns https://helpsquad.com (no www), but the method
         // explicitly strips www. so we test via reflection to cover that branch.
         $method = new ReflectionMethod( AEOCAS_Audit_Api::class, 'get_site_slug' );
-        $method->setAccessible( true );
+        aeocas_make_reflection_method_accessible( $method );
         // The stub always returns https://helpsquad.com, so the slug is helpsquad-com.
         // To actually test www stripping we verify the code path by observing
         // that the result matches the expected stripped value.
@@ -394,7 +395,7 @@ final class AEOCASAuditApiTest extends TestCase {
 
     public function test_visibility_engine_label_maps_known_engines(): void {
         $method = new ReflectionMethod( AEOCAS_Audit_Api::class, 'visibility_engine_label' );
-        $method->setAccessible( true );
+        aeocas_make_reflection_method_accessible( $method );
 
         $this->assertSame( 'ChatGPT', $method->invoke( null, 'chatgpt' ) );
         $this->assertSame( 'Perplexity', $method->invoke( null, 'perplexity' ) );
@@ -405,7 +406,7 @@ final class AEOCASAuditApiTest extends TestCase {
 
     public function test_visibility_engine_label_capitalizes_unknown(): void {
         $method = new ReflectionMethod( AEOCAS_Audit_Api::class, 'visibility_engine_label' );
-        $method->setAccessible( true );
+        aeocas_make_reflection_method_accessible( $method );
 
         $this->assertSame( 'Foo Bar', $method->invoke( null, 'foo_bar' ) );
     }
@@ -602,6 +603,23 @@ final class AEOCASAuditApiTest extends TestCase {
 
         $this->assertInstanceOf( WP_Error::class, $result );
         $this->assertSame( 'aeocas_rewrite_forbidden', $result->get_error_code() );
+    }
+
+    public function test_ajax_reaudit_requires_manage_capability(): void {
+        $GLOBALS['aeocas_test_json_response'] = null;
+        $GLOBALS['aeocas_test_current_user_can'] = static function ( string $capability ): bool {
+            if ( 'manage_options' === $capability ) {
+                return false;
+            }
+
+            return 'edit_posts' === $capability;
+        };
+
+        try { AEOCAS_Audit_Api::ajax_reaudit(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertFalse( $GLOBALS['aeocas_test_json_response']['success'] );
+        $this->assertSame( 403, $GLOBALS['aeocas_test_json_response']['status'] );
     }
 
     public function test_get_rewrite_checkout_url_returns_platform_checkout_link(): void {

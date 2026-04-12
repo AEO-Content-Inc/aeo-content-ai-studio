@@ -100,9 +100,9 @@ class AEOCAS_Heartbeat {
 				'heartbeat',
 				'error',
 				array(
-					'message'       => "Platform returned {$status}.",
-					'request_body'  => $request_data,
-					'response_body' => $response_body,
+					'message'     => "Platform returned {$status}.",
+					'status_code' => $status,
+					'features'    => isset( $request_data['features'] ) && is_array( $request_data['features'] ) ? array_values( $request_data['features'] ) : array(),
 				)
 			);
 			return;
@@ -117,8 +117,8 @@ class AEOCAS_Heartbeat {
 				'success',
 				array(
 					'message'       => "Heartbeat sent. {$count} pending commands executed.",
-					'request_body'  => $request_data,
-					'response_body' => $result,
+					'command_count' => $count,
+					'features'      => isset( $request_data['features'] ) && is_array( $request_data['features'] ) ? array_values( $request_data['features'] ) : array(),
 				)
 			);
 			$this->process_pending_commands( $result['commands'] );
@@ -127,9 +127,8 @@ class AEOCAS_Heartbeat {
 				'heartbeat',
 				'success',
 				array(
-					'message'       => 'Heartbeat sent successfully.',
-					'request_body'  => $request_data,
-					'response_body' => $result,
+					'message'  => 'Heartbeat sent successfully.',
+					'features' => isset( $request_data['features'] ) && is_array( $request_data['features'] ) ? array_values( $request_data['features'] ) : array(),
 				)
 			);
 		}
@@ -139,21 +138,20 @@ class AEOCAS_Heartbeat {
 	 * Execute pending commands received from platform.
 	 */
 	private function process_pending_commands( $commands ) {
-		$rest_api = new AEOCAS_Rest_Api( aeocas_plugin() );
+		$plugin         = aeocas_plugin();
+		$command_runner = method_exists( $plugin, 'get_command_runner' )
+			? $plugin->get_command_runner()
+			: new AEOCAS_Command_Runner( $plugin );
 
 		foreach ( $commands as $cmd ) {
 			if ( empty( $cmd['command'] ) ) {
 				continue;
 			}
 
-			// Build a synthetic WP_REST_Request for the command dispatch.
-			$request = new WP_REST_Request( 'POST' );
-			$request->set_body( wp_json_encode( $cmd ) );
-			$request->set_header( 'Content-Type', 'application/json' );
-			$request->set_param( 'command', $cmd['command'] );
-			$request->set_param( 'payload', isset( $cmd['payload'] ) ? $cmd['payload'] : array() );
-
-			$rest_api->handle_command( $request );
+			$command_runner->run(
+				$cmd['command'],
+				isset( $cmd['payload'] ) && is_array( $cmd['payload'] ) ? $cmd['payload'] : array()
+			);
 		}
 	}
 }

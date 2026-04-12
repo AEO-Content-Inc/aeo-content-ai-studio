@@ -21,6 +21,12 @@ final class AEOCASContentTest extends TestCase {
         $GLOBALS['aeocas_test_next_post_id'] = 200;
         $GLOBALS['aeocas_test_current_user_can'] = null;
         $GLOBALS['aeocas_test_wp_kses_post'] = null;
+        $GLOBALS['aeocas_test_remote_head'] = null;
+        $GLOBALS['aeocas_test_remote_head_calls'] = array();
+        $GLOBALS['aeocas_test_media_sideload'] = null;
+        $GLOBALS['aeocas_test_attachment_ids_by_url'] = array();
+        $GLOBALS['aeocas_test_post_thumbnail'] = array();
+        $GLOBALS['aeocas_test_filters'] = array();
     }
 
     public function test_create_or_update_post_preserves_existing_post_type(): void {
@@ -45,6 +51,17 @@ final class AEOCASContentTest extends TestCase {
         $this->assertTrue( $data['ok'] );
         $this->assertSame( 'page', $GLOBALS['aeocas_test_update_post_calls'][0]['post_type'] );
         $this->assertSame( 'publish', $GLOBALS['aeocas_test_post_data'][55]->post_status );
+    }
+
+    public function test_create_or_update_post_rejects_unsupported_post_type(): void {
+        $result = $this->content->create_or_update_post( array(
+            'post_type' => 'product',
+            'title'     => 'Unsupported',
+            'content'   => '<p>Nope</p>',
+        ) );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_unsupported_post_type', $result->get_error_code() );
     }
 
     public function test_create_rewrite_draft_creates_linked_draft_without_touching_source(): void {
@@ -183,5 +200,19 @@ final class AEOCASContentTest extends TestCase {
             '<!-- wp:paragraph --><p>Block text</p><!-- /wp:paragraph -->',
             $GLOBALS['aeocas_test_post_data'][55]->post_content
         );
+    }
+
+    public function test_create_or_update_post_skips_private_featured_image_hosts(): void {
+        $response = $this->content->create_or_update_post( array(
+            'title'              => 'Remote image test',
+            'content'            => '<p>Body</p>',
+            'featured_image_url' => 'http://127.0.0.1/private.jpg',
+        ) );
+
+        $data = $response->get_data();
+
+        $this->assertTrue( $data['ok'] );
+        $this->assertArrayNotHasKey( $data['post_id'], $GLOBALS['aeocas_test_post_thumbnail'] );
+        $this->assertSame( array(), $GLOBALS['aeocas_test_remote_head_calls'] );
     }
 }

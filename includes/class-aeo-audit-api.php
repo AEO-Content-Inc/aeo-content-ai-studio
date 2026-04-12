@@ -36,15 +36,53 @@ class AEOCAS_Audit_Api {
 	/** @var string Transient key prefix for cached rewrite availability payloads. */
 	const REWRITE_AVAILABILITY_TRANSIENT_PREFIX = 'aeocas_rewrite_availability_';
 
+	/** @var int Cache lifetime for local content index snapshots (10 minutes). */
+	const LOCAL_CONTENT_INDEX_TTL = 10 * MINUTE_IN_SECONDS;
+
+	/** @var array<string,mixed>|null Cached local content index bundle for this request. */
+	private static $local_content_index_bundle = null;
+
 	/**
 	 * Build a lightweight local content index for admin-side page enrichment.
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
 	private static function get_local_content_index() {
+		$bundle = self::get_local_content_index_bundle();
+		$items  = array();
+
+		foreach ( $bundle['items'] as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+
+			$items[] = self::decorate_local_content_item( $item );
+		}
+
+		return $items;
+	}
+
+	/**
+	 * Get a cached local content bundle with items and URL lookup maps.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private static function get_local_content_index_bundle() {
+		if ( is_array( self::$local_content_index_bundle ) ) {
+			return self::$local_content_index_bundle;
+		}
+
+		$cache_key = self::get_local_content_index_cache_key();
+		$cached    = get_transient( $cache_key );
+
+		if ( is_array( $cached ) && isset( $cached['items'], $cached['lookup'] ) && is_array( $cached['items'] ) && is_array( $cached['lookup'] ) ) {
+			self::$local_content_index_bundle = $cached;
+			return self::$local_content_index_bundle;
+		}
+
 		$post_ids = get_posts(
 			array(
-				'post_type'              => array( 'post', 'page' ),
+				'post_type'              => self::get_allowed_post_types(),
 				'post_status'            => array( 'publish', 'draft', 'pending', 'future', 'private' ),
 				'posts_per_page'         => -1,
 				'orderby'                => 'modified',
@@ -56,7 +94,8 @@ class AEOCAS_Audit_Api {
 			)
 		);
 
-		$items = array();
+		$items  = array();
+		$lookup = array();
 		foreach ( $post_ids as $post_id ) {
 			$url = get_permalink( $post_id );
 			if ( empty( $url ) ) {
@@ -72,29 +111,85 @@ class AEOCAS_Audit_Api {
 			$active_draft_edit_url = $active_draft ? get_edit_post_link( $active_draft, 'raw' ) : '';
 			$faq_count             = is_array( $faq ) ? count( $faq ) : 0;
 			$edit_url              = get_edit_post_link( $post_id, 'raw' );
-			$can_edit              = current_user_can( 'edit_post', $post_id );
+			$post_type             = get_post_type( $post_id );
+			$status                = get_post_status( $post_id );
 
-			$items[] = array(
+			$item = array(
 				'id'                            => (int) $post_id,
 				'title'                         => get_the_title( $post_id ),
 				'url'                           => esc_url_raw( $url ),
 				'canonical_url'                 => $canonical ? esc_url_raw( $canonical ) : '',
 				'edit_url'                      => $edit_url ? esc_url_raw( $edit_url ) : '',
-				'post_type'                     => get_post_type( $post_id ),
-				'status'                        => get_post_status( $post_id ),
+				'post_type'                     => $post_type,
+				'status'                        => $status,
 				'modified_gmt'                  => get_post_modified_time( 'c', true, $post_id ),
 				'faq_count'                     => $faq_count,
 				'has_faq'                       => $faq_count > 0,
-				'can_edit'                      => (bool) $can_edit,
 				'rewrite_status'                => is_string( $rewrite_status ) ? sanitize_text_field( $rewrite_status ) : '',
 				'rewrite_id'                    => is_string( $rewrite_id ) ? sanitize_text_field( $rewrite_id ) : '',
 				'rewrite_source_post_id'        => absint( $source_post_id ),
 				'active_rewrite_draft_id'       => absint( $active_draft ),
 				'active_rewrite_draft_edit_url' => $active_draft_edit_url ? esc_url_raw( $active_draft_edit_url ) : '',
 			);
+
+			$item_index = count( $items );
+			$items[]    = $item;
+
+			$url_key = self::normalize_url_key( $item['url'] );
+			if ( '' !== $url_key ) {
+				$lookup[ $url_key ] = $item_index;
+			}
+
+			$canonical_key = self::normalize_url_key( $item['canonical_url'] );
+			if ( '' !== $canonical_key ) {
+				$lookup[ $canonical_key ] = $item_index;
+			}
 		}
 
-		return $items;
+		self::$local_content_index_bundle = array(
+			'items'  => $items,
+			'lookup' => $lookup,
+		);
+
+		set_transient( $cache_key, self::$local_content_index_bundle, self::LOCAL_CONTENT_INDEX_TTL );
+
+		return self::$local_content_index_bundle;
+	}
+
+	/**
+	 * Add the current user's edit capability to a local content item.
+	 *
+	 * @param array $item Raw content item.
+	 * @return array
+	 */
+	private static function decorate_local_content_item( $item ) {
+		$item['can_edit'] = ! empty( $item['id'] ) ? current_user_can( 'edit_post', (int) $item['id'] ) : false;
+		return $item;
+	}
+
+	/**
+	 * Build the transient key used for the local content index.
+	 *
+	 * @return string
+	 */
+	private static function get_local_content_index_cache_key() {
+		return 'aeocas_local_content_' . md5( (string) get_home_url() );
+	}
+
+	/**
+	 * Get the allowlisted post types supported by the content module.
+	 *
+	 * @return string[]
+	 */
+	private static function get_allowed_post_types() {
+		if ( ! class_exists( 'AEOCAS_Content' ) ) {
+			$file = AEOCAS_PLUGIN_DIR . 'includes/modules/class-aeo-content.php';
+			if ( file_exists( $file ) ) {
+				require_once $file;
+			}
+		}
+
+		return class_exists( 'AEOCAS_Content' ) ? AEOCAS_Content::get_allowed_post_types() : array( 'post', 'page' );
 	}
 
 	/**
@@ -144,23 +239,17 @@ class AEOCAS_Audit_Api {
 			return null;
 		}
 
-		foreach ( self::get_local_content_index() as $item ) {
-			if ( ! is_array( $item ) ) {
-				continue;
-			}
-
-			$item_key = self::normalize_url_key( $item['url'] ?? '' );
-			if ( $item_key && $item_key === $target_key ) {
-				return $item;
-			}
-
-			$canonical_key = self::normalize_url_key( $item['canonical_url'] ?? '' );
-			if ( $canonical_key && $canonical_key === $target_key ) {
-				return $item;
-			}
+		$bundle = self::get_local_content_index_bundle();
+		if ( ! isset( $bundle['lookup'][ $target_key ] ) ) {
+			return null;
 		}
 
-		return null;
+		$index = (int) $bundle['lookup'][ $target_key ];
+		if ( ! isset( $bundle['items'][ $index ] ) || ! is_array( $bundle['items'][ $index ] ) ) {
+			return null;
+		}
+
+		return self::decorate_local_content_item( $bundle['items'][ $index ] );
 	}
 
 	/**
@@ -795,6 +884,55 @@ class AEOCAS_Audit_Api {
 			delete_transient( self::DISCOVERY_TRANSIENT_PREFIX . $slug );
 			delete_transient( self::VISIBILITY_TRANSIENT_PREFIX . $slug );
 			delete_transient( self::REWRITE_AVAILABILITY_TRANSIENT_PREFIX . $slug );
+		}
+
+		self::clear_local_content_index_cache();
+	}
+
+	/**
+	 * Clear cached local content index data.
+	 *
+	 * @return void
+	 */
+	private static function clear_local_content_index_cache() {
+		self::$local_content_index_bundle = null;
+		delete_transient( self::get_local_content_index_cache_key() );
+	}
+
+	/**
+	 * Invalidate the local content index when an allowed post changes.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return void
+	 */
+	public static function clear_local_content_cache_for_post( $post_id ) {
+		if ( empty( $post_id ) || ( function_exists( 'wp_is_post_revision' ) && wp_is_post_revision( $post_id ) ) ) {
+			return;
+		}
+
+		self::clear_local_content_index_cache();
+	}
+
+	/**
+	 * Invalidate the local content index when relevant post meta changes.
+	 *
+	 * @param int    $meta_id  Meta row ID.
+	 * @param int    $post_id  Post ID.
+	 * @param string $meta_key Meta key.
+	 * @return void
+	 */
+	public static function clear_local_content_cache_for_meta( $meta_id, $post_id, $meta_key ) {
+		$relevant_keys = array(
+			'_aeocas_faq_schema',
+			'_aeocas_canonical_url',
+			'_aeocas_rewrite_status',
+			'_aeocas_rewrite_id',
+			'_aeocas_rewrite_source_post_id',
+			'_aeocas_active_rewrite_draft_id',
+		);
+
+		if ( in_array( $meta_key, $relevant_keys, true ) ) {
+			self::clear_local_content_index_cache();
 		}
 	}
 
@@ -1479,7 +1617,7 @@ class AEOCAS_Audit_Api {
 	 * AJAX handler for fetching audit data.
 	 */
 	public static function ajax_get_audit() {
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! AEOCAS_Capabilities::can_view_reports() ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
 		}
 
@@ -1627,7 +1765,7 @@ class AEOCAS_Audit_Api {
 	 * AJAX handler for triggering re-audit.
 	 */
 	public static function ajax_reaudit() {
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! AEOCAS_Capabilities::can_manage_plugin() ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
 		}
 
@@ -1651,7 +1789,7 @@ class AEOCAS_Audit_Api {
 	 * AJAX handler for fetching discovery data.
 	 */
 	public static function ajax_get_discovery() {
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! AEOCAS_Capabilities::can_view_reports() ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
 		}
 
@@ -1676,7 +1814,7 @@ class AEOCAS_Audit_Api {
 	 * AJAX handler for fetching AI visibility data.
 	 */
 	public static function ajax_get_visibility() {
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! AEOCAS_Capabilities::can_view_reports() ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
 		}
 
@@ -1701,7 +1839,7 @@ class AEOCAS_Audit_Api {
 	 * AJAX handler for fetching rewrite availability.
 	 */
 	public static function ajax_get_rewrite_availability() {
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! AEOCAS_Capabilities::can_view_reports() ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
 		}
 
@@ -1726,7 +1864,7 @@ class AEOCAS_Audit_Api {
 	 * AJAX handler for creating a rewrite checkout session.
 	 */
 	public static function ajax_get_rewrite_checkout_url() {
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! AEOCAS_Capabilities::can_manage_plugin() ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
 		}
 
@@ -1750,7 +1888,7 @@ class AEOCAS_Audit_Api {
 	 * AJAX handler for generating a rewrite preview.
 	 */
 	public static function ajax_preview_rewrite() {
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! AEOCAS_Capabilities::can_view_reports() ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
 		}
 
@@ -1775,7 +1913,7 @@ class AEOCAS_Audit_Api {
 	 * AJAX handler for creating a rewrite-review draft.
 	 */
 	public static function ajax_create_rewrite_draft() {
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! AEOCAS_Capabilities::can_view_reports() ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
 		}
 
@@ -1807,7 +1945,7 @@ class AEOCAS_Audit_Api {
 	 * AJAX handler for applying a rewrite-review draft back to the live post.
 	 */
 	public static function ajax_apply_rewrite_draft() {
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! AEOCAS_Capabilities::can_view_reports() ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
 		}
 
@@ -1837,7 +1975,7 @@ class AEOCAS_Audit_Api {
 	 * AJAX handler for polling audit status.
 	 */
 	public static function ajax_audit_status() {
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! AEOCAS_Capabilities::can_view_reports() ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
 		}
 
@@ -1856,7 +1994,7 @@ class AEOCAS_Audit_Api {
 	 * AJAX handler for fetching a local content index used by admin JS.
 	 */
 	public static function ajax_get_local_content_index() {
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! AEOCAS_Capabilities::can_view_reports() ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
 		}
 
@@ -1884,5 +2022,11 @@ class AEOCAS_Audit_Api {
 		add_action( 'wp_ajax_aeocas_create_rewrite_draft', array( __CLASS__, 'ajax_create_rewrite_draft' ) );
 		add_action( 'wp_ajax_aeocas_apply_rewrite_draft', array( __CLASS__, 'ajax_apply_rewrite_draft' ) );
 		add_action( 'wp_ajax_aeocas_get_local_content_index', array( __CLASS__, 'ajax_get_local_content_index' ) );
+		add_action( 'save_post', array( __CLASS__, 'clear_local_content_cache_for_post' ) );
+		add_action( 'deleted_post', array( __CLASS__, 'clear_local_content_cache_for_post' ) );
+		add_action( 'trashed_post', array( __CLASS__, 'clear_local_content_cache_for_post' ) );
+		add_action( 'updated_post_meta', array( __CLASS__, 'clear_local_content_cache_for_meta' ), 10, 3 );
+		add_action( 'added_post_meta', array( __CLASS__, 'clear_local_content_cache_for_meta' ), 10, 3 );
+		add_action( 'deleted_post_meta', array( __CLASS__, 'clear_local_content_cache_for_meta' ), 10, 3 );
 	}
 }

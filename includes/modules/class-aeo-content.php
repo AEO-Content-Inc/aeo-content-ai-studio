@@ -20,9 +20,35 @@ class AEOCAS_Content {
 	const REWRITE_STATUS_META          = '_aeocas_rewrite_status';
 	const ACTIVE_REWRITE_DRAFT_META    = '_aeocas_active_rewrite_draft_id';
 	const REWRITE_APPLIED_TO_POST_META = '_aeocas_rewrite_applied_to_post_id';
+	const REMOTE_MEDIA_MAX_BYTES       = 10485760;
+
+	/** @var array<string, array<string, mixed>> */
+	private $sideloaded_media_cache = array();
 
 	public function __construct() {
 		// No hooks needed - called via REST API.
+	}
+
+	/**
+	 * Get the allowlisted post types this plugin may write to.
+	 *
+	 * @return string[]
+	 */
+	public static function get_allowed_post_types() {
+		$types = apply_filters( 'aeocas_allowed_post_types', array( 'post', 'page' ) );
+		if ( ! is_array( $types ) ) {
+			return array( 'post', 'page' );
+		}
+
+		$types = array_values(
+			array_unique(
+				array_filter(
+					array_map( 'sanitize_key', $types )
+				)
+			)
+		);
+
+		return ! empty( $types ) ? $types : array( 'post', 'page' );
 	}
 
 	/**
@@ -48,9 +74,14 @@ class AEOCAS_Content {
 	public function create_or_update_post( $payload ) {
 		$post_id       = isset( $payload['post_id'] ) ? intval( $payload['post_id'] ) : 0;
 		$existing_post = $post_id ? get_post( $post_id ) : null;
+		$post_type     = $this->resolve_post_type( $payload, $existing_post );
+
+		if ( is_wp_error( $post_type ) ) {
+			return $post_type;
+		}
 
 		$post_data = array(
-			'post_type' => $this->resolve_post_type( $payload, $existing_post ),
+			'post_type' => $post_type,
 		);
 
 		// Only set status if explicitly provided; on update, preserve existing status.
@@ -181,8 +212,13 @@ class AEOCAS_Content {
 			return new WP_Error( 'aeocas_rewrite_source_missing', __( 'Source post not found for rewrite draft.', 'aeo-content-ai-studio' ) );
 		}
 
+		$draft_post_type = $this->resolve_post_type( $payload, $source_post );
+		if ( is_wp_error( $draft_post_type ) ) {
+			return $draft_post_type;
+		}
+
 		$draft_payload = array(
-			'post_type' => $this->resolve_post_type( $payload, $source_post ),
+			'post_type' => $draft_post_type,
 			'status'    => 'draft',
 			'title'     => isset( $payload['title'] ) ? $payload['title'] : $this->build_rewrite_draft_title( $source_post ),
 			'content'   => isset( $payload['content'] ) ? $payload['content'] : ( isset( $source_post->post_content ) ? $source_post->post_content : '' ),
@@ -272,9 +308,14 @@ class AEOCAS_Content {
 			return new WP_Error( 'aeocas_rewrite_source_missing', __( 'Source post not found for rewrite apply.', 'aeo-content-ai-studio' ) );
 		}
 
+		$apply_post_type = $this->resolve_post_type( $payload, $source_post );
+		if ( is_wp_error( $apply_post_type ) ) {
+			return $apply_post_type;
+		}
+
 		$apply_payload = array(
 			'post_id'   => $source_post_id,
-			'post_type' => $this->resolve_post_type( $payload, $source_post ),
+			'post_type' => $apply_post_type,
 			'title'     => isset( $payload['title'] ) ? $payload['title'] : ( isset( $draft_post->post_title ) ? $draft_post->post_title : '' ),
 			'content'   => isset( $payload['content'] ) ? $payload['content'] : ( isset( $draft_post->post_content ) ? $draft_post->post_content : '' ),
 			'excerpt'   => array_key_exists( 'excerpt', $payload ) ? $payload['excerpt'] : ( isset( $draft_post->post_excerpt ) ? $draft_post->post_excerpt : '' ),
@@ -357,15 +398,24 @@ class AEOCAS_Content {
 	 * @return string
 	 */
 	private function resolve_post_type( $payload, $existing_post = null ) {
+		$allowed_post_types = self::get_allowed_post_types();
+
 		if ( ! empty( $payload['post_type'] ) ) {
-			return sanitize_key( $payload['post_type'] );
+			$post_type = sanitize_key( $payload['post_type'] );
+		} elseif ( $existing_post && ! empty( $existing_post->post_type ) ) {
+			$post_type = sanitize_key( $existing_post->post_type );
+		} else {
+			$post_type = 'post';
 		}
 
-		if ( $existing_post && ! empty( $existing_post->post_type ) ) {
-			return sanitize_key( $existing_post->post_type );
+		if ( ! in_array( $post_type, $allowed_post_types, true ) ) {
+			return new WP_Error(
+				'aeocas_unsupported_post_type',
+				__( 'This post type is not enabled for AEO Content writes.', 'aeo-content-ai-studio' )
+			);
 		}
 
-		return 'post';
+		return $post_type;
 	}
 
 	/**
@@ -548,7 +598,7 @@ class AEOCAS_Content {
 			}
 
 			// Download to Media Library (without attaching to a post yet).
-			$local_url = media_sideload_image( $original_url, 0, '', 'src' );
+			$local_url = $this->sideload_remote_image( $original_url, 0, 'src' );
 			if ( is_wp_error( $local_url ) ) {
 				continue;
 			}
@@ -564,15 +614,219 @@ class AEOCAS_Content {
 	 * Download an image URL and set as featured image.
 	 */
 	private function set_featured_image( $post_id, $url ) {
+		$site_host = wp_parse_url( home_url(), PHP_URL_HOST );
+		$img_host  = wp_parse_url( $url, PHP_URL_HOST );
+
+		if ( $img_host && $site_host && strtolower( (string) $img_host ) === strtolower( (string) $site_host ) ) {
+			$attachment_id = attachment_url_to_postid( $url );
+		} else {
+			$attachment_id = $this->sideload_remote_image( $url, $post_id, 'id' );
+		}
+
+		if ( ! is_wp_error( $attachment_id ) && $attachment_id ) {
+			set_post_thumbnail( $post_id, $attachment_id );
+		}
+	}
+
+	/**
+	 * Validate and sideload a remote image, reusing prior downloads when possible.
+	 *
+	 * @param string $url     Remote image URL.
+	 * @param int    $post_id Attachment parent.
+	 * @param string $return_type media_sideload_image return type.
+	 * @return string|int|WP_Error
+	 */
+	private function sideload_remote_image( $url, $post_id, $return_type ) {
+		$url = esc_url_raw( $url );
+		if ( isset( $this->sideloaded_media_cache[ $url ][ $return_type ] ) ) {
+			return $this->sideloaded_media_cache[ $url ][ $return_type ];
+		}
+
+		$validation = $this->validate_remote_image_url( $url );
+		if ( is_wp_error( $validation ) ) {
+			return $validation;
+		}
+
+		$existing_attachment_id = $this->find_existing_sideloaded_attachment_id( $url );
+		if ( $existing_attachment_id ) {
+			$result = 'id' === $return_type ? $existing_attachment_id : wp_get_attachment_url( $existing_attachment_id );
+			$this->cache_sideloaded_media_result( $url, $existing_attachment_id, $result );
+			return $result;
+		}
+
 		if ( ! function_exists( 'media_sideload_image' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/media.php';
 			require_once ABSPATH . 'wp-admin/includes/file.php';
 			require_once ABSPATH . 'wp-admin/includes/image.php';
 		}
 
-		$attachment_id = media_sideload_image( $url, $post_id, '', 'id' );
-		if ( ! is_wp_error( $attachment_id ) ) {
-			set_post_thumbnail( $post_id, $attachment_id );
+		$result = media_sideload_image( $url, $post_id, '', $return_type );
+		if ( is_wp_error( $result ) ) {
+			return $result;
 		}
+
+		$attachment_id = 'id' === $return_type ? absint( $result ) : attachment_url_to_postid( (string) $result );
+		if ( $attachment_id ) {
+			update_post_meta( $attachment_id, '_aeocas_source_image_url', $url );
+		}
+
+		$this->cache_sideloaded_media_result( $url, $attachment_id, $result );
+
+		return $result;
+	}
+
+	/**
+	 * Cache a sideloaded-media result for the current request.
+	 *
+	 * @param string    $url           Source image URL.
+	 * @param int       $attachment_id Attachment ID.
+	 * @param string|int $result       Result returned to caller.
+	 * @return void
+	 */
+	private function cache_sideloaded_media_result( $url, $attachment_id, $result ) {
+		$src = is_int( $result ) ? '' : (string) $result;
+		if ( '' === $src && $attachment_id ) {
+			$src = (string) wp_get_attachment_url( $attachment_id );
+		}
+
+		$this->sideloaded_media_cache[ $url ] = array(
+			'id'  => $attachment_id,
+			'src' => $src,
+		);
+	}
+
+	/**
+	 * Find an already-downloaded attachment for a remote source URL.
+	 *
+	 * @param string $url Source URL.
+	 * @return int
+	 */
+	private function find_existing_sideloaded_attachment_id( $url ) {
+		$cached_id = isset( $this->sideloaded_media_cache[ $url ]['id'] ) ? absint( $this->sideloaded_media_cache[ $url ]['id'] ) : 0;
+		if ( $cached_id ) {
+			return $cached_id;
+		}
+
+		$local_attachment_id = attachment_url_to_postid( $url );
+		if ( $local_attachment_id ) {
+			return absint( $local_attachment_id );
+		}
+
+		$attachment_ids = get_posts(
+			array(
+				'post_type'              => 'attachment',
+				'post_status'            => 'inherit',
+				'posts_per_page'         => 1,
+				'fields'                 => 'ids',
+				'no_found_rows'          => true,
+				'update_post_meta_cache' => false,
+				'update_post_term_cache' => false,
+				'meta_key'               => '_aeocas_source_image_url',
+				'meta_value'             => $url,
+			)
+		);
+
+		return ! empty( $attachment_ids[0] ) ? absint( $attachment_ids[0] ) : 0;
+	}
+
+	/**
+	 * Validate a remote image URL before sideloading it.
+	 *
+	 * @param string $url Remote image URL.
+	 * @return true|WP_Error
+	 */
+	private function validate_remote_image_url( $url ) {
+		$parts = wp_parse_url( $url );
+		if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+			return new WP_Error( 'aeocas_invalid_media_url', __( 'Remote image URL is invalid.', 'aeo-content-ai-studio' ) );
+		}
+
+		$scheme = strtolower( (string) $parts['scheme'] );
+		if ( ! in_array( $scheme, array( 'http', 'https' ), true ) ) {
+			return new WP_Error( 'aeocas_invalid_media_scheme', __( 'Remote image URL must use HTTP or HTTPS.', 'aeo-content-ai-studio' ) );
+		}
+
+		$host = strtolower( (string) $parts['host'] );
+		if ( $this->is_remote_media_host_blocked( $host ) ) {
+			return new WP_Error( 'aeocas_blocked_media_host', __( 'Remote image host is not allowed.', 'aeo-content-ai-studio' ) );
+		}
+
+		$response = function_exists( 'wp_safe_remote_head' )
+			? wp_safe_remote_head(
+				$url,
+				array(
+					'timeout'            => 10,
+					'redirection'        => 3,
+					'reject_unsafe_urls' => true,
+				)
+			)
+			: wp_remote_get(
+				$url,
+				array(
+					'method'      => 'HEAD',
+					'timeout'     => 10,
+					'redirection' => 3,
+				)
+			);
+
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$status = wp_remote_retrieve_response_code( $response );
+		if ( $status < 200 || $status >= 400 ) {
+			return new WP_Error( 'aeocas_invalid_media_response', __( 'Remote image could not be validated.', 'aeo-content-ai-studio' ) );
+		}
+
+		$content_type = (string) wp_remote_retrieve_header( $response, 'content-type' );
+		if ( '' !== $content_type && 0 !== stripos( $content_type, 'image/' ) ) {
+			return new WP_Error( 'aeocas_invalid_media_type', __( 'Remote URL did not return an image.', 'aeo-content-ai-studio' ) );
+		}
+
+		$content_length = wp_remote_retrieve_header( $response, 'content-length' );
+		if ( is_numeric( $content_length ) && (int) $content_length > self::REMOTE_MEDIA_MAX_BYTES ) {
+			return new WP_Error( 'aeocas_media_too_large', __( 'Remote image exceeds the allowed size limit.', 'aeo-content-ai-studio' ) );
+		}
+
+		return true;
+	}
+
+	/**
+	 * Determine whether a remote media host should be blocked.
+	 *
+	 * @param string $host Remote host.
+	 * @return bool
+	 */
+	private function is_remote_media_host_blocked( $host ) {
+		$allowed_hosts = apply_filters( 'aeocas_allowed_remote_media_hosts', array() );
+		if ( is_array( $allowed_hosts ) && ! empty( $allowed_hosts ) ) {
+			$normalized_allowed_hosts = array_map(
+				static function ( $allowed_host ) {
+					return strtolower( sanitize_text_field( (string) $allowed_host ) );
+				},
+				$allowed_hosts
+			);
+
+			if ( ! in_array( $host, $normalized_allowed_hosts, true ) ) {
+				return true;
+			}
+		}
+
+		if ( filter_var( $host, FILTER_VALIDATE_IP ) ) {
+			return ! filter_var( $host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE );
+		}
+
+		if ( function_exists( 'gethostbynamel' ) ) {
+			$resolved_ips = gethostbynamel( $host );
+			if ( is_array( $resolved_ips ) ) {
+				foreach ( $resolved_ips as $resolved_ip ) {
+					if ( ! filter_var( $resolved_ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ) {
+						return true;
+					}
+				}
+			}
+		}
+
+		return false;
 	}
 }

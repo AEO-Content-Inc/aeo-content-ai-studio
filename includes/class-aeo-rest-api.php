@@ -30,6 +30,7 @@ class AEOCAS_Rest_Api {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'handle_status' ),
 				'permission_callback' => array( $this, 'check_auth' ),
+				'args'                => array(),
 			)
 		);
 
@@ -41,6 +42,16 @@ class AEOCAS_Rest_Api {
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'handle_command' ),
 				'permission_callback' => array( $this, 'check_auth' ),
+				'args'                => array(
+					'command' => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'payload' => array(
+						'required' => false,
+						'default'  => array(),
+					),
+				),
 			)
 		);
 
@@ -52,6 +63,34 @@ class AEOCAS_Rest_Api {
 				'methods'             => 'GET',
 				'callback'            => array( 'AEOCAS_Activity_Log', 'handle_rest_logs' ),
 				'permission_callback' => array( $this, 'check_auth' ),
+				'args'                => array(
+					'page'      => array(
+						'required'          => false,
+						'default'           => 1,
+						'sanitize_callback' => 'absint',
+					),
+					'per_page'  => array(
+						'required'          => false,
+						'default'           => 25,
+						'sanitize_callback' => 'absint',
+					),
+					'command'   => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'status'    => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'date_from' => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'date_to'   => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
 			)
 		);
 
@@ -63,6 +102,38 @@ class AEOCAS_Rest_Api {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'handle_get_posts' ),
 				'permission_callback' => array( $this, 'check_auth' ),
+				'args'                => array(
+					'page'      => array(
+						'required'          => false,
+						'default'           => 1,
+						'sanitize_callback' => 'absint',
+					),
+					'per_page'  => array(
+						'required'          => false,
+						'default'           => 20,
+						'sanitize_callback' => 'absint',
+					),
+					'status'    => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'search'    => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'post_type' => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'orderby'   => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'order'     => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
 			)
 		);
 
@@ -74,6 +145,12 @@ class AEOCAS_Rest_Api {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'handle_get_post' ),
 				'permission_callback' => array( $this, 'check_auth' ),
+				'args'                => array(
+					'id' => array(
+						'required'          => true,
+						'sanitize_callback' => 'absint',
+					),
+				),
 			)
 		);
 
@@ -85,6 +162,7 @@ class AEOCAS_Rest_Api {
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'handle_publish' ),
 				'permission_callback' => array( $this, 'check_auth' ),
+				'args'                => array(),
 			)
 		);
 
@@ -96,6 +174,29 @@ class AEOCAS_Rest_Api {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'handle_get_categories' ),
 				'permission_callback' => array( $this, 'check_auth' ),
+				'args'                => array(
+					'search'     => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'hide_empty' => array(
+						'required'          => false,
+						'default'           => false,
+						'sanitize_callback' => 'rest_sanitize_boolean',
+					),
+					'parent'     => array(
+						'required'          => false,
+						'sanitize_callback' => 'absint',
+					),
+					'orderby'    => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'order'      => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
 			)
 		);
 
@@ -107,6 +208,25 @@ class AEOCAS_Rest_Api {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'handle_get_tags' ),
 				'permission_callback' => array( $this, 'check_auth' ),
+				'args'                => array(
+					'search'     => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'hide_empty' => array(
+						'required'          => false,
+						'default'           => false,
+						'sanitize_callback' => 'rest_sanitize_boolean',
+					),
+					'orderby'    => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'order'      => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
 			)
 		);
 	}
@@ -136,31 +256,29 @@ class AEOCAS_Rest_Api {
 	// ─── Unified Command Dispatch ─────────────────────────────
 
 	public function handle_command( $request ) {
-		$command = $request->get_param( 'command' );
-		$payload = $request->get_param( 'payload' );
+		$json_params = $request->get_json_params();
+		$command     = $request->get_param( 'command' );
+		$payload     = $request->get_param( 'payload' );
+
+		if ( empty( $command ) && ! empty( $json_params['command'] ) ) {
+			$command = $json_params['command'];
+		}
+
+		if ( null === $payload && isset( $json_params['payload'] ) ) {
+			$payload = $json_params['payload'];
+		}
 
 		if ( empty( $command ) ) {
 			return new WP_Error( 'aeocas_missing_command', __( 'Missing command parameter.', 'aeo-content-ai-studio' ), array( 'status' => 400 ) );
 		}
 
-		$commands = array(
-			'publish_post' => 'cmd_publish_post',
-		);
-
-		if ( ! isset( $commands[ $command ] ) ) {
-			AEOCAS_Activity_Log::log( $command, 'error', array( 'message' => "Unknown command: {$command}" ) );
-			/* translators: %s: command name */
-			return new WP_Error( 'aeocas_unknown_command', sprintf( __( 'Unknown command: %s', 'aeo-content-ai-studio' ), $command ), array( 'status' => 400 ) );
-		}
-
-		$method = $commands[ $command ];
-		return $this->$method( $payload );
+		return $this->get_command_runner()->run( $command, $payload );
 	}
 
 	// ─── Endpoint Handlers ──────────────────────────────────
 
 	public function handle_publish( $request ) {
-		return $this->cmd_publish_post( $request->get_json_params() );
+		return $this->get_command_runner()->run( 'publish_post', $request->get_json_params() );
 	}
 
 	// ─── Posts Read Endpoints ────────────────────────────────
@@ -195,7 +313,7 @@ class AEOCAS_Rest_Api {
 			$orderby = 'date';
 		}
 
-		$allowed_types = array( 'post', 'page' );
+		$allowed_types = $this->get_allowed_post_types();
 		if ( ! in_array( $post_type, $allowed_types, true ) ) {
 			$post_type = 'post';
 		}
@@ -478,45 +596,32 @@ class AEOCAS_Rest_Api {
 		);
 	}
 
-	// ─── Command Implementations ──────────────────────────────
-
-	private function cmd_publish_post( $payload ) {
-		$module = $this->plugin->get_module( 'content' );
-		if ( ! $module ) {
-			AEOCAS_Activity_Log::log( 'publish_post', 'error', array( 'message' => 'Content module is not enabled.' ) );
-			return new WP_Error( 'aeocas_module_disabled', __( 'Content module is not enabled.', 'aeo-content-ai-studio' ), array( 'status' => 400 ) );
+	/**
+	 * Get the shared command runner.
+	 *
+	 * @return AEOCAS_Command_Runner
+	 */
+	private function get_command_runner() {
+		if ( method_exists( $this->plugin, 'get_command_runner' ) ) {
+			return $this->plugin->get_command_runner();
 		}
 
-		$title = isset( $payload['title'] ) ? $payload['title'] : 'untitled';
+		return new AEOCAS_Command_Runner( $this->plugin );
+	}
 
-		try {
-			$result = $module->create_or_update_post( $payload );
-		} catch ( \Throwable $e ) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-			error_log( '[AEO] cmd_publish_post fatal: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() );
-			AEOCAS_Activity_Log::log(
-				'publish_post',
-				'error',
-				array(
-					'message' => 'Internal error: ' . $e->getMessage(),
-				)
-			);
-			return new WP_Error( 'aeocas_internal_error', __( 'Internal error during publish.', 'aeo-content-ai-studio' ), array( 'status' => 500 ) );
+	/**
+	 * Get the allowlisted content post types, loading the content module class if needed.
+	 *
+	 * @return string[]
+	 */
+	private function get_allowed_post_types() {
+		if ( ! class_exists( 'AEOCAS_Content' ) ) {
+			$file = AEOCAS_PLUGIN_DIR . 'includes/modules/class-aeo-content.php';
+			if ( file_exists( $file ) ) {
+				require_once $file;
+			}
 		}
 
-		$post_id = null;
-		if ( ! is_wp_error( $result ) ) {
-			$data    = $result->get_data();
-			$post_id = isset( $data['post_id'] ) ? $data['post_id'] : null;
-		}
-
-		AEOCAS_Activity_Log::log(
-			'publish_post',
-			is_wp_error( $result ) ? 'error' : 'success',
-			array( 'message' => is_wp_error( $result ) ? $result->get_error_message() : "Published: {$title}" ),
-			$post_id
-		);
-
-		return $result;
+		return class_exists( 'AEOCAS_Content' ) ? AEOCAS_Content::get_allowed_post_types() : array( 'post', 'page' );
 	}
 }

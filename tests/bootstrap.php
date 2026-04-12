@@ -49,7 +49,29 @@ function add_action( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
 }
 
 function add_filter( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
+    if ( ! isset( $GLOBALS['aeocas_test_filters'][ $hook ] ) ) {
+        $GLOBALS['aeocas_test_filters'][ $hook ] = array();
+    }
+
+    $GLOBALS['aeocas_test_filters'][ $hook ][] = $callback;
     return true;
+}
+
+function apply_filters( $hook, $value ) {
+    $args = func_get_args();
+    array_shift( $args );
+    $value = array_shift( $args );
+
+    if ( empty( $GLOBALS['aeocas_test_filters'][ $hook ] ) ) {
+        return $value;
+    }
+
+    foreach ( $GLOBALS['aeocas_test_filters'][ $hook ] as $callback ) {
+        $callback_args = array_merge( array( $value ), $args );
+        $value         = call_user_func_array( $callback, $callback_args );
+    }
+
+    return $value;
 }
 
 function update_option( $name, $value, $autoload = null ) {
@@ -71,6 +93,8 @@ $GLOBALS['aeocas_test_remote_get'] = null;
 $GLOBALS['aeocas_test_remote_get_calls'] = array();
 $GLOBALS['aeocas_test_remote_post'] = null;
 $GLOBALS['aeocas_test_remote_post_calls'] = array();
+$GLOBALS['aeocas_test_remote_head'] = null;
+$GLOBALS['aeocas_test_remote_head_calls'] = array();
 $GLOBALS['aeocas_test_json_response'] = null;
 $GLOBALS['aeocas_test_settings_errors'] = array();
 $GLOBALS['aeocas_test_redirect'] = null;
@@ -79,6 +103,11 @@ $GLOBALS['aeocas_test_post_data'] = array();
 $GLOBALS['aeocas_test_post_meta'] = array();
 $GLOBALS['aeocas_test_current_user_can'] = null;
 $GLOBALS['aeocas_test_wp_kses_post'] = null;
+$GLOBALS['aeocas_test_filters'] = array();
+$GLOBALS['aeocas_test_media_sideload'] = null;
+$GLOBALS['aeocas_test_attachment_ids_by_url'] = array();
+$GLOBALS['aeocas_test_post_thumbnail'] = array();
+$GLOBALS['aeocas_test_registered_rest_routes'] = array();
 
 function get_option( $name, $default = false ) {
     return array_key_exists( $name, $GLOBALS['aeocas_test_options'] ) ? $GLOBALS['aeocas_test_options'][ $name ] : $default;
@@ -151,7 +180,7 @@ function wp_strip_all_tags( $value ) {
     return trim( strip_tags( (string) $value ) );
 }
 
-function esc_url_raw( $url ) {
+function esc_url_raw( $url, $protocols = null ) {
     return (string) $url;
 }
 
@@ -195,12 +224,34 @@ function wp_remote_post( $url, $args = array() ) {
     return new WP_Error( 'missing_stub', 'No wp_remote_post stub configured.' );
 }
 
+function wp_safe_remote_head( $url, $args = array() ) {
+    $GLOBALS['aeocas_test_remote_head_calls'][] = array(
+        'url'  => $url,
+        'args' => $args,
+    );
+
+    if ( is_callable( $GLOBALS['aeocas_test_remote_head'] ) ) {
+        return call_user_func( $GLOBALS['aeocas_test_remote_head'], $url, $args );
+    }
+
+    return new WP_Error( 'missing_stub', 'No wp_safe_remote_head stub configured.' );
+}
+
 function wp_remote_retrieve_response_code( $response ) {
     return isset( $response['response']['code'] ) ? (int) $response['response']['code'] : 0;
 }
 
 function wp_remote_retrieve_body( $response ) {
     return isset( $response['body'] ) ? (string) $response['body'] : '';
+}
+
+function wp_remote_retrieve_header( $response, $header ) {
+    $header = strtolower( (string) $header );
+    if ( isset( $response['headers'][ $header ] ) ) {
+        return $response['headers'][ $header ];
+    }
+
+    return '';
 }
 
 if ( ! class_exists( 'WP_Error' ) ) {
@@ -268,7 +319,11 @@ function register_deactivation_hook( $file, $callback ) {
 }
 
 function register_rest_route( $namespace, $route, $args ) {
-    // no-op
+    $GLOBALS['aeocas_test_registered_rest_routes'][] = array(
+        'namespace' => $namespace,
+        'route'     => $route,
+        'args'      => $args,
+    );
 }
 
 function check_ajax_referer( $action, $query_arg ) {
@@ -382,6 +437,10 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 
         public function set_body( $body ) {
             $this->body = $body;
+        }
+
+        public function get_body() {
+            return $this->body;
         }
 
         public function set_header( $name, $value ) {
@@ -560,6 +619,27 @@ function wp_get_attachment_url( $attachment_id ) {
     return 'https://site.example/wp-content/uploads/img-' . $attachment_id . '.jpg';
 }
 
+function attachment_url_to_postid( $url ) {
+    return isset( $GLOBALS['aeocas_test_attachment_ids_by_url'][ $url ] ) ? (int) $GLOBALS['aeocas_test_attachment_ids_by_url'][ $url ] : 0;
+}
+
+function media_sideload_image( $url, $post_id = 0, $desc = null, $return_type = 'html' ) {
+    if ( is_callable( $GLOBALS['aeocas_test_media_sideload'] ) ) {
+        return call_user_func( $GLOBALS['aeocas_test_media_sideload'], $url, $post_id, $desc, $return_type );
+    }
+
+    if ( 'id' === $return_type ) {
+        return 501;
+    }
+
+    return 'https://site.example/wp-content/uploads/sideloaded-' . md5( $url ) . '.jpg';
+}
+
+function set_post_thumbnail( $post_id, $attachment_id ) {
+    $GLOBALS['aeocas_test_post_thumbnail'][ $post_id ] = (int) $attachment_id;
+    return true;
+}
+
 function get_userdata( $user_id ) {
     if ( isset( $GLOBALS['aeocas_test_userdata'][ $user_id ] ) ) {
         return $GLOBALS['aeocas_test_userdata'][ $user_id ];
@@ -650,7 +730,19 @@ function aeocas_plugin() {
         public function get_module( $slug ) {
             return null;
         }
+
+        public function get_command_runner() {
+            return new AEOCAS_Command_Runner( $this );
+        }
     };
+}
+
+function aeocas_make_reflection_method_accessible( ReflectionMethod $method ) {
+    if ( PHP_VERSION_ID < 80100 ) {
+        $method->setAccessible( true );
+    }
+
+    return $method;
 }
 
 // AEOCAS_Activity_Log is loaded from the real class file (see require_once below).
@@ -730,8 +822,11 @@ if ( ! function_exists( 'dbDelta' ) ) {
 
 require_once dirname( __DIR__ ) . '/includes/class-aeo-activity-log.php';
 
+require_once dirname( __DIR__ ) . '/includes/class-aeo-capabilities.php';
 require_once dirname( __DIR__ ) . '/includes/class-aeo-auth.php';
+require_once dirname( __DIR__ ) . '/includes/class-aeo-command-runner.php';
 require_once dirname( __DIR__ ) . '/includes/class-aeo-settings.php';
 require_once dirname( __DIR__ ) . '/includes/class-aeo-audit-api.php';
 require_once dirname( __DIR__ ) . '/includes/class-aeo-heartbeat.php';
 require_once dirname( __DIR__ ) . '/includes/class-aeo-rest-api.php';
+require_once dirname( __DIR__ ) . '/includes/modules/class-aeo-content.php';

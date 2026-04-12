@@ -95,6 +95,10 @@ final class AEOCASHeartbeatTest extends TestCase {
             return 'success' === ( $entry['data']['status'] ?? '' ) && 'heartbeat' === ( $entry['data']['command'] ?? '' );
         } );
         $this->assertNotEmpty( $success_logs );
+
+        $details = json_decode( $GLOBALS['wpdb']->inserts[0]['data']['details'], true );
+        $this->assertArrayNotHasKey( 'request_body', $details );
+        $this->assertArrayNotHasKey( 'response_body', $details );
     }
 
     public function test_send_heartbeat_handles_wp_error_response(): void {

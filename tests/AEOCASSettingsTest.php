@@ -12,6 +12,8 @@ final class AEOCASSettingsTest extends TestCase {
             'aeocas_real_home_url' => 'https://home-captured.example',
         );
         $GLOBALS['aeocas_test_menu_page_args'] = null;
+        $GLOBALS['aeocas_test_remote_post'] = null;
+        $GLOBALS['aeocas_test_remote_post_calls'] = array();
     }
 
     public function test_get_site_url_prefers_captured_site_url(): void {
@@ -315,8 +317,17 @@ final class AEOCASSettingsTest extends TestCase {
     public function test_ajax_google_connect_handles_onboarding_failure(): void {
         $GLOBALS['aeocas_test_json_response'] = null;
         $GLOBALS['aeocas_test_remote_post_calls'] = array();
-        // Make dispatch_audit fail by returning a WP_Error from wp_remote_post.
-        $GLOBALS['aeocas_test_remote_post'] = static function () {
+        $call_count = 0;
+        $GLOBALS['aeocas_test_remote_post'] = static function () use ( &$call_count ) {
+            ++$call_count;
+
+            if ( 1 === $call_count ) {
+                return array(
+                    'response' => array( 'code' => 200 ),
+                    'body'     => wp_json_encode( array( 'ok' => true ) ),
+                );
+            }
+
             return new WP_Error( 'http_error', 'Connection refused' );
         };
 
@@ -334,6 +345,29 @@ final class AEOCASSettingsTest extends TestCase {
         unset( $_POST['site_token'], $_POST['nonce'] );
     }
 
+    public function test_ajax_google_connect_returns_error_when_verification_fails(): void {
+        $GLOBALS['aeocas_test_json_response'] = null;
+        $GLOBALS['aeocas_test_remote_post'] = static function (): array {
+            return array(
+                'response' => array( 'code' => 403 ),
+                'body'     => wp_json_encode( array( 'error' => 'Token rejected.' ) ),
+            );
+        };
+
+        $_POST['site_token'] = 'invalid-token';
+        $_POST['nonce']      = 'test-nonce';
+
+        $settings = new AEOCAS_Settings();
+        try { $settings->ajax_google_connect(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+        $this->assertFalse( $GLOBALS['aeocas_test_json_response']['success'] );
+        $this->assertArrayNotHasKey( 'aeocas_site_token', $GLOBALS['aeocas_test_options'] );
+        $this->assertArrayNotHasKey( 'aeocas_connection_verified', $GLOBALS['aeocas_test_options'] );
+
+        unset( $_POST['site_token'], $_POST['nonce'] );
+    }
+
     public function test_register_settings_runs_without_error(): void {
         $settings = new AEOCAS_Settings();
         $settings->register_settings();
@@ -341,8 +375,7 @@ final class AEOCASSettingsTest extends TestCase {
     }
 
     public function test_menu_icon_svg_matches_the_site_favicon_palette(): void {
-        $method = new ReflectionMethod( AEOCAS_Settings::class, 'get_menu_icon_data_uri' );
-        $method->setAccessible( true );
+        $method = aeocas_make_reflection_method_accessible( new ReflectionMethod( AEOCAS_Settings::class, 'get_menu_icon_data_uri' ) );
 
         $icon = $method->invoke( null );
         $svg  = base64_decode( substr( $icon, strlen( 'data:image/svg+xml;base64,' ) ), true );

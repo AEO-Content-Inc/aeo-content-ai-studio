@@ -14,6 +14,7 @@ final class AEOCASRestApiTest extends TestCase {
             'aeocas_plugin_token' => 'valid-token',
         );
         $GLOBALS['wpdb']->inserts = array();
+        $GLOBALS['aeocas_test_registered_rest_routes'] = array();
 
         $plugin = aeocas_plugin();
         $this->rest_api = new AEOCAS_Rest_Api( $plugin );
@@ -120,10 +121,20 @@ final class AEOCASRestApiTest extends TestCase {
     }
 
     public function test_register_routes_runs_without_error(): void {
-        // register_rest_route is a no-op stub, but we verify the method
-        // executes without throwing.
         $this->rest_api->register_routes();
-        $this->assertTrue( true );
+
+        $this->assertNotEmpty( $GLOBALS['aeocas_test_registered_rest_routes'] );
+
+        $command_route = null;
+        foreach ( $GLOBALS['aeocas_test_registered_rest_routes'] as $route ) {
+            if ( '/command' === $route['route'] ) {
+                $command_route = $route;
+                break;
+            }
+        }
+
+        $this->assertIsArray( $command_route );
+        $this->assertArrayHasKey( 'command', $command_route['args']['args'] );
     }
 
     public function test_handle_get_posts_with_module_and_results(): void {

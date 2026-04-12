@@ -14,6 +14,9 @@ class AEOCAS_Plugin {
 	/** @var array Loaded module instances keyed by slug. */
 	private $modules = array();
 
+	/** @var AEOCAS_Command_Runner|null */
+	private $command_runner = null;
+
 	/** @var array Map of module slug => class file and class name. */
 	private $available_modules = array(
 		'content' => array(
@@ -40,8 +43,10 @@ class AEOCAS_Plugin {
 	 * Load core (non-optional) classes.
 	 */
 	private function load_core() {
+		require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-capabilities.php';
 		require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-auth.php';
 		require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-activity-log.php';
+		require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-command-runner.php';
 		require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-rest-api.php';
 		require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-heartbeat.php';
 		require_once AEOCAS_PLUGIN_DIR . 'includes/class-aeo-settings.php';
@@ -129,6 +134,19 @@ class AEOCAS_Plugin {
 	 */
 	public function get_module( $slug ) {
 		return isset( $this->modules[ $slug ] ) ? $this->modules[ $slug ] : null;
+	}
+
+	/**
+	 * Get the shared command runner instance.
+	 *
+	 * @return AEOCAS_Command_Runner
+	 */
+	public function get_command_runner() {
+		if ( null === $this->command_runner ) {
+			$this->command_runner = new AEOCAS_Command_Runner( $this );
+		}
+
+		return $this->command_runner;
 	}
 
 	/**

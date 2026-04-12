@@ -61,9 +61,11 @@ class AEOCAS_Activity_Log {
 
 		// Get IP from request.
 		$ip = null;
-		if ( ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
+		if ( self::should_store_ip() && ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
 			$ip = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
 		}
+
+		$details = self::sanitize_details( $details );
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table, no WP API available.
 		$wpdb->insert(
@@ -78,6 +80,77 @@ class AEOCAS_Activity_Log {
 			),
 			array( '%s', '%s', '%s', '%s', '%d', '%s' )
 		);
+	}
+
+	/**
+	 * Determine whether request IP addresses should be persisted.
+	 *
+	 * @return bool
+	 */
+	private static function should_store_ip() {
+		return (bool) apply_filters( 'aeocas_activity_log_store_ip', false );
+	}
+
+	/**
+	 * Sanitize and minimize logged details before persistence.
+	 *
+	 * @param mixed $details Log details.
+	 * @return mixed
+	 */
+	private static function sanitize_details( $details ) {
+		if ( null === $details ) {
+			return null;
+		}
+
+		return self::sanitize_detail_value( $details );
+	}
+
+	/**
+	 * Recursively sanitize a log detail value.
+	 *
+	 * @param mixed $value Detail value.
+	 * @param int   $depth Nesting depth.
+	 * @return mixed
+	 */
+	private static function sanitize_detail_value( $value, $depth = 0 ) {
+		if ( $depth > 4 ) {
+			return '[truncated]';
+		}
+
+		if ( is_array( $value ) ) {
+			$clean = array();
+			$count = 0;
+			foreach ( $value as $key => $child ) {
+				if ( $count >= 25 ) {
+					$clean['_truncated'] = true;
+					break;
+				}
+
+				$key = is_string( $key ) ? sanitize_key( $key ) : $key;
+				if ( is_string( $key ) && in_array( $key, array( 'request_body', 'response_body', 'payload', 'content', 'html', 'body' ), true ) ) {
+					$clean[ $key ] = '[redacted]';
+				} else {
+					$clean[ $key ] = self::sanitize_detail_value( $child, $depth + 1 );
+				}
+
+				++$count;
+			}
+			return $clean;
+		}
+
+		if ( is_string( $value ) ) {
+			$value = sanitize_text_field( $value );
+			if ( strlen( $value ) > 500 ) {
+				$value = substr( $value, 0, 497 ) . '...';
+			}
+			return $value;
+		}
+
+		if ( is_bool( $value ) || is_int( $value ) || is_float( $value ) ) {
+			return $value;
+		}
+
+		return is_scalar( $value ) ? sanitize_text_field( (string) $value ) : '[unsupported]';
 	}
 
 	/**
@@ -281,7 +354,7 @@ class AEOCAS_Activity_Log {
 			return;
 		}
 
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! AEOCAS_Capabilities::can_manage_plugin() ) {
 			wp_die( esc_html__( 'Unauthorized', 'aeo-content-ai-studio' ) );
 		}
 
@@ -303,7 +376,7 @@ class AEOCAS_Activity_Log {
 		header( 'Content-Disposition: attachment; filename=aeocas-activity-log-' . gmdate( 'Y-m-d' ) . '.csv' );
 
 		$output = fopen( 'php://output', 'w' );
-		fputcsv( $output, array( 'ID', 'Timestamp', 'Command', 'Status', 'Post ID', 'Details', 'IP' ) );
+		fputcsv( $output, array( 'ID', 'Timestamp', 'Command', 'Status', 'Post ID', 'Details' ) );
 
 		foreach ( $items as $item ) {
 			fputcsv(
@@ -315,7 +388,6 @@ class AEOCAS_Activity_Log {
 					$item['status'],
 					$item['post_id'] ? $item['post_id'] : '',
 					is_array( $item['details'] ) ? wp_json_encode( $item['details'] ) : ( $item['details'] ? $item['details'] : '' ),
-					$item['ip'] ? $item['ip'] : '',
 				)
 			);
 		}
