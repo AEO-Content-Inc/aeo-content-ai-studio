@@ -22,6 +22,10 @@ if ( ! defined( 'AEOCAS_PLUGIN_FILE' ) ) {
     define( 'AEOCAS_PLUGIN_FILE', dirname( __DIR__ ) . '/aeo-content-ai-studio.php' );
 }
 
+if ( ! defined( 'AEOCAS_PLUGIN_DIR' ) ) {
+    define( 'AEOCAS_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
+}
+
 if ( ! defined( 'HOUR_IN_SECONDS' ) ) {
     define( 'HOUR_IN_SECONDS', 3600 );
 }
@@ -192,6 +196,14 @@ if ( ! class_exists( 'WP_Error' ) ) {
 
 function is_wp_error( $thing ) {
     return $thing instanceof WP_Error;
+}
+
+function current_user_can( $capability ) {
+    return true;
+}
+
+function wp_get_current_user() {
+    return (object) array( 'user_email' => 'test@example.com', 'display_name' => 'Test User' );
 }
 
 // Minimal AEOCAS_Auth stub for tests that call get_google_connect_url().

@@ -8,7 +8,7 @@ Connects your WordPress site to [AEO Content AI Studio](https://www.aeocontent.a
 
 ## What is AEO?
 
-AI Engine Optimization (AEO) is the practice of structuring web content so AI answer engines — ChatGPT, Claude, Perplexity, and Google AI Overviews — can discover, parse, and cite it. While SEO focuses on search rankings, AEO focuses on getting your content into AI-generated answers.
+AI Engine Optimization (AEO) is the practice of structuring web content so AI answer engines. ChatGPT, Claude, Perplexity, and Google AI Overviews. can discover, parse, and cite it. While SEO focuses on search rankings, AEO focuses on getting your content into AI-generated answers.
 
 ## What This Plugin Does
 
@@ -50,7 +50,7 @@ AEO Content AI Studio                         WordPress Plugin
 ```
 
 1. Install the plugin and click **Continue with Google** in **AEO Content > Settings**
-2. A popup opens for Google sign-in — your account and site connection are created automatically
+2. A popup opens for Google sign-in. your account and site connection are created automatically
 3. AEO Content AI Studio syncs your categories, tags, and posts via authenticated REST API
 4. AEO Content AI Studio analyzes and optimizes your content
 5. Optimized content is published back to WordPress
@@ -58,13 +58,14 @@ AEO Content AI Studio                         WordPress Plugin
 
 ## AI Visibility Data
 
-The plugin's **AI Visibility** stage reads from the dedicated visibility endpoint, not from the audit payload when fresher visibility data is available.
+The plugin's **AI Visibility** stage reads from the dedicated visibility endpoint, which now serves live daily monitoring data from the same source as Studio.
 
-- Primary source: `GET /api/v1/visibility/{site-slug}?include=timeline`
-- Fallback source: the latest audit payload only when the dedicated visibility report is not found yet
-- Studio remains the deep-dive surface for operational logs and sync troubleshooting
+- Primary source: `GET /api/v1/visibility/{site-slug}?include=timeline`. returns per-engine reports built from `aeo_monitor_runs` / `aeo_monitor_results` (daily monitoring across 5 AI engines)
+- Legacy fallback: one-off `aeo_visibility_reports` data, used only when no monitor runs exist for the domain
+- Audit fallback: the latest audit payload, used only when the dedicated visibility endpoint returns `404`
+- The endpoint normalizes slugs so both `helpsquad.com` and `helpsquad-com` resolve correctly
 
-This prevents the WordPress plugin from showing an empty or stale visibility stage when Studio already has a newer snapshot.
+This ensures the WordPress plugin shows the same fresh, 5-engine visibility data that Studio displays.
 
 ## Installation
 
@@ -86,13 +87,13 @@ This prevents the WordPress plugin from showing an empty or stale visibility sta
 The plugin supports 1-click onboarding via Google sign-in:
 
 1. Open **AEO Content > Settings**
-2. Click **Continue with Google** — a popup opens on `studio.aeocontent.ai`
+2. Click **Continue with Google**. a popup opens on `studio.aeocontent.ai`
 3. Sign in with your Google account (creates a new account if needed, or signs into an existing one)
 4. The popup auto-closes and your site is connected immediately
 
 Manual alternatives are also available:
-- **Create Account Manually** / **I Already Have an Account** — redirects to the platform for email-based signup/login
-- **Advanced: connect with an API key** — for direct support-driven setups
+- **Create Account Manually** / **I Already Have an Account**. redirects to the platform for email-based signup/login
+- **Advanced: connect with an API key**. for direct support-driven setups
 
 ## REST API Endpoints
 
@@ -100,7 +101,7 @@ All authenticated endpoints require the `x-api-key` header.
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/wp-json/aeo/v1/status` | No | Health check — version, features, URLs |
+| GET | `/wp-json/aeo/v1/status` | No | Health check. version, features, URLs |
 | GET | `/wp-json/aeo/v1/posts` | Yes | Paginated post list |
 | GET | `/wp-json/aeo/v1/posts/{id}` | Yes | Full post with content, author, meta |
 | POST | `/wp-json/aeo/v1/publish` | Yes | Create or update a post |
@@ -145,6 +146,8 @@ The current unit tests cover:
 - visibility API behavior in [`AEOCAS_Audit_Api`](./includes/class-aeo-audit-api.php), including:
   - preferring the dedicated visibility endpoint over stale audit-embedded visibility
   - falling back to audit visibility only when the dedicated report returns `404`
+  - normalizing monitor-format responses with per-engine `query_variants`
+  - handling multi-engine monitor payloads and correct engine/citation counts
 
 They run against the WordPress stubs in [`tests/bootstrap.php`](./tests/bootstrap.php), so no WP install is needed.
 
@@ -170,7 +173,7 @@ The fastest way to exercise the plugin against a real WordPress is to build the 
    npx @wordpress/env start
    ```
 
-   Admin: <http://localhost:8888/wp-admin> — user `admin`, password `password`.
+   Admin: <http://localhost:8888/wp-admin>. user `admin`, password `password`.
 
 3. **Install the ZIP** via **Plugins → Add New → Upload Plugin**, choose the ZIP, and activate. Open **AEO Content → Settings** to verify the onboarding flow.
 

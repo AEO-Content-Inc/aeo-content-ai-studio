@@ -716,7 +716,7 @@ class AEOCAS_Audit_Api {
      * AJAX handler for fetching audit data.
      */
     public static function ajax_get_audit() {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
         }
 
@@ -846,7 +846,7 @@ class AEOCAS_Audit_Api {
      * AJAX handler for triggering re-audit.
      */
     public static function ajax_reaudit() {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
         }
 
@@ -865,7 +865,7 @@ class AEOCAS_Audit_Api {
      * AJAX handler for fetching discovery data.
      */
     public static function ajax_get_discovery() {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
         }
 
@@ -885,7 +885,7 @@ class AEOCAS_Audit_Api {
      * AJAX handler for fetching AI visibility data.
      */
     public static function ajax_get_visibility() {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
         }
 
@@ -905,7 +905,7 @@ class AEOCAS_Audit_Api {
      * AJAX handler for polling audit status.
      */
     public static function ajax_audit_status() {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
         }
 
@@ -924,7 +924,7 @@ class AEOCAS_Audit_Api {
      * AJAX handler for fetching a local content index used by admin JS.
      */
     public static function ajax_get_local_content_index() {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
         }
 

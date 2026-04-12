@@ -388,6 +388,13 @@ if ( ! $aeocas_connected ) {
                                     <span class="aeo-connect-meta-label"><?php esc_html_e( 'Platform URL', 'aeo-content-ai-studio' ); ?></span>
                                     <code><?php echo esc_html( $aeocas_platform ); ?></code>
                                 </div>
+                                <div class="aeo-connect-meta-item">
+                                    <span class="aeo-connect-meta-label"><?php esc_html_e( 'Logged in as', 'aeo-content-ai-studio' ); ?></span>
+                                    <code><?php $aeocas_current_user = wp_get_current_user(); echo esc_html( $aeocas_current_user->user_email ); ?></code>
+                                    <?php if ( ! current_user_can( 'manage_options' ) ) : ?>
+                                        <span class="aeo-badge aeo-badge-error" style="font-size:11px;margin-left:6px;"><?php esc_html_e( 'Not admin — some features are restricted', 'aeo-content-ai-studio' ); ?></span>
+                                    <?php endif; ?>
+                                </div>
                             </div>
 
                             <div class="aeo-connect-actions">

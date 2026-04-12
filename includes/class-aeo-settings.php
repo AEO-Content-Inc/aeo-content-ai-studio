@@ -37,7 +37,7 @@ class AEOCAS_Settings {
         add_menu_page(
             __( 'AEO Content AI Studio', 'aeo-content-ai-studio' ),
             __( 'AEO Content', 'aeo-content-ai-studio' ),
-            'manage_options',
+            'edit_posts',
             'aeocas-audit-report',
             array( $this, 'render_audit_report' ),
             self::get_menu_icon_data_uri(),
@@ -253,7 +253,7 @@ SVG;
      * AJAX handler: store tokens received from the Google connect popup.
      */
     public function ajax_google_connect() {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
         }
 
@@ -294,7 +294,7 @@ SVG;
      * Disconnect the current site from the platform.
      */
     public function handle_disconnect() {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'edit_posts' ) ) {
             wp_die( esc_html__( 'Unauthorized', 'aeo-content-ai-studio' ) );
         }
 
@@ -376,7 +376,7 @@ SVG;
     // and AI Visibility stages.
 
     public function render_audit_report() {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'edit_posts' ) ) {
             return;
         }
         include AEOCAS_PLUGIN_DIR . 'admin/views/audit-page.php';

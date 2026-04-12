@@ -28,7 +28,7 @@ final class AEOCASSettingsTest extends TestCase {
         $this->assertSame( 'start', $query['intent'] );
         $this->assertSame( 'https://captured.example', $query['site_url'] );
         $this->assertSame( 'https://home-captured.example', $query['home_url'] );
-        $this->assertSame( 'https://site.example/wp-admin/admin.php?page=aeo-content-ai-studio', $query['return_url'] );
+        $this->assertSame( 'https://site.example/wp-admin/admin.php?page=aeocas-audit-report&tab=connect', $query['return_url'] );
         $this->assertSame( 'wordpress-plugin', $query['utm_source'] );
         $this->assertSame( 'plugin', $query['utm_medium'] );
         $this->assertSame( 'wp-admin', $query['utm_campaign'] );
@@ -115,6 +115,15 @@ final class AEOCASSettingsTest extends TestCase {
             'data:image/svg+xml;base64,',
             $GLOBALS['aeocas_test_menu_page_args']['icon_url']
         );
+    }
+
+    public function test_add_menu_uses_edit_posts_capability(): void {
+        $settings = new AEOCAS_Settings();
+
+        $settings->add_menu();
+
+        $this->assertIsArray( $GLOBALS['aeocas_test_menu_page_args'] );
+        $this->assertSame( 'edit_posts', $GLOBALS['aeocas_test_menu_page_args']['capability'] );
     }
 
     public function test_menu_icon_svg_matches_the_site_favicon_palette(): void {

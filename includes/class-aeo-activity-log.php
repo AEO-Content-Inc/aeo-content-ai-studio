@@ -267,7 +267,7 @@ class AEOCAS_Activity_Log {
             return;
         }
 
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'edit_posts' ) ) {
             wp_die( esc_html__( 'Unauthorized', 'aeo-content-ai-studio' ) );
         }
 

@@ -8,52 +8,62 @@ Stable tag: 1.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Stop writing content AI engines ignore. Audit, score, and optimize every post to get quoted by ChatGPT, Perplexity, and Google AI Overviews.
+Find out why AI engines skip your content and start getting cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews.
 
 == Description ==
 
-AEO Content AI Studio connects your WordPress site to the [AEO Content AI Studio](https://www.aeocontent.ai) platform for AI-powered content management and AI visibility auditing.
+When someone asks ChatGPT or Perplexity a question your website can answer, do they cite you or a competitor? Most websites never show up in AI-generated answers because their content is not structured for how AI engines read, extract, and decide what to quote.
 
-**What is AEO?** AI Engine Optimization is the practice of structuring web content so AI answer engines — ChatGPT, Claude, Perplexity, and Google AI Overviews — can discover, parse, and cite it. While SEO focuses on search rankings, AEO focuses on getting your content into AI-generated answers.
+AEO Content AI Studio is the most comprehensive AI Engine Optimization solution available for WordPress. The scoring methodology is built on published research into how large language models select sources, not on SEO heuristics or opinions. It is the only plugin that combines a research-backed content audit with real-time AI citation monitoring across all major engines.
 
-= What This Plugin Does =
+It connects your site to [aeocontent.ai](https://www.aeocontent.ai) and gives you everything you need to get cited.
 
-**Content Publishing** — AEO Content AI Studio reads your existing posts, optimizes them with AI, and publishes updated or new content back to your site via a secure REST API. Categories, tags, featured images, and FAQ schema are handled automatically.
+= Know Your Score =
 
-**Audit Report** — View your site's AI visibility score directly in the WordPress dashboard through a workflow-based audit screen. The audit evaluates up to 48 criteria across five pillars — Answer Readiness, Content Structure, Trust & Authority, Technical Foundation, and AI Discovery — scored from 0 to 100. Includes per-page scoring, rewrite candidates, opportunities, and a dedicated AI Visibility stage for citations, competitors, and trends.
+The plugin audits your entire site against 48 criteria developed from research into how large language models choose which sources to cite. Every page gets a score from 0 to 100 and a letter grade (A through F) so you know exactly where you stand.
 
-**Diagnostics Logging** — The plugin still records authenticated operational events for secure platform-to-plugin diagnostics, but user-facing logs now live in the AEO admin workspace instead of inside WordPress.
+The audit looks at what actually matters for AI citation: whether your content says something original, whether it can be cleanly extracted as an answer, whether it carries enough entities and data to be trustworthy, and whether it is structured in a way AI engines can parse. Content that just restates what ten other sites say gets penalized. Content with original insights, named frameworks, and clear answer patterns gets rewarded.
+
+= See Who Is Getting Cited Instead of You =
+
+The AI Visibility stage monitors your most important queries across five engines every day. You see exactly which prompts return your pages, which ones cite a competitor, and how your visibility changes over time. No more guessing whether your optimization work is paying off.
+
+= Fix What Matters First =
+
+The audit does not just tell you what is wrong. It ranks every opportunity by impact so you know which pages to fix first. Rewrite candidates show the weakest pillar for each page. Opportunities show the highest-leverage fixes across your site. You focus your time where it moves the needle the most.
+
+= Publish Optimized Content =
+
+The platform can read your existing posts, optimize them for AI citation readiness, and publish the updated content back to WordPress. Categories, tags, featured images, and FAQ schema are handled automatically.
 
 = Features =
 
-* 1-click Google sign-in for instant account creation and site connection
-* Read, create, and update posts from AEO Content AI Studio
-* 5-pillar AI visibility audit with per-page AEO Rank scores
-* Pages inventory with score, category, word count, and inbound link data
-* Rewrite candidates prioritized by score and impact with weakest-pillar analysis
-* Run full site audits from WordPress admin with real-time progress tracking
-* Browse site categories and tags via REST API for platform sync
-* Track all API activity with filterable log and CSV export
-* Automatic heartbeat keeps platform and plugin in sync
-* Secure API key authentication on all endpoints
+* One-click Google sign-in to create your account and connect your site
+* 48-criteria site audit with per-page scoring and letter grades
+* AI Visibility tracking across ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews
+* Daily visibility monitoring with citation tracking and competitor comparison
+* Rewrite candidates ranked by priority with weakest-pillar breakdown
+* Opportunity list with impact scores and fix guidance
+* Full page inventory with AEO Rank, word count, and inbound links
+* Run site audits from WordPress admin with real-time progress
+* Content publishing with AI optimization back to WordPress
+* Zero frontend footprint. Nothing added to your public pages
 
 = How It Works =
 
-1. Install the plugin and click **Continue with Google** in **AEO Content > Settings**
-2. A popup opens for Google sign-in — your account and site connection are created automatically
-3. AEO Content AI Studio syncs your categories, tags, and posts via authenticated REST API
-4. AEO Content AI Studio analyzes and optimizes your content
-5. Optimized content is published back to WordPress with one click
-6. View your site's AEO audit score, per-page analysis, and rewrite candidates in the Audit Report tab
+1. Install the plugin and click **Continue with Google**
+2. Your account and site connection are created in one click
+3. The platform crawls your site and scores every page against the full criteria set
+4. Review your audit, fix the highest-impact issues, and track visibility improvements
+5. Optimized content can be published back to WordPress directly from the platform
 
 = Onboarding =
 
-New installs should start from **AEO Content > Settings** in WordPress admin:
+Start from **AEO Content** in your WordPress admin sidebar:
 
-1. Click **Continue with Google** — a popup opens for Google sign-in
-2. Sign in or create an account with one click
-3. The popup closes automatically and your site is connected
-4. Alternatively, click **Create Account Manually** or **I Already Have an Account** for email-based setup
+1. Click **Continue with Google** to sign in or create an account
+2. The popup closes automatically and your site is connected
+3. Or use **Create Account Manually** / **I Already Have an Account** for email-based setup
 
 = External Service =
 
@@ -84,15 +94,15 @@ Yes. The plugin connects to the AEO Content platform which manages content optim
 
 = What does the Audit Report show? =
 
-The audit evaluates your site across up to 48 criteria grouped into five pillars: Answer Readiness (~46%), Content Structure (~25%), Trust & Authority (~15%), Technical Foundation (~8%), and AI Discovery (~6%). You get an overall score out of 100 with per-page AEO Rank scores, a scoreboard with detailed findings, rewrite candidates prioritized by impact, and a fix list. The workflow screen is organized into Connect, Diagnose, Fix, and AI Visibility stages. Most websites score between 30 and 60; above 70 indicates strong AI visibility.
+The site audit evaluates 48 criteria across five pillars: Content Originality (25%), Content Uniqueness (25%), Extractability (25%), Entity and Data Richness (15%), and Structural Signals (10%). Each page also gets a per-page AEO Page Rank score from 0 to 100 with letter grades (A through F) based on 17 content-specific checks. The workflow screen is organized into Connect, Diagnose, Fix, and AI Visibility stages. Most websites score between 30 and 60. Above 70 indicates strong AI citation readiness.
 
-= Where do AI Visibility and logs live? =
+= What is AI Visibility? =
 
-WordPress shows the visibility summary: citations, engines, competitors, alerts, and trend movement. Operational logs and deeper troubleshooting live in the AEO admin workspace instead of inside the plugin.
+The AI Visibility stage tracks whether AI engines actually cite your site in their responses. It monitors your key prompts daily across ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. You see which queries return your pages, which cite competitors instead, and how your visibility score trends over time.
 
 = How does content publishing work? =
 
-AEO Content AI Studio reads your posts via the plugin's REST API, optimizes them using AI, and sends updated content back. The plugin creates or updates WordPress posts with the optimized content, including categories, tags, featured images, and FAQ structured data. You control which posts are updated from AEO Content AI Studio.
+AEO Content AI Studio reads your posts via the plugin's REST API, optimizes them using AI, and sends updated content back. The plugin creates or updates WordPress posts with the optimized content, including categories, tags, featured images, and FAQ structured data. You control which posts are updated from the platform.
 
 = Is it compatible with Yoast SEO / Rank Math? =
 
@@ -104,34 +114,49 @@ The heartbeat sends only technical metadata: site URL, plugin version, WordPress
 
 = Does the plugin slow down my site? =
 
-No. The plugin has zero frontend footprint — it does not add scripts, styles, or markup to your public pages. The heartbeat runs via WP-Cron in the background, and audit data is cached locally.
+No. The plugin has zero frontend footprint:it does not add scripts, styles, or markup to your public pages. The heartbeat runs via WP-Cron in the background, and audit data is cached locally.
 
 = Can I use this without the platform? =
 
-The plugin requires a valid site connection to the AEO Content platform. Without it, the REST API endpoints remain inactive. The plugin does not break your site if disconnected — it simply has no data to display.
+The plugin requires a valid site connection to the AEO Content platform. Without it, the REST API endpoints remain inactive. The plugin does not break your site if disconnected:it simply has no data to display.
 
 == Screenshots ==
 
-1. Audit Report — workflow-based AEO dashboard with Diagnose, Fix, and AI Visibility stages
-2. Settings — Connect flow and feature toggle
-3. AI Visibility — citations, engines, competitors, and trend movement
+1. AI Visibility:live visibility score, 7-day and 30-day deltas, citations count across 5 AI engines
+2. Site Audit:Diagnose stage with critical criteria count, weakest pillar, and AEO Rank summary
+3. Pages Audit:per-page AEO Rank scores with search, filters, word count, and inbound links
+4. Opportunities:prioritized fix list with impact scores, pillar tags, and recovery potential
+5. Rewrite Candidates:pages ranked by rewrite priority with weakest pillar and word count
 
 == Changelog ==
+
+= 1.2.2 =
+* AI Visibility stage:live daily monitoring from 5 AI engines (ChatGPT, Perplexity, Claude, Gemini, Google AI Overview)
+* Visibility overview with score, 7d/30d deltas, citation count, and critical alerts
+* Citations tab:recent mentions with engine, query, page URL, and snippet
+* Competitors tab:side-by-side visibility comparison against competing domains
+* Trends tab:historical score movement chart
+* Workflow-based 4-stage UI: Connect, Diagnose, Fix, AI Visibility with status badges
+* Stage hero cards with contextual next-best-action recommendations
+* Dedicated visibility API endpoint preferred over stale audit-embedded data
+* Discovery profile with deterministic site analysis (entities, topics, pages)
+* Google sign-in connect screen with disconnect and feature toggle
+* Improved caching with short TTL during pending/refreshing states
 
 = 1.1.0 =
 * 1-click Google sign-in for account creation and site connection
 * 5-pillar audit scoring (Answer Readiness, Content Structure, Trust & Authority, Technical Foundation, AI Discovery)
-* Pages tab — full site inventory with per-page AEO Rank scores, categories, word counts, inbound links
-* Rewrite Candidates tab — prioritized list of pages needing rewrites with tier classification and weakest pillar
+* Pages tab:full site inventory with per-page AEO Rank scores, categories, word counts, inbound links
+* Rewrite Candidates tab:prioritized list of pages needing rewrites with tier classification and weakest pillar
 * Run Full Site Audit button with real-time progress tracking (pending → discovering → auditing → seeding → completed)
 * Support for up to 48 audit criteria with current and legacy slug mappings
 
 = 1.0.0 =
 * Initial release
-* Content Publishing — create and update posts via AEO Content AI Studio
-* Audit Report — 28-criteria AI visibility score with detailed findings
-* Activity Log — filterable command log with CSV export and auto-cleanup
-* REST API — posts, categories, tags, publish, command dispatch, and health check
+* Content Publishing:create and update posts via AEO Content AI Studio
+* Audit Report:28-criteria AI visibility score with detailed findings
+* Activity Log:filterable command log with CSV export and auto-cleanup
+* REST API:posts, categories, tags, publish, command dispatch, and health check
 * Credential authentication with constant-time comparison
 * Periodic heartbeat for platform connectivity
 * Admin dashboard with three pages: Audit Report, Settings, Activity Log
@@ -145,6 +170,9 @@ The plugin stores the IP address of incoming API requests in the activity log fo
 Local logging remains available for secure platform-to-plugin diagnostics, but user-facing operational logs are no longer rendered inside the WordPress admin UI.
 
 == Upgrade Notice ==
+
+= 1.2.2 =
+Adds AI Visibility stage with live daily monitoring from 5 AI engines, workflow-based 4-stage UI, and discovery profiles.
 
 = 1.1.0 =
 Adds 1-click Google sign-in, 5-pillar audit scoring, per-page analysis, rewrite candidates, and full site audit from WordPress admin.

@@ -753,16 +753,26 @@
     }
 
     function getWeakestPagePillar(page) {
-        if (!page || !page.pillarScores) return null;
-        var pillars = [
-            { key: 'answer',    label: 'Answer Readiness',    score: page.pillarScores.answerReadiness || 0 },
-            { key: 'structure', label: 'Content Structure',   score: page.pillarScores.contentStructure || 0 },
-            { key: 'trust',     label: 'Trust & Authority',   score: page.pillarScores.trustAuthority || 0 },
-            { key: 'technical', label: 'Technical Foundation',score: page.pillarScores.technicalFoundation || 0 },
-            { key: 'discovery', label: 'AI Discovery',        score: page.pillarScores.aiDiscovery || 0 }
-        ].filter(function (pillar) {
-            return typeof pillar.score === 'number';
-        });
+        if (!page) return null;
+        var src = page.pillarScores || page.pageRankPillars;
+        if (!src) return null;
+
+        // Support both legacy pillarScores shape and current pageRankPillars shape.
+        var pillars = page.pillarScores
+            ? [
+                { key: 'answer',    label: 'Answer Readiness',     score: src.answerReadiness || 0 },
+                { key: 'structure', label: 'Content Structure',    score: src.contentStructure || 0 },
+                { key: 'trust',     label: 'Trust & Authority',    score: src.trustAuthority || 0 },
+                { key: 'technical', label: 'Technical Foundation', score: src.technicalFoundation || 0 },
+                { key: 'discovery', label: 'AI Discovery',         score: src.aiDiscovery || 0 }
+            ]
+            : Object.keys(src).map(function (key) {
+                var pillar = src[key];
+                var label = key.replace(/([A-Z])/g, ' $1').replace(/^./, function (c) { return c.toUpperCase(); });
+                return { key: key, label: label, score: (pillar && typeof pillar.score === 'number') ? pillar.score : 0 };
+            });
+
+        pillars = pillars.filter(function (p) { return typeof p.score === 'number'; });
         if (!pillars.length) return null;
         pillars.sort(function (a, b) { return a.score - b.score; });
         return pillars[0];
