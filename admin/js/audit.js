@@ -1781,6 +1781,10 @@
         return document.getElementById('aeo-header-content-suggestions');
     }
 
+    function getHeaderTrialOfferMount() {
+        return document.getElementById('aeo-header-trial-offer');
+    }
+
     function buildHeaderRewritePriorityItems(audit) {
         var items = buildRewriteCandidates(audit).map(function (candidate) {
             return {
@@ -1805,6 +1809,22 @@
 
     function renderHeaderRewritePriorityCard(audit) {
         if (!audit || !audit.pages_reviewed || !audit.pages_reviewed.length) {
+            if (auditUiState.phase === 'error') {
+                return ''
+                    + '<div class="aeo-header-priority-empty">'
+                    +   '<strong>Rewrite priorities are not ready yet.</strong>'
+                    +   '<p>' + esc(auditUiState.message || 'The latest audit could not be loaded. Refresh the page or rerun the audit to try again.') + '</p>'
+                    + '</div>';
+            }
+
+            if (auditUiState.phase === 'pending') {
+                return ''
+                    + '<div class="aeo-header-priority-empty">'
+                    +   '<strong>The latest audit is still running…</strong>'
+                    +   '<p>' + esc(auditUiState.message || 'Rewrite priorities appear after the next completed audit snapshot lands.') + '</p>'
+                    + '</div>';
+            }
+
             return ''
                 + '<div class="aeo-header-priority-empty">'
                 +   '<strong>Loading rewrite priorities…</strong>'
@@ -2017,7 +2037,72 @@
         mount.innerHTML = renderHeaderContentSuggestionsCard();
     }
 
+    function renderHeaderTrialOfferCard() {
+        var data = getRewriteAvailabilityData() || {};
+        var available = typeof data.available === 'number' ? data.available : 0;
+        var limit = typeof data.limit === 'number' ? data.limit : 0;
+        var starterArticles = data.starterArticles > 0 ? data.starterArticles : 5;
+        var starterPrice = data.starterPriceCents > 0 ? formatMoneyCents(data.starterPriceCents) : '$1';
+        var planLabel = formatRewritePlanLabel(data.plan, data.planLabel);
+        var upgradeUrl = getRewriteUpgradeUrl();
+        var cardClass = 'aeo-header-trial-offer';
+        var kicker = '$1 Starter Trial';
+        var title = 'Checking article trial availability...';
+        var body = 'A one-time Stripe Checkout charge can unlock ' + starterArticles + ' AEO article credits for rewrites or new articles in Studio.';
+        var note = '';
+        var actionHtml = '';
+
+        if (rewriteAvailabilityState.phase === 'error') {
+            cardClass += ' is-error';
+            title = 'Starter trial is temporarily unavailable';
+            body = rewriteAvailabilityState.message || 'The plugin could not load article trial availability right now.';
+            note = 'You can still open Studio to manage billing directly.';
+            if (upgradeUrl) {
+                actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Manage in Studio</a>';
+            }
+        } else if (available > 0) {
+            cardClass += ' is-active';
+            kicker = planLabel || 'AEO Article Credits';
+            title = available + ' of ' + (limit > 0 ? limit : starterArticles) + ' article credits remaining';
+            body = 'Use these credits on full AEO rewrites or brand-new article runs in Studio.';
+            note = 'The ' + (planLabel || 'active plan') + ' balance is attached to this connected account.';
+            if (upgradeUrl) {
+                actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Manage in Studio</a>';
+            }
+        } else if (data.checkoutEnabled && data.starterEligible) {
+            title = 'Upgrade for ' + starterPrice + ' and unlock ' + starterArticles + ' AEO articles';
+            body = 'Use them on full rewrites or new article creation in Studio. Stripe Checkout securely collects card details for a one-time ' + starterPrice + ' charge.';
+            note = 'This starter trial is designed as a fast path out of the free plan.';
+            actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening Stripe checkout...' : ('Upgrade for ' + starterPrice)) + '</button>';
+        } else {
+            cardClass += ' is-exhausted';
+            kicker = planLabel || 'Starter Trial';
+            title = planLabel === '$1 Trial Plan' ? 'Your $1 trial is exhausted' : 'Starter trial unavailable';
+            body = 'Upgrade in Studio to keep generating AEO rewrites and new articles after the trial credits are spent.';
+            note = 'Billing runs through Stripe Checkout as a one-time payment for the starter trial.';
+            if (upgradeUrl) {
+                actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Upgrade in Studio</a>';
+            }
+        }
+
+        return ''
+            + '<div id="aeo-header-trial-offer" class="' + esc(cardClass) + '">'
+            +   '<span class="aeo-header-trial-kicker">' + esc(kicker) + '</span>'
+            +   '<h2 class="aeo-header-trial-title">' + esc(title) + '</h2>'
+            +   '<p class="aeo-header-trial-body">' + esc(body) + '</p>'
+            +   (note ? '<p class="aeo-header-trial-note"><strong>Billing:</strong> ' + esc(note) + '</p>' : '')
+            +   (actionHtml ? '<div class="aeo-header-trial-actions">' + actionHtml + '</div>' : '')
+            + '</div>';
+    }
+
+    function renderHeaderTrialOffer() {
+        var mount = getHeaderTrialOfferMount();
+        if (!mount) return;
+        mount.outerHTML = renderHeaderTrialOfferCard();
+    }
+
     function refreshHeaderInsights() {
+        renderHeaderTrialOffer();
         renderHeaderRewritePriority(currentAuditData);
         renderHeaderContentSuggestions();
     }
@@ -2034,6 +2119,10 @@
     var currentAuditData = null;
     var currentDiscoveryPayload = null;
     var currentVisibilityPayload = null;
+    var auditUiState = {
+        phase: 'idle',
+        message: ''
+    };
     var visibilityUiState = {
         phase: 'idle',
         message: ''
@@ -2205,14 +2294,14 @@
                 actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Manage account</a>';
             }
         } else if (available > 0) {
-            body = (planLabel ? planLabel + ' active. ' : '') + available + ' rewrite' + (available === 1 ? '' : 's') + ' remaining';
+            body = (planLabel ? planLabel + ' active. ' : '') + available + ' AEO article credit' + (available === 1 ? '' : 's') + ' remaining';
             if (limit > 0) body += ' out of ' + limit + '.';
             else body += '.';
         } else if (data.checkoutEnabled && data.starterEligible) {
-            body = 'Unlock ' + starterArticles + ' full-article rewrites for ' + starterPrice + '.';
-            actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening checkout...' : ('Unlock ' + starterArticles + ' rewrites for ' + starterPrice)) + '</button>';
+            body = 'Unlock ' + starterArticles + ' AEO article credits for ' + starterPrice + '. Use them on rewrites or new articles in Studio.';
+            actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening checkout...' : ('Upgrade for ' + starterPrice)) + '</button>';
         } else {
-            body = (planLabel ? planLabel + '. ' : '') + 'No rewrite tokens remain on this account.';
+            body = (planLabel ? planLabel + '. ' : '') + 'No AEO article credits remain on this account.';
             if (upgradeUrl) {
                 actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Upgrade in Studio</a>';
             }
@@ -4812,6 +4901,9 @@
 
     function loadAudit(refresh) {
         if (!currentAuditData) {
+            auditUiState.phase = refresh ? 'refreshing' : 'loading';
+            auditUiState.message = '';
+            refreshHeaderInsights();
             setAuditTabsLoading();
             setSiteAuditPending();
         }
@@ -4826,6 +4918,8 @@
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (res.success) {
+                    auditUiState.phase = 'ready';
+                    auditUiState.message = '';
                     stopAuditRetry();
                     renderAudit(res.data);
                 } else {
@@ -4846,10 +4940,14 @@
                         } else {
                             showError(msg + ' Showing the last completed audit snapshot.');
                         }
+                        auditUiState.phase = 'ready';
+                        auditUiState.message = '';
                         refreshWorkflowChrome();
                         return;
                     }
 
+                    auditUiState.phase = code === 'aeocas_no_audit' ? 'pending' : 'error';
+                    auditUiState.message = msg;
                     AUDIT_TAB_IDS.forEach(function (id) {
                         var el = document.getElementById('tab-' + id);
                         if (!el) return;
@@ -4860,25 +4958,32 @@
                         }
                     });
                     startAuditRetry();
+                    refreshHeaderInsights();
                     refreshWorkflowChrome();
                 }
             })
             .catch(function (err) {
+                var msg = 'Network error: ' + (err.message || 'Please try again.');
                 if (currentAuditData) {
-                    showError('Network error: ' + (err.message || 'Please try again.') + ' Showing the last completed audit snapshot.');
+                    showError(msg + ' Showing the last completed audit snapshot.');
+                    auditUiState.phase = 'ready';
+                    auditUiState.message = '';
                     refreshWorkflowChrome();
                     return;
                 }
+                auditUiState.phase = 'error';
+                auditUiState.message = msg;
                 AUDIT_TAB_IDS.forEach(function (id) {
                     var el = document.getElementById('tab-' + id);
                     if (!el) return;
                     if (id === 'site-audit') {
                         el.innerHTML = renderSiteAuditPending();
                     } else {
-                        el.innerHTML = renderAuditEmpty('Network error: ' + (err.message || 'Please try again.'));
+                        el.innerHTML = renderAuditEmpty(msg);
                     }
                 });
                 startAuditRetry();
+                refreshHeaderInsights();
                 refreshWorkflowChrome();
             });
     }
@@ -4931,6 +5036,7 @@
         if (!refresh && !tab.innerHTML.trim()) {
             discoveryUiState.phase = 'loading';
             tab.innerHTML = renderDiscoveryLoading();
+            refreshHeaderInsights();
         }
 
         var data = new FormData();
@@ -5008,9 +5114,19 @@
                     refreshWorkflowChrome();
                 }
             })
-            .catch(function () {
-                // Network error — keep polling silently; the ticker keeps ticking
-                // and "Last checked" will drift, making the stall visible.
+            .catch(function (err) {
+                if (!currentDiscoveryPayload) {
+                    var msg = 'Network error: ' + ((err && err.message) || 'Please try again.');
+                    stopDiscoveryPolling();
+                    stopDiscoveryTicker();
+                    discoveryUiState.phase = 'error';
+                    discoveryUiState.status = 'failed';
+                    discoveryUiState.currentStage = msg;
+                    currentDiscoveryPayload = { status: 'failed', current_stage: msg };
+                    tab.innerHTML = '<div class="notice notice-error" style="padding:12px 16px;"><p>' + esc(msg) + '</p></div>';
+                }
+                refreshHeaderInsights();
+                refreshWorkflowChrome();
             });
     }
 
