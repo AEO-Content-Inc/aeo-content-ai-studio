@@ -9,11 +9,13 @@ All notable changes to this project will be documented in this file.
 - Added account, sign-in, and disconnect actions to the WordPress settings screen
 - Switched the wp-admin sidebar menu icon to a dedicated transparent SVG mark that sits correctly on the dark admin background
 - Visibility now prefers the dedicated `/api/v1/visibility/[slug]` snapshot over stale audit-embedded visibility, preventing empty AI Visibility screens when Studio already has fresh data
+- README and WordPress.org readme now describe the AI Visibility stage, admin-log handoff, and dedicated visibility endpoint behavior
 
 ### Added
 - PHPUnit scaffold and helper tests for onboarding URL generation
 - PHPUnit coverage for the admin menu icon data URI and transparent SVG contract
 - Visibility API regression tests covering dedicated-endpoint preference and audit fallback behavior
+- Additional visibility tests for cached snapshots and unexpected API error handling
 
 ## [1.0.0] - 2026-03-13
 

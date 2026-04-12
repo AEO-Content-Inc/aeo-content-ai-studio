@@ -16,6 +16,28 @@ final class AEOCASAuditApiTest extends TestCase {
         $GLOBALS['aeocas_test_remote_get'] = null;
     }
 
+    public function test_get_visibility_returns_cached_visibility_snapshot_without_remote_call(): void {
+        $GLOBALS['aeocas_test_transients']['aeocas_visibility_helpsquad-com'] = array(
+            'status'           => 'ready',
+            'visibility_score' => 77,
+            'citations_count'  => 14,
+            'engines'          => array(
+                array(
+                    'name'          => 'ChatGPT',
+                    'count'         => 14,
+                    'visibility_pct'=> 70,
+                ),
+            ),
+        );
+
+        $visibility = AEOCAS_Audit_Api::get_visibility();
+
+        $this->assertIsArray( $visibility );
+        $this->assertSame( 77, $visibility['visibility_score'] );
+        $this->assertSame( 14, $visibility['citations_count'] );
+        $this->assertSame( array(), $GLOBALS['aeocas_test_remote_get_calls'] );
+    }
+
     public function test_get_visibility_prefers_dedicated_visibility_endpoint_over_cached_audit_visibility(): void {
         $GLOBALS['aeocas_test_transients']['aeocas_audit_helpsquad-com'] = array(
             'visibility' => array(
@@ -145,5 +167,25 @@ final class AEOCASAuditApiTest extends TestCase {
             '/api/v1/audits/helpsquad-com?include=all',
             $GLOBALS['aeocas_test_remote_get_calls'][1]['url']
         );
+    }
+
+    public function test_get_visibility_returns_api_error_for_unexpected_visibility_response(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 500 ),
+                'body'     => wp_json_encode( array(
+                    'error' => array(
+                        'message' => 'Visibility worker failed.',
+                    ),
+                ) ),
+            );
+        };
+
+        $visibility = AEOCAS_Audit_Api::get_visibility( true );
+
+        $this->assertInstanceOf( WP_Error::class, $visibility );
+        $this->assertSame( 'aeocas_api_error', $visibility->get_error_code() );
+        $this->assertSame( 'Visibility worker failed.', $visibility->get_error_message() );
+        $this->assertCount( 1, $GLOBALS['aeocas_test_remote_get_calls'] );
     }
 }

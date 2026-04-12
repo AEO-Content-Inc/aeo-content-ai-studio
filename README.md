@@ -16,11 +16,12 @@ AI Engine Optimization (AEO) is the practice of structuring web content so AI an
 |---------|-------------|
 | **Google Connect** | 1-click account creation and site connection via Google sign-in popup |
 | **Content Publishing** | Read, create, and update WordPress posts from AEO Content AI Studio via REST API |
-| **Audit Report** | 5-pillar AI visibility score with per-page analysis, scoreboard, and opportunities |
+| **Audit Report** | Workflow-based audit UI with Connect, Diagnose, Fix, and AI Visibility stages |
 | **Pages** | Full site page inventory with AEO Rank scores, categories, word counts, and inbound links |
 | **Rewrite Candidates** | Prioritized list of pages needing content rewrites with tier classification and weakest pillar |
+| **AI Visibility** | Dedicated visibility stage for citations, engines, competitors, and trend movement |
 | **Full Site Audit** | Trigger and monitor a complete site audit with real-time progress from WordPress admin |
-| **Activity Log** | Track every API interaction with filterable log, CSV export, and 90-day auto-cleanup |
+| **Admin Workspace Handoff** | Operational logs and deeper troubleshooting live in AEO admin, not inside WordPress |
 | **Categories & Tags API** | Sync taxonomy data to AEO Content AI Studio for accurate content organization |
 | **Heartbeat** | Periodic connectivity check keeps platform and plugin in sync |
 | **Credential Auth** | Platform and plugin requests are secured with API keys and constant-time key comparison |
@@ -41,7 +42,10 @@ AEO Content AI Studio                         WordPress Plugin
     |  4. GET /audits/{slug} (audit data)           |
     |<----------------------------------------------|
     |                                               |
-    |  5. Heartbeat (periodic sync)                 |
+    |  5. GET /visibility/{slug} (AI visibility)    |
+    |<----------------------------------------------|
+    |                                               |
+    |  6. Heartbeat (periodic sync)                 |
     |<----------------------------------------------|
 ```
 
@@ -50,7 +54,17 @@ AEO Content AI Studio                         WordPress Plugin
 3. AEO Content AI Studio syncs your categories, tags, and posts via authenticated REST API
 4. AEO Content AI Studio analyzes and optimizes your content
 5. Optimized content is published back to WordPress
-6. View your site's AEO audit score, per-page analysis, and rewrite candidates in the **Audit Report** tab
+6. View your site's AEO audit score, opportunities, and AI visibility in the workflow-based **Audit Report** screen
+
+## AI Visibility Data
+
+The plugin's **AI Visibility** stage reads from the dedicated visibility endpoint, not from the audit payload when fresher visibility data is available.
+
+- Primary source: `GET /api/v1/visibility/{site-slug}?include=timeline`
+- Fallback source: the latest audit payload only when the dedicated visibility report is not found yet
+- Studio remains the deep-dive surface for operational logs and sync troubleshooting
+
+This prevents the WordPress plugin from showing an empty or stale visibility stage when Studio already has a newer snapshot.
 
 ## Installation
 
@@ -93,7 +107,7 @@ All authenticated endpoints require the `x-api-key` header.
 | POST | `/wp-json/aeo/v1/command` | Yes | Command dispatch |
 | GET | `/wp-json/aeo/v1/categories` | Yes | All categories with hierarchy |
 | GET | `/wp-json/aeo/v1/tags` | Yes | All tags |
-| GET | `/wp-json/aeo/v1/logs` | Yes | Activity log with filters |
+| GET | `/wp-json/aeo/v1/logs` | Yes | Diagnostics log for AEO admin and secure support workflows |
 
 ## Development
 
@@ -124,7 +138,15 @@ composer install
 composer run test
 ```
 
-The current unit tests cover the onboarding URL helpers in [`AEOCAS_Settings`](./includes/class-aeo-settings.php) plus the admin-menu icon contract, so regressions in the dark-sidebar icon do not rely on visual QA alone. They run against the WordPress stubs in [`tests/bootstrap.php`](./tests/bootstrap.php), so no WP install is needed.
+The current unit tests cover:
+
+- onboarding URL helpers in [`AEOCAS_Settings`](./includes/class-aeo-settings.php)
+- the admin-menu icon contract for the dark WordPress sidebar
+- visibility API behavior in [`AEOCAS_Audit_Api`](./includes/class-aeo-audit-api.php), including:
+  - preferring the dedicated visibility endpoint over stale audit-embedded visibility
+  - falling back to audit visibility only when the dedicated report returns `404`
+
+They run against the WordPress stubs in [`tests/bootstrap.php`](./tests/bootstrap.php), so no WP install is needed.
 
 #### End-to-end testing in a local WordPress (Docker)
 
