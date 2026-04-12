@@ -2027,6 +2027,35 @@
         return (aeocasAudit && aeocasAudit.adminPluginUrl) ? aeocasAudit.adminPluginUrl : '';
     }
 
+    function getVisibilitySnapshotTimestamp(snapshot) {
+        if (!snapshot || !snapshot.lastSyncedAt) return 0;
+        var value = new Date(snapshot.lastSyncedAt).getTime();
+        return isNaN(value) ? 0 : value;
+    }
+
+    function getVisibilitySnapshotRichness(snapshot) {
+        if (!snapshot) return 0;
+        return (snapshot.citationsCount || 0)
+            + ((snapshot.alerts && snapshot.alerts.length) || 0)
+            + ((snapshot.engines && snapshot.engines.length) || 0)
+            + ((snapshot.competitors && snapshot.competitors.length) || 0)
+            + ((snapshot.trendPoints && snapshot.trendPoints.length) || 0);
+    }
+
+    function shouldUseVisibilitySnapshot(candidate, current) {
+        if (!candidate) return false;
+        if (!current) return !!candidate.available;
+        if (!!candidate.available !== !!current.available) return !!candidate.available;
+
+        var candidateTs = getVisibilitySnapshotTimestamp(candidate);
+        var currentTs = getVisibilitySnapshotTimestamp(current);
+        if (candidateTs && currentTs) return candidateTs >= currentTs;
+        if (candidateTs && !currentTs) return true;
+        if (!candidateTs && currentTs) return false;
+
+        return getVisibilitySnapshotRichness(candidate) >= getVisibilitySnapshotRichness(current);
+    }
+
     function buildVisibilitySnapshot(payload) {
         if (payload && typeof payload === 'object' && payload.available !== undefined && Array.isArray(payload.alerts) && Array.isArray(payload.trendPoints)) {
             return payload;
@@ -3510,8 +3539,8 @@
             connectAudit.innerHTML = '<div class="aeo-connect-audit-header"><h2>Your Latest Audit</h2></div>' + renderOverview(audit);
             connectAudit.style.display = '';
         }
-        var embeddedVisibility = extractVisibilityPayload(audit);
-        if (embeddedVisibility && typeof embeddedVisibility === 'object') {
+        var embeddedVisibility = buildVisibilitySnapshot(extractVisibilityPayload(audit));
+        if (shouldUseVisibilitySnapshot(embeddedVisibility, currentVisibilityPayload)) {
             visibilityUiState.phase = 'ready';
             visibilityUiState.message = '';
             renderVisibility(embeddedVisibility);

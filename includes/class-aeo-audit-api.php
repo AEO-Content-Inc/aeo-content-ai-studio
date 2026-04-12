@@ -139,6 +139,25 @@ class AEOCAS_Audit_Api {
     }
 
     /**
+     * Normalize any visibility-bearing payload into the plugin snapshot shape.
+     *
+     * The dedicated visibility endpoint is the source of truth. Audit payloads
+     * may still embed a partial or stale `visibility` block, so this helper is
+     * used only as a fallback after the dedicated request has been attempted.
+     *
+     * @param mixed $payload Raw payload or embedded visibility block.
+     * @return array|null
+     */
+    private static function resolve_visibility_payload( $payload ) {
+        $visibility = self::extract_visibility_payload( $payload );
+        if ( ! $visibility ) {
+            $visibility = self::normalize_visibility_payload( $payload );
+        }
+
+        return ( ! empty( $visibility ) && is_array( $visibility ) ) ? $visibility : null;
+    }
+
+    /**
      * Convert internal engine keys into user-facing labels.
      *
      * @param string $engine Engine key.
@@ -634,13 +653,6 @@ class AEOCAS_Audit_Api {
             }
         }
 
-        $cached_audit = get_transient( self::TRANSIENT_PREFIX . $slug );
-        $cached_visibility = self::extract_visibility_payload( $cached_audit );
-        if ( $cached_visibility ) {
-            set_transient( $transient_key, $cached_visibility, self::VISIBILITY_CACHE_TTL );
-            return $cached_visibility;
-        }
-
         $url = trailingslashit( AEOCAS_PLATFORM_URL ) . 'api/v1/visibility/' . $slug . '?include=timeline';
 
         $response = wp_remote_get( $url, array(
@@ -665,9 +677,14 @@ class AEOCAS_Audit_Api {
         if ( 404 === $status ) {
             $audit = self::get_audit( $force_refresh );
             if ( ! is_wp_error( $audit ) ) {
-                $audit_visibility = self::extract_visibility_payload( $audit );
+                $audit_visibility = self::resolve_visibility_payload( $audit );
                 if ( $audit_visibility ) {
-                    set_transient( $transient_key, $audit_visibility, self::VISIBILITY_CACHE_TTL );
+                    $audit_visibility_status = isset( $audit_visibility['status'] ) ? sanitize_key( $audit_visibility['status'] ) : '';
+                    $audit_ttl               = in_array( $audit_visibility_status, array( 'pending', 'refreshing', 'building', 'queued' ), true )
+                        ? self::SHORT_CACHE_TTL
+                        : self::VISIBILITY_CACHE_TTL;
+
+                    set_transient( $transient_key, $audit_visibility, $audit_ttl );
                     return $audit_visibility;
                 }
             }
@@ -679,13 +696,9 @@ class AEOCAS_Audit_Api {
             return new WP_Error( 'aeocas_api_error', $message );
         }
 
-        $payload    = $body;
-        $visibility = self::extract_visibility_payload( $payload );
-        if ( ! $visibility ) {
-            $visibility = self::normalize_visibility_payload( $payload );
-        }
+        $visibility = self::resolve_visibility_payload( $body );
 
-        if ( empty( $visibility ) || ! is_array( $visibility ) ) {
+        if ( ! $visibility ) {
             return new WP_Error( 'aeocas_no_visibility', __( 'AI visibility data is not available yet. Open the admin workspace for the latest sync status.', 'aeo-content-ai-studio' ) );
         }
 
