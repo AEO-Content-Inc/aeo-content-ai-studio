@@ -51,8 +51,16 @@ class AEOCAS_Settings {
      * @return string
      */
     private static function get_menu_icon_data_uri() {
-        $svg = <<<'SVG'
-<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 32 32" fill="none">
+        $svg_path = AEOCAS_PLUGIN_DIR . 'admin/images/icon.svg';
+        $svg      = '';
+
+        if ( file_exists( $svg_path ) ) {
+            $svg = file_get_contents( $svg_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+        }
+
+        if ( ! is_string( $svg ) || '' === trim( $svg ) ) {
+            $svg = <<<'SVG'
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
   <rect width="32" height="32" rx="8" fill="#121313"/>
   <circle cx="16" cy="15.93" r="1.8" fill="#A03EE6"/>
   <circle cx="16" cy="15.93" r="4.49" stroke="#D9D9D9" stroke-width="1" opacity="0.4"/>
@@ -65,6 +73,7 @@ class AEOCAS_Settings {
   <circle cx="12.00" cy="13.14" r="1.5" fill="#3EE6B5" stroke="#121313" stroke-width="0.5"/>
 </svg>
 SVG;
+        }
 
         return 'data:image/svg+xml;base64,' . base64_encode( $svg );
     }

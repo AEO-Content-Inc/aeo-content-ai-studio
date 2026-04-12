@@ -10,6 +10,7 @@
     var loading  = document.getElementById('aeo-audit-loading');
     var errorBox = document.getElementById('aeo-audit-error');
     var content  = document.getElementById('aeo-audit-content');
+    var isConnected = wrap.getAttribute('data-connected') === '1';
     var STAGE_CONFIGS = [
         { id: 'connect',   order: 1, title: 'Connect',   label: 'Connect and review discovery', tabs: ['connect', 'discovery'], defaultTab: 'connect' },
         { id: 'diagnose',  order: 2, title: 'Diagnose',  label: 'Find critical issues',         tabs: ['scoreboard', 'site-audit'], defaultTab: 'scoreboard' },
@@ -4073,6 +4074,11 @@
     if (refreshBtn) {
         refreshBtn.addEventListener('click', function (e) {
             e.preventDefault();
+            if (!isConnected) {
+                showError('Connect your site first to load audit, discovery, and visibility data.');
+                activateTab('connect');
+                return;
+            }
             loadAudit(true);
             loadDiscovery(true);
             loadVisibility(true);
@@ -4192,6 +4198,12 @@
     }
 
     function triggerReaudit() {
+        if (!isConnected) {
+            showError('Connect your site first before running a re-audit.');
+            activateTab('connect');
+            return;
+        }
+
         reauditBtn.disabled = true;
         reauditBtn.textContent = 'Running...';
         lastPolledStatus = null;
@@ -4349,6 +4361,13 @@
             stopDiscoveryTicker();
             stopAuditRetry();
             if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            // If we're already on the Connect tab, don't hard-refresh the page
+            // back onto itself. Just surface the reconnect state in-place.
+            if (getCurrentTabForStage('connect') === 'connect' && activeStageId === 'connect') {
+                showError('Connect your site to continue.');
+                activateTab('connect');
+                return true;
+            }
             // Redirect to the Connect tab which will show the reconnect UI
             // (the PHP already cleared the options server-side).
             window.location.href = window.location.pathname + '?page=aeocas-audit-report&tab=connect';
@@ -4390,10 +4409,17 @@
                 requested = params.get('tab') || '';
             } catch (e) { /* ignore */ }
         }
+        if (!isConnected) {
+            requested = 'connect';
+        }
         activateTab(normalizeRequestedView(requested), true);
     })();
 
     refreshWorkflowChrome();
+    if (!isConnected) {
+        updateUrlTab('connect');
+        return;
+    }
     loadDiscovery(false);
     loadAudit(false);
     loadVisibility(false);
