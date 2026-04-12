@@ -795,26 +795,10 @@
     }
 
     function renderSiteAuditPending() {
-        // Mirrors the Discovery pending card but worded for the full audit.
-        var st = discoveryUiState;
-        var status = st.status || 'pending';
-        var stage  = st.currentStage || STAGE_LABELS[status] || 'Waiting for the audit worker...';
-        var pct    = STAGE_PROGRESS[status] || 5;
-        return ''
-            + '<div class="aeo-discovery-pending aeo-site-audit-pending">'
-            +   '<h2>Pages audit is running…</h2>'
-            +   '<p class="description">We\'re crawling every page on your site and scoring it against the full AEO criteria set. This page will update automatically as soon as results are in.</p>'
-            +   '<div class="aeo-reaudit-track">'
-            +     '<div class="aeo-reaudit-fill aeo-disc-fill" style="width:' + pct + '%;"></div>'
-            +   '</div>'
-            +   '<p class="aeo-disc-stage-row">'
-            +     '<span class="spinner is-active" style="float:none;margin:0 6px 0 0;"></span>'
-            +     '<span>' + esc(stage) + '</span>'
-            +   '</p>'
-            +   '<p style="text-align:center;margin-top:14px;">'
-            +     '<a href="#" class="button aeo-trigger-reaudit">Re-run Site Audit</a>'
-            +   '</p>'
-            + '</div>';
+        return renderAuditWaiting(
+            'Pages audit is running…',
+            'We\'re crawling every page on your site and scoring it against the full AEO criteria set. This page will update automatically as soon as results are in.'
+        );
     }
 
     /* ── Render Rewrite Candidates Tab ────────────────── */
@@ -822,10 +806,10 @@
     function renderRewriteCandidates(audit) {
         var pages = audit.pages_reviewed || [];
         if (!pages.length) {
-            return '<div class="aeo-log-empty">' +
-                '<p style="margin-bottom:12px;">No page data available yet. Run a full site audit to see rewrite candidates.</p>' +
-                '<button type="button" class="button button-primary button-hero aeo-trigger-reaudit">Run Full Site Audit</button>' +
-                '</div>';
+            return renderAuditWaiting(
+                'Rewrite candidates loading…',
+                'Pages scoring below 70 will appear here as rewrite candidates once the audit completes.'
+            );
         }
 
         // Build link graph lookup
@@ -965,12 +949,37 @@
         return '<div class="aeo-tab-loading"><span class="spinner is-active" style="float:none;margin:0 8px 0 0;"></span>Loading audit data...</div>';
     }
 
-    function renderAuditEmpty(message) {
+    function renderAuditWaiting(title, description) {
+        // Shared waiting card used by all audit-driven tabs when no data
+        // is available yet. Shows the same rotating verb + stage + progress
+        // bar as the Discovery pending card, driven by shared discoveryUiState.
+        var st   = discoveryUiState;
+        var status = st.status || 'pending';
+        var stage  = st.currentStage || STAGE_LABELS[status] || 'Waiting for the audit worker...';
+        var pct    = STAGE_PROGRESS[status] || 5;
+        var verb   = DISCOVERY_VERBS[(st.verbIdx || 0) % DISCOVERY_VERBS.length];
+
         return ''
-            + '<div class="aeo-tab-empty">'
-            +   '<p>' + esc(message || 'No audit data yet.') + '</p>'
-            +   '<p><a href="#" class="button button-primary aeo-trigger-reaudit">Run Full Site Audit</a></p>'
+            + '<div class="aeo-discovery-pending">'
+            +   '<h2>' + esc(title || 'Audit is running…') + '</h2>'
+            +   '<p class="description">' + esc(description || 'The platform is analyzing your site. Results will appear here automatically once the audit completes.') + '</p>'
+            +   '<p class="aeo-disc-verb-row"><span class="aeo-disc-verb-static">' + esc(verb) + '…</span></p>'
+            +   '<div class="aeo-reaudit-track"><div class="aeo-reaudit-fill aeo-disc-fill" style="width:' + pct + '%;"></div></div>'
+            +   '<p class="aeo-disc-stage-row">'
+            +     '<span class="spinner is-active" style="float:none;margin:0 6px 0 0;"></span>'
+            +     '<span>' + esc(stage) + '</span>'
+            +   '</p>'
+            +   '<p style="text-align:center;margin-top:14px;">'
+            +     '<a href="#" class="button aeo-trigger-reaudit">Run Full Site Audit</a>'
+            +   '</p>'
             + '</div>';
+    }
+
+    function renderAuditEmpty(message) {
+        return renderAuditWaiting(
+            'Waiting for audit data…',
+            message || 'No audit data yet. Click below to start a full site audit.'
+        );
     }
 
     function setAuditTabsLoading() {
@@ -1217,8 +1226,9 @@
 
         if (!verbEl && !stageEl && !elapsedEl && !lastPollEl) return; // DOM gone
 
+        var currentVerb = DISCOVERY_VERBS[st.verbIdx % DISCOVERY_VERBS.length] + '…';
         if (verbEl) {
-            verbEl.textContent = DISCOVERY_VERBS[st.verbIdx % DISCOVERY_VERBS.length] + '…';
+            verbEl.textContent = currentVerb;
         }
         if (stageEl) {
             var label = st.currentStage || STAGE_LABELS[st.status] || 'Waiting for the audit worker to pick up your job...';
@@ -1231,10 +1241,17 @@
             var secs = Math.max(0, Math.round((Date.now() - st.lastPollAt) / 1000));
             lastPollEl.textContent = secs === 0 ? 'just now' : (secs + 's ago');
         }
-        if (fillEl) {
-            var pct = STAGE_PROGRESS[st.status] || 5;
-            fillEl.style.width = pct + '%';
-        }
+
+        // Also update the verb + progress bar on ALL audit waiting cards
+        // (Pages Audit, Rewrite, Scoreboard, Opportunities) which use static
+        // verb elements since they share the same discoveryUiState.
+        var pct = STAGE_PROGRESS[st.status] || 5;
+        wrap.querySelectorAll('.aeo-disc-verb-static').forEach(function (el) {
+            el.textContent = currentVerb;
+        });
+        wrap.querySelectorAll('.aeo-disc-fill').forEach(function (el) {
+            el.style.width = pct + '%';
+        });
     }
 
     function startDiscoveryTicker() {
@@ -1337,6 +1354,10 @@
             + renderCompetitorsCard(d)
             + renderQueriesCard(d);
 
+        var synthesizedHint = d._synthesized
+            ? '<div class="aeo-discovery-synthesized-hint">These findings were reconstructed from your latest audit. Click <strong>Re-run Discovery</strong> above to extract a richer profile with full topic analysis, voice signals, and competitor data.</div>'
+            : '';
+
         return ''
             + '<div class="aeo-discovery-header">'
             +   '<div class="aeo-discovery-header-row">'
@@ -1345,6 +1366,7 @@
             +   '</div>'
             +   '<p class="description">Everything the platform extracted about your site during the deterministic Discovery stage.</p>'
             +   meta
+            +   synthesizedHint
             + '</div>'
             + '<div class="aeo-discovery-grid">' + cards + '</div>';
     }

@@ -218,63 +218,20 @@ class AEOCAS_Audit_Api {
      *
      * @return array|WP_Error Response data or error.
      */
-    public static function trigger_reaudit() {
-        $api_key = get_option( 'aeocas_site_token', '' );
-        if ( empty( $api_key ) ) {
-            return new WP_Error( 'aeocas_no_key', __( 'Site connection is not configured.', 'aeo-content-ai-studio' ) );
-        }
-
-        // Use /plugin/onboard instead of /audits/{slug}/reaudit because
-        // onboard is idempotent, fires Modal directly, and works even when
-        // no published audit exists yet (fresh site or after a delete).
-        $url = trailingslashit( AEOCAS_PLATFORM_URL ) . 'api/v1/plugin/onboard';
-
-        $response = wp_remote_post( $url, array(
-            'headers' => array(
-                'Authorization' => 'Bearer ' . $api_key,
-                'Content-Type'  => 'application/json',
-                'Accept'        => 'application/json',
-            ),
-            'body'    => wp_json_encode( array( 'site_url' => get_home_url() ) ),
-            'timeout' => 20,
-        ) );
-
-        if ( is_wp_error( $response ) ) {
-            return new WP_Error( 'aeocas_api_error', $response->get_error_message() );
-        }
-
-        $status = wp_remote_retrieve_response_code( $response );
-        $body   = json_decode( wp_remote_retrieve_body( $response ), true );
-
-        if ( $status >= 400 ) {
-            $message = isset( $body['error']['message'] ) ? $body['error']['message'] : ( isset( $body['message'] ) ? $body['message'] : __( 'Failed to trigger re-audit.', 'aeo-content-ai-studio' ) );
-            return new WP_Error( 'aeocas_reaudit_error', $message );
-        }
-
-        // Clear cached audit so next load fetches fresh data.
-        self::clear_cache();
-
-        AEOCAS_Activity_Log::log( 'reaudit', 'success', array( 'message' => 'Re-audit triggered via onboard endpoint.', 'response' => $body['data'] ?? null ) );
-
-        return $body;
-    }
-
     /**
-     * Trigger the onboarding audit for a freshly connected site.
+     * Dispatch a Discovery + Full Site Audit via /api/v1/plugin/onboard.
      *
-     * Posts to /api/v1/plugin/onboard which enqueues Discovery + Full Site Audit
-     * for the calling site. Idempotent on the platform side — safe to call more
-     * than once; subsequent calls return the current job state instead of
-     * queuing a duplicate.
+     * Used by both the re-audit button (blocking, waits for response) and the
+     * Google-connect onboarding flow (fire-and-forget). The endpoint is
+     * idempotent, fires Modal directly, and works whether or not a published
+     * audit already exists.
      *
-     * Fire-and-forget: the call is made with blocking=false and a short timeout
-     * so the user's "Connect" action returns instantly, even if the platform is
-     * slow. The Discovery tab polls the status endpoint independently, so we
-     * don't need to wait for a synchronous response.
-     *
-     * @return true|WP_Error True on dispatch success, WP_Error on local failure.
+     * @param bool $blocking When true (default), waits for the platform response
+     *                       and returns it. When false, fires and returns true
+     *                       immediately without waiting for the response.
+     * @return array|true|WP_Error Platform response (blocking), true (non-blocking), or WP_Error.
      */
-    public static function trigger_onboarding() {
+    public static function dispatch_audit( $blocking = true ) {
         $api_key = get_option( 'aeocas_site_token', '' );
         if ( empty( $api_key ) ) {
             return new WP_Error( 'aeocas_no_key', __( 'Site connection is not configured.', 'aeo-content-ai-studio' ) );
@@ -289,22 +246,43 @@ class AEOCAS_Audit_Api {
                 'Accept'        => 'application/json',
             ),
             'body'     => wp_json_encode( array( 'site_url' => get_home_url() ) ),
-            'timeout'  => 3,
-            'blocking' => false,
+            'timeout'  => $blocking ? 20 : 3,
+            'blocking' => $blocking,
         ) );
 
         if ( is_wp_error( $response ) ) {
-            AEOCAS_Activity_Log::log( 'onboard', 'error', array( 'message' => $response->get_error_message() ) );
+            AEOCAS_Activity_Log::log( 'audit_dispatch', 'error', array( 'message' => $response->get_error_message() ) );
             return new WP_Error( 'aeocas_api_error', $response->get_error_message() );
         }
 
-        // Non-blocking dispatch succeeded. Clear caches so the audit page
-        // fetches fresh data once the remote job starts producing results.
         self::clear_cache();
 
-        AEOCAS_Activity_Log::log( 'onboard', 'success', array( 'message' => 'Onboarding audit dispatched (non-blocking).' ) );
+        if ( ! $blocking ) {
+            AEOCAS_Activity_Log::log( 'audit_dispatch', 'success', array( 'message' => 'Audit dispatched (non-blocking).' ) );
+            return true;
+        }
 
-        return true;
+        $status = wp_remote_retrieve_response_code( $response );
+        $body   = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( $status >= 400 ) {
+            $message = isset( $body['error']['message'] ) ? $body['error']['message'] : ( isset( $body['message'] ) ? $body['message'] : __( 'Failed to trigger audit.', 'aeo-content-ai-studio' ) );
+            AEOCAS_Activity_Log::log( 'audit_dispatch', 'error', array( 'message' => $message ) );
+            return new WP_Error( 'aeocas_reaudit_error', $message );
+        }
+
+        AEOCAS_Activity_Log::log( 'audit_dispatch', 'success', array( 'message' => 'Audit dispatched.', 'slug' => $body['data']['slug'] ?? null ) );
+        return $body;
+    }
+
+    /** @deprecated Use dispatch_audit() directly. */
+    public static function trigger_reaudit() {
+        return self::dispatch_audit( true );
+    }
+
+    /** @deprecated Use dispatch_audit( false ) directly. */
+    public static function trigger_onboarding() {
+        return self::dispatch_audit( false );
     }
 
     /**

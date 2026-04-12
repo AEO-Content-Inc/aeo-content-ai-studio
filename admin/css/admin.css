@@ -1083,7 +1083,8 @@
     min-height: 28px;
 }
 
-.aeo-disc-verb {
+.aeo-disc-verb,
+.aeo-disc-verb-static {
     display: inline-block;
     background: linear-gradient(90deg, #4285f4 0%, #9334e6 50%, #4285f4 100%);
     background-size: 200% 100%;
@@ -1142,6 +1143,17 @@
 .aeo-disc-meta strong {
     color: #1d2327;
     font-weight: 600;
+}
+
+.aeo-discovery-synthesized-hint {
+    margin-top: 10px;
+    padding: 10px 14px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #6b5b00;
+    background: #fef7e0;
+    border: 1px solid #f5d76e;
+    border-radius: 6px;
 }
 
 /* ── Site Audit tab ─────────────────────────────────── */
