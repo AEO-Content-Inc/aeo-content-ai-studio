@@ -19,6 +19,8 @@ final class AEOCASContentTest extends TestCase {
         $GLOBALS['aeocas_test_insert_post_calls'] = array();
         $GLOBALS['aeocas_test_update_post_calls'] = array();
         $GLOBALS['aeocas_test_next_post_id'] = 200;
+        $GLOBALS['aeocas_test_current_user_can'] = null;
+        $GLOBALS['aeocas_test_wp_kses_post'] = null;
     }
 
     public function test_create_or_update_post_preserves_existing_post_type(): void {
@@ -123,5 +125,63 @@ final class AEOCASContentTest extends TestCase {
         $this->assertSame( 'publish', $GLOBALS['aeocas_test_post_data'][12]->post_status );
         $this->assertArrayNotHasKey( AEOCAS_Content::ACTIVE_REWRITE_DRAFT_META, $GLOBALS['aeocas_test_post_meta'][12] );
         $this->assertSame( 12, $GLOBALS['aeocas_test_post_meta'][200][AEOCAS_Content::REWRITE_APPLIED_TO_POST_META] );
+    }
+
+    public function test_apply_rewrite_draft_rejects_mismatched_source_post(): void {
+        $GLOBALS['aeocas_test_post_data'][12] = (object) array(
+            'ID'           => 12,
+            'post_type'    => 'post',
+            'post_status'  => 'publish',
+            'post_title'   => 'Live Article',
+            'post_content' => '<p>Original content</p>',
+            'post_excerpt' => 'Original excerpt',
+            'post_name'    => 'live-article',
+        );
+        $GLOBALS['aeocas_test_post_data'][200] = (object) array(
+            'ID'           => 200,
+            'post_type'    => 'post',
+            'post_status'  => 'draft',
+            'post_title'   => 'Rewrite Review',
+            'post_content' => '<p>Reviewed rewrite</p>',
+            'post_excerpt' => 'Reviewed excerpt',
+            'post_name'    => 'rewrite-review',
+        );
+        $GLOBALS['aeocas_test_post_meta'][200] = array(
+            AEOCAS_Content::REWRITE_SOURCE_POST_META => 12,
+        );
+
+        $result = $this->content->apply_rewrite_draft( array(
+            'draft_post_id'  => 200,
+            'source_post_id' => 999,
+        ) );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_rewrite_source_mismatch', $result->get_error_code() );
+        $this->assertSame( array(), $GLOBALS['aeocas_test_update_post_calls'] );
+    }
+
+    public function test_create_or_update_post_preserves_gutenberg_block_comments(): void {
+        $GLOBALS['aeocas_test_post_data'][55] = (object) array(
+            'ID'           => 55,
+            'post_type'    => 'post',
+            'post_status'  => 'publish',
+            'post_title'   => 'Source Post',
+            'post_content' => '<p>Old</p>',
+            'post_excerpt' => '',
+            'post_name'    => 'source-post',
+        );
+        $GLOBALS['aeocas_test_wp_kses_post'] = static function ( string $content ): string {
+            return (string) preg_replace( '/<!--[\s\S]*?-->/', '', $content );
+        };
+
+        $this->content->create_or_update_post( array(
+            'post_id' => 55,
+            'content' => '<!-- wp:paragraph --><p>Block text</p><!-- /wp:paragraph -->',
+        ) );
+
+        $this->assertSame(
+            '<!-- wp:paragraph --><p>Block text</p><!-- /wp:paragraph -->',
+            $GLOBALS['aeocas_test_post_data'][55]->post_content
+        );
     }
 }

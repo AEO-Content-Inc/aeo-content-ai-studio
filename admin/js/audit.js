@@ -2101,16 +2101,19 @@
         localContentIndexPromise = fetch(aeocasAudit.ajaxUrl, { method: 'POST', body: data })
             .then(function (r) { return r.json(); })
             .then(function (res) {
-                localContentIndexState = 'ready';
                 if (!res || !res.success) {
+                    localContentIndexState = 'error';
+                    localContentIndexPromise = null;
                     refreshHeaderInsights();
                     return;
                 }
+                localContentIndexState = 'ready';
                 ingestLocalContentIndex((res.data && res.data.items) || []);
                 if (currentAuditData) renderAudit(currentAuditData);
             })
             .catch(function () {
                 localContentIndexState = 'error';
+                localContentIndexPromise = null;
                 refreshHeaderInsights();
                 // Keep the audit UI usable even if the local index fails.
             });
@@ -4725,6 +4728,10 @@
             .then(function (res) {
                 if (res && res.success) {
                     updateLocalRewriteDraftState(page.url, res.data || {});
+                    if (res.data && res.data.availability) {
+                        rewriteAvailabilityState.phase = 'ready';
+                        rewriteAvailabilityState.data = normalizeRewriteAvailability(res.data.availability) || res.data.availability;
+                    }
                     renderRewriteAvailabilityBadge();
                     if (res.data && res.data.edit) {
                         window.location.href = res.data.edit;

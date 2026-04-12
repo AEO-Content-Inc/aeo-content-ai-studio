@@ -77,6 +77,8 @@ $GLOBALS['aeocas_test_redirect'] = null;
 $GLOBALS['aeocas_test_posts'] = array();
 $GLOBALS['aeocas_test_post_data'] = array();
 $GLOBALS['aeocas_test_post_meta'] = array();
+$GLOBALS['aeocas_test_current_user_can'] = null;
+$GLOBALS['aeocas_test_wp_kses_post'] = null;
 
 function get_option( $name, $default = false ) {
     return array_key_exists( $name, $GLOBALS['aeocas_test_options'] ) ? $GLOBALS['aeocas_test_options'][ $name ] : $default;
@@ -226,6 +228,10 @@ function is_wp_error( $thing ) {
 }
 
 function current_user_can( $capability, ...$args ) {
+    if ( is_callable( $GLOBALS['aeocas_test_current_user_can'] ) ) {
+        return (bool) call_user_func( $GLOBALS['aeocas_test_current_user_can'], $capability, ...$args );
+    }
+
     return true;
 }
 
@@ -297,6 +303,10 @@ function sanitize_textarea_field( $str ) {
 }
 
 function wp_kses_post( $content ) {
+    if ( is_callable( $GLOBALS['aeocas_test_wp_kses_post'] ) ) {
+        return (string) call_user_func( $GLOBALS['aeocas_test_wp_kses_post'], (string) $content );
+    }
+
     return (string) $content;
 }
 

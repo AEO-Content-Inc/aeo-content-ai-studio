@@ -14,6 +14,13 @@ final class AEOCASAuditApiTest extends TestCase {
         $GLOBALS['aeocas_test_transients'] = array();
         $GLOBALS['aeocas_test_remote_get_calls'] = array();
         $GLOBALS['aeocas_test_remote_get'] = null;
+        $GLOBALS['aeocas_test_remote_post_calls'] = array();
+        $GLOBALS['aeocas_test_remote_post'] = null;
+        $GLOBALS['aeocas_test_post_ids'] = array();
+        $GLOBALS['aeocas_test_post_data'] = array();
+        $GLOBALS['aeocas_test_post_meta'] = array();
+        $GLOBALS['aeocas_test_current_user_can'] = null;
+        $GLOBALS['aeocas_test_wp_kses_post'] = null;
     }
 
     public function test_get_visibility_returns_cached_visibility_snapshot_without_remote_call(): void {
@@ -487,6 +494,114 @@ final class AEOCASAuditApiTest extends TestCase {
         $this->assertSame( 100, $availability['starter_price_cents'] );
         $this->assertTrue( $availability['checkout_enabled'] );
         $this->assertSame( 'https://account.aeocontent.ai/upgrade', $availability['upgrade_url'] );
+    }
+
+    public function test_create_rewrite_draft_rejects_exhausted_quota(): void {
+        $test_case = $this;
+
+        $GLOBALS['aeocas_test_post_ids'] = array( 12 );
+        $GLOBALS['aeocas_test_post_data'][12] = (object) array(
+            'ID'           => 12,
+            'post_type'    => 'post',
+            'post_status'  => 'publish',
+            'post_title'   => 'Live Article',
+            'post_content' => '<p>Original content</p>',
+            'post_excerpt' => 'Original excerpt',
+            'post_name'    => 'live-article',
+        );
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ) use ( $test_case ): array {
+            $test_case->assertStringContainsString( '/api/v1/rewrites/availability', $url );
+
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array(
+                    'available' => 0,
+                    'used'      => 10,
+                    'limit'     => 10,
+                    'plan'      => 'starter',
+                ) ),
+            );
+        };
+
+        $result = AEOCAS_Audit_Api::create_rewrite_draft( array(
+            'page_url' => 'https://helpsquad.com/post-12',
+            'title'    => 'Rewritten title',
+            'content'  => '<p>Rewrite</p>',
+        ) );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_no_rewrites_remaining', $result->get_error_code() );
+        $this->assertSame( array(), $GLOBALS['aeocas_test_insert_post_calls'] ?? array() );
+    }
+
+    public function test_apply_rewrite_draft_rejects_mismatched_source_post(): void {
+        $GLOBALS['aeocas_test_post_data'][12] = (object) array(
+            'ID'           => 12,
+            'post_type'    => 'post',
+            'post_status'  => 'publish',
+            'post_title'   => 'Live Article',
+            'post_content' => '<p>Original content</p>',
+            'post_excerpt' => 'Original excerpt',
+            'post_name'    => 'live-article',
+        );
+        $GLOBALS['aeocas_test_post_data'][200] = (object) array(
+            'ID'           => 200,
+            'post_type'    => 'post',
+            'post_status'  => 'draft',
+            'post_title'   => 'Rewrite Draft',
+            'post_content' => '<p>Draft content</p>',
+            'post_excerpt' => 'Draft excerpt',
+            'post_name'    => 'rewrite-draft',
+        );
+        $GLOBALS['aeocas_test_post_meta'][200] = array(
+            AEOCAS_Content::REWRITE_SOURCE_POST_META => 12,
+        );
+
+        $result = AEOCAS_Audit_Api::apply_rewrite_draft( array(
+            'draft_post_id'  => 200,
+            'source_post_id' => 999,
+        ) );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_rewrite_source_mismatch', $result->get_error_code() );
+    }
+
+    public function test_apply_rewrite_draft_rejects_when_user_cannot_edit_draft(): void {
+        $GLOBALS['aeocas_test_post_data'][12] = (object) array(
+            'ID'           => 12,
+            'post_type'    => 'post',
+            'post_status'  => 'publish',
+            'post_title'   => 'Live Article',
+            'post_content' => '<p>Original content</p>',
+            'post_excerpt' => 'Original excerpt',
+            'post_name'    => 'live-article',
+        );
+        $GLOBALS['aeocas_test_post_data'][200] = (object) array(
+            'ID'           => 200,
+            'post_type'    => 'post',
+            'post_status'  => 'draft',
+            'post_title'   => 'Rewrite Draft',
+            'post_content' => '<p>Draft content</p>',
+            'post_excerpt' => 'Draft excerpt',
+            'post_name'    => 'rewrite-draft',
+        );
+        $GLOBALS['aeocas_test_post_meta'][200] = array(
+            AEOCAS_Content::REWRITE_SOURCE_POST_META => 12,
+        );
+        $GLOBALS['aeocas_test_current_user_can'] = static function ( string $capability, ...$args ): bool {
+            if ( 'edit_post' === $capability && 200 === (int) ( $args[0] ?? 0 ) ) {
+                return false;
+            }
+
+            return true;
+        };
+
+        $result = AEOCAS_Audit_Api::apply_rewrite_draft( array(
+            'draft_post_id' => 200,
+        ) );
+
+        $this->assertInstanceOf( WP_Error::class, $result );
+        $this->assertSame( 'aeocas_rewrite_forbidden', $result->get_error_code() );
     }
 
     public function test_get_rewrite_checkout_url_returns_platform_checkout_link(): void {
