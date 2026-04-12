@@ -42,6 +42,24 @@ class AEOCAS_Audit_Api {
     }
 
     /**
+     * Handle an auth failure from the platform.
+     *
+     * Clears the stored site token and connection flag so the plugin reverts
+     * to a disconnected state. Returns a WP_Error with a special code that
+     * the JS layer can detect and redirect to the Connect tab.
+     *
+     * @return WP_Error
+     */
+    private static function handle_auth_failure() {
+        delete_option( 'aeocas_site_token' );
+        delete_option( 'aeocas_plugin_token' );
+        delete_option( 'aeocas_connection_verified' );
+        self::clear_cache();
+        AEOCAS_Activity_Log::log( 'auth_failure', 'error', array( 'message' => 'API key rejected by platform — connection cleared.' ) );
+        return new WP_Error( 'aeocas_auth_expired', __( 'Your site connection has expired or been revoked. Please reconnect.', 'aeo-content-ai-studio' ) );
+    }
+
+    /**
      * Fetch audit data from the platform API.
      *
      * @param bool $force_refresh Skip cache and fetch fresh data.
@@ -91,7 +109,7 @@ class AEOCAS_Audit_Api {
         }
 
         if ( 401 === $status || 403 === $status ) {
-            return new WP_Error( 'aeocas_auth_error', __( 'Site credential is invalid or does not have read permission.', 'aeo-content-ai-studio' ) );
+            return self::handle_auth_failure();
         }
 
         if ( 200 !== $status || empty( $body['data'] ) ) {
@@ -173,7 +191,7 @@ class AEOCAS_Audit_Api {
         }
 
         if ( 401 === $status || 403 === $status ) {
-            return new WP_Error( 'aeocas_auth_error', __( 'Site credential is invalid or does not have read permission.', 'aeo-content-ai-studio' ) );
+            return self::handle_auth_failure();
         }
 
         if ( 200 !== $status || empty( $body['data'] ) ) {
@@ -264,6 +282,10 @@ class AEOCAS_Audit_Api {
 
         $status = wp_remote_retrieve_response_code( $response );
         $body   = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( 401 === $status || 403 === $status ) {
+            return self::handle_auth_failure();
+        }
 
         if ( $status >= 400 ) {
             $message = isset( $body['error']['message'] ) ? $body['error']['message'] : ( isset( $body['message'] ) ? $body['message'] : __( 'Failed to trigger audit.', 'aeo-content-ai-studio' ) );

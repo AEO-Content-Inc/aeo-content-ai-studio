@@ -149,6 +149,96 @@
     }
 
     var KNOWLEDGE_BASE_URL = 'https://www.aeocontent.ai/knowledge/';
+    var FAQ_BASE_URL       = 'https://www.aeocontent.ai/faq';
+    var FAQ_TOPIC_LIBRARY  = {
+        'audit': {
+            label: 'The AEO Audit',
+            url: FAQ_BASE_URL + '/audit',
+            items: [
+                { question: 'What are the 48 AEO criteria?', keywords: ['criteria', 'score', 'audit', 'pillar'] },
+                { question: 'How do I read the audit scorecard?', keywords: ['scorecard', 'status', 'finding', 'audit'] }
+            ]
+        },
+        'technical': {
+            label: 'Technical Implementation',
+            url: FAQ_BASE_URL + '/technical',
+            items: [
+                { question: 'What is llms.txt and do I need one?', keywords: ['llms', 'discovery', 'file'] },
+                { question: 'What Schema.org markup helps with AI visibility?', keywords: ['schema', 'structured', 'json', 'markup'] },
+                { question: 'How do I structure content for AI extraction?', keywords: ['extract', 'structure', 'content', 'html'] },
+                { question: 'Does my robots.txt affect AI visibility?', keywords: ['robots', 'crawler', 'bot', 'allow'] }
+            ]
+        },
+        'content-strategy': {
+            label: 'Content Strategy for AI',
+            url: FAQ_BASE_URL + '/content-strategy',
+            items: [
+                { question: 'How does direct answer density work?', keywords: ['answer', 'direct', 'paragraph', 'query'] },
+                { question: 'What role does author schema play in AI visibility?', keywords: ['author', 'expert', 'entity', 'trust'] }
+            ]
+        },
+        'technical-audit': {
+            label: 'Technical Audit Criteria',
+            url: FAQ_BASE_URL + '/technical-audit',
+            items: [
+                { question: 'How is table and list extractability scored?', keywords: ['table', 'list', 'extractability', 'html'] },
+                { question: 'What content licensing signals does the audit check?', keywords: ['licensing', 'license', 'ai.txt', 'tdm'] }
+            ]
+        },
+        'ai-visibility': {
+            label: 'AI Visibility & Citations',
+            url: FAQ_BASE_URL + '/ai-visibility',
+            items: [
+                { question: 'What is the difference between AEO Site Rank and AEO Page Rank?', keywords: ['page', 'rank', 'site', 'score'] },
+                { question: 'How does Reddit presence affect AI citation rates?', keywords: ['reddit', 'citation', 'visibility', 'brand'] }
+            ]
+        }
+    };
+    var FAQ_TOPIC_BY_SLUG = {
+        'llms-txt':                ['technical', 'audit'],
+        'robots-txt-ai':           ['technical', 'technical-audit'],
+        'structured-data':         ['technical', 'technical-audit'],
+        'schema-coverage-ratio':   ['technical', 'technical-audit'],
+        'clean-html':              ['technical', 'technical-audit'],
+        'semantic-html':           ['technical', 'technical-audit'],
+        'table-list-extractability':['technical', 'technical-audit'],
+        'qa-content':              ['content-strategy', 'audit'],
+        'faq-section':             ['content-strategy', 'technical'],
+        'direct-answer-density':   ['content-strategy', 'audit'],
+        'query-answer-alignment':  ['content-strategy', 'audit'],
+        'topic-coherence':         ['content-strategy', 'audit'],
+        'content-depth':           ['content-strategy', 'audit'],
+        'content-cannibalization': ['content-strategy', 'audit'],
+        'content-freshness':       ['technical-audit', 'ai-visibility'],
+        'visible-date-signal':     ['technical-audit', 'ai-visibility'],
+        'rss-feed-presence':       ['technical-audit', 'technical'],
+        'content-velocity':        ['ai-visibility', 'audit'],
+        'entity-authority':        ['ai-visibility', 'content-strategy'],
+        'author-expert-schema':    ['content-strategy', 'ai-visibility'],
+        'fact-density':            ['content-strategy', 'ai-visibility'],
+        'content-licensing':       ['technical-audit', 'technical'],
+        'canonical-url-strategy':  ['technical-audit', 'technical'],
+        'internal-linking':        ['content-strategy', 'technical-audit'],
+        'definition-patterns':     ['content-strategy', 'audit']
+    };
+    var FAQ_TOPICS_BY_CATEGORY = {
+        'answer':       ['content-strategy', 'audit'],
+        'structure':    ['technical', 'content-strategy'],
+        'trust':        ['ai-visibility', 'technical-audit'],
+        'technical':    ['technical', 'technical-audit'],
+        'discovery':    ['technical', 'ai-visibility'],
+        'content':      ['content-strategy', 'audit'],
+        'substance':    ['content-strategy', 'audit'],
+        'organization': ['technical', 'content-strategy'],
+        'plumbing':     ['technical', 'technical-audit']
+    };
+    var OPPORTUNITY_STOP_WORDS = {
+        'the':1, 'and':1, 'for':1, 'with':1, 'that':1, 'this':1, 'from':1, 'your':1,
+        'into':1, 'have':1, 'will':1, 'when':1, 'what':1, 'where':1, 'need':1, 'site':1,
+        'page':1, 'pages':1, 'content':1, 'more':1, 'about':1, 'than':1, 'them':1, 'been':1,
+        'they':1, 'their':1, 'into':1, 'across':1, 'should':1, 'could':1, 'would':1, 'while':1,
+        'also':1, 'there':1, 'here':1, 'very':1, 'much':1, 'only':1, 'over':1, 'under':1
+    };
 
     function statusColor(status) {
         var s = (status || '').toUpperCase();
@@ -424,6 +514,488 @@
         return html;
     }
 
+    function buildDetailedFindingsMap(audit) {
+        var map = {};
+        (audit.detailed_findings || []).forEach(function (c) {
+            map[c.id] = c.findings || [];
+        });
+        return map;
+    }
+
+    function trimText(text, maxLen) {
+        if (!text) return '';
+        var str = String(text).replace(/\s+/g, ' ').trim();
+        if (!maxLen || str.length <= maxLen) return str;
+        return str.slice(0, Math.max(0, maxLen - 1)).replace(/\s+\S*$/, '') + '…';
+    }
+
+    function normalizeToken(token) {
+        var t = String(token || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!t) return '';
+        if (t.length > 5 && t.slice(-3) === 'ies') t = t.slice(0, -3) + 'y';
+        else if (t.length > 4 && t.slice(-2) === 'es') t = t.slice(0, -2);
+        else if (t.length > 4 && t.slice(-1) === 's') t = t.slice(0, -1);
+        return t;
+    }
+
+    function tokenizeText(value) {
+        if (!value) return [];
+        var seen = {};
+        return String(value)
+            .toLowerCase()
+            .replace(/https?:\/\/\S+/g, ' ')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .split(/\s+/)
+            .map(normalizeToken)
+            .filter(function (token) {
+                if (!token || token.length < 3 || OPPORTUNITY_STOP_WORDS[token]) return false;
+                if (seen[token]) return false;
+                seen[token] = true;
+                return true;
+            });
+    }
+
+    function tokenOverlapCount(aTokens, bTokens) {
+        if (!aTokens || !bTokens || !aTokens.length || !bTokens.length) return 0;
+        var bLookup = {};
+        bTokens.forEach(function (token) { bLookup[token] = 1; });
+        var count = 0;
+        aTokens.forEach(function (token) {
+            if (bLookup[token]) count++;
+        });
+        return count;
+    }
+
+    function uniqueBy(items, getKey) {
+        var seen = {};
+        var out = [];
+        (items || []).forEach(function (item) {
+            if (!item) return;
+            var key = getKey(item);
+            if (!key || seen[key]) return;
+            seen[key] = true;
+            out.push(item);
+        });
+        return out;
+    }
+
+    function impactRank(value) {
+        var impact = String(value || '').toLowerCase();
+        if (impact === 'critical') return 4;
+        if (impact === 'high') return 3;
+        if (impact === 'medium') return 2;
+        if (impact === 'low') return 1;
+        return 0;
+    }
+
+    function isCriticalImpact(value) {
+        var impact = String(value || '').toLowerCase();
+        return impact === 'critical' || impact === 'high';
+    }
+
+    function isCriticalScorecardItem(item) {
+        return statusLabel(item && item.status) === 'critical';
+    }
+
+    function getImpactColor(value) {
+        var impact = String(value || '').toLowerCase();
+        if (impact === 'critical' || impact === 'high') return '#ea4335';
+        if (impact === 'medium') return '#f9ab00';
+        if (impact === 'low') return '#34a853';
+        return '#646970';
+    }
+
+    function getEffortColor(value) {
+        var effort = String(value || '').toLowerCase();
+        if (effort === 'low') return '#34a853';
+        if (effort === 'medium') return '#f9ab00';
+        if (effort === 'high') return '#ea4335';
+        return '#646970';
+    }
+
+    function getNormalizedCategoryKey(category) {
+        if (!category || !category.key) return 'other';
+        if (category.key === 'answer' || category.key === 'content' || category.key === 'substance') return 'answer';
+        if (category.key === 'structure' || category.key === 'organization') return 'structure';
+        if (category.key === 'trust') return 'trust';
+        if (category.key === 'technical' || category.key === 'plumbing') return 'technical';
+        if (category.key === 'discovery') return 'discovery';
+        return category.key;
+    }
+
+    function getWeakestPagePillar(page) {
+        if (!page || !page.pillarScores) return null;
+        var pillars = [
+            { key: 'answer',    label: 'Answer Readiness',    score: page.pillarScores.answerReadiness || 0 },
+            { key: 'structure', label: 'Content Structure',   score: page.pillarScores.contentStructure || 0 },
+            { key: 'trust',     label: 'Trust & Authority',   score: page.pillarScores.trustAuthority || 0 },
+            { key: 'technical', label: 'Technical Foundation',score: page.pillarScores.technicalFoundation || 0 },
+            { key: 'discovery', label: 'AI Discovery',        score: page.pillarScores.aiDiscovery || 0 }
+        ].filter(function (pillar) {
+            return typeof pillar.score === 'number';
+        });
+        if (!pillars.length) return null;
+        pillars.sort(function (a, b) { return a.score - b.score; });
+        return pillars[0];
+    }
+
+    function pageHasCriticalIssue(page) {
+        if (!page) return false;
+        if (getPageScore(page) > 0 && getPageScore(page) < 40) return true;
+        return (page.issues || []).some(function (issue) {
+            var sev = String(issue && issue.severity || '').toLowerCase();
+            return sev === 'critical' || sev === 'high';
+        });
+    }
+
+    function buildOpportunityText(opp) {
+        return [
+            opp && opp.name,
+            opp && opp.description,
+            opp && opp.status,
+            opp && opp.impact,
+            opp && opp.type,
+            opp && opp.category
+        ].filter(Boolean).join(' ');
+    }
+
+    function findMatchedCriteriaForOpportunity(opp, scorecard, cats, findingsMap) {
+        var explicitIds = [];
+        var explicitId = firstNonEmpty(opp.criterion_id, opp.criterionId);
+        if (explicitId) explicitIds.push(parseInt(explicitId, 10));
+        if (Array.isArray(opp.criteria_ids)) {
+            opp.criteria_ids.forEach(function (id) {
+                if (!id) return;
+                explicitIds.push(parseInt(id, 10));
+            });
+        }
+
+        if (explicitIds.length) {
+            return uniqueBy(explicitIds.map(function (id) {
+                var item = scorecard.filter(function (row) { return row.id === id; })[0];
+                if (!item) return null;
+                return {
+                    item: item,
+                    slug: getCriterionSlug(item.id, scorecard),
+                    category: getCategoryForId(item.id, cats),
+                    findings: findingsMap[item.id] || [],
+                    matchScore: 100
+                };
+            }), function (match) {
+                return match && match.item ? String(match.item.id) : '';
+            }).filter(Boolean);
+        }
+
+        var oppText = buildOpportunityText(opp);
+        var oppTextLower = oppText.toLowerCase();
+        var oppTokens = tokenizeText(oppText);
+
+        var matches = scorecard.map(function (item) {
+            var slug = getCriterionSlug(item.id, scorecard) || '';
+            var findings = findingsMap[item.id] || [];
+            var findingText = findings.map(function (finding) {
+                return [finding.type, finding.severity, finding.description].filter(Boolean).join(' ');
+            }).join(' ');
+            var criterionText = [item.criterion, item.keyFindings, slug.replace(/-/g, ' '), findingText].join(' ');
+            var critTokens = tokenizeText(criterionText);
+            var score = tokenOverlapCount(oppTokens, critTokens) * 6;
+
+            if (item.criterion && oppTextLower.indexOf(String(item.criterion).toLowerCase()) !== -1) score += 18;
+            if (slug) {
+                var slugText = slug.replace(/-/g, ' ');
+                if (oppTextLower.indexOf(slugText) !== -1) score += 16;
+                score += tokenOverlapCount(oppTokens, tokenizeText(slugText)) * 4;
+            }
+            if (isCriticalScorecardItem(item)) score += 1;
+            if (typeof item.score === 'number' && item.score < 5) score += 1;
+
+            return {
+                item: item,
+                slug: slug,
+                category: getCategoryForId(item.id, cats),
+                findings: findings,
+                matchScore: score
+            };
+        }).filter(function (match) {
+            return match.matchScore > 0;
+        });
+
+        matches.sort(function (a, b) {
+            if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+            return (a.item.score || 0) - (b.item.score || 0);
+        });
+
+        if (!matches.length) {
+            return scorecard.slice().sort(function (a, b) {
+                return (a.score || 0) - (b.score || 0);
+            }).slice(0, 2).map(function (item) {
+                return {
+                    item: item,
+                    slug: getCriterionSlug(item.id, scorecard),
+                    category: getCategoryForId(item.id, cats),
+                    findings: findingsMap[item.id] || [],
+                    matchScore: 0
+                };
+            });
+        }
+
+        return uniqueBy(matches, function (match) {
+            return String(match.item.id);
+        }).slice(0, 3);
+    }
+
+    function buildKnowledgeLinksForOpportunity(matches, primaryCategory) {
+        var links = matches.map(function (match) {
+            if (!match || !match.slug) return null;
+            return {
+                label: match.item.criterion || match.slug.replace(/-/g, ' '),
+                url: KNOWLEDGE_BASE_URL + match.slug,
+                topic: match.category ? match.category.label : (primaryCategory ? primaryCategory.label : 'Knowledge Base'),
+                meta: typeof match.item.score === 'number' ? ('Current score: ' + match.item.score + '/10') : ''
+            };
+        }).filter(Boolean);
+
+        if (!links.length) {
+            links.push({
+                label: 'AEO Score Methodology',
+                url: KNOWLEDGE_BASE_URL + 'aeo-score-methodology',
+                topic: primaryCategory ? primaryCategory.label : 'Knowledge Base',
+                meta: 'Scoring and prioritization guide'
+            });
+        }
+
+        return uniqueBy(links, function (link) {
+            return link.url;
+        }).slice(0, 3);
+    }
+
+    function faqQuestionScore(contextTokens, item) {
+        return tokenOverlapCount(contextTokens, tokenizeText(item.question + ' ' + (item.keywords || []).join(' ')));
+    }
+
+    function buildFaqLinksForOpportunity(opp, matches, primaryCategory) {
+        var topicKeys = [];
+        matches.forEach(function (match) {
+            (FAQ_TOPIC_BY_SLUG[match.slug] || []).forEach(function (topicKey) {
+                topicKeys.push(topicKey);
+            });
+        });
+        if (!topicKeys.length && primaryCategory) {
+            topicKeys = FAQ_TOPICS_BY_CATEGORY[primaryCategory.key] || FAQ_TOPICS_BY_CATEGORY[getNormalizedCategoryKey(primaryCategory)] || [];
+        }
+        if (!topicKeys.length) {
+            topicKeys = ['audit', 'technical'];
+        }
+
+        var contextTokens = tokenizeText(
+            buildOpportunityText(opp) + ' ' +
+            matches.map(function (match) {
+                return [match.item.criterion, match.slug].join(' ');
+            }).join(' ')
+        );
+
+        var links = [];
+        uniqueBy(topicKeys.map(function (topicKey) { return { topicKey: topicKey }; }), function (entry) {
+            return entry.topicKey;
+        }).forEach(function (entry) {
+            var topic = FAQ_TOPIC_LIBRARY[entry.topicKey];
+            if (!topic) return;
+            var rankedItems = topic.items.slice().sort(function (a, b) {
+                return faqQuestionScore(contextTokens, b) - faqQuestionScore(contextTokens, a);
+            });
+            rankedItems.slice(0, 2).forEach(function (item) {
+                links.push({
+                    label: item.question,
+                    url: topic.url,
+                    topic: topic.label,
+                    meta: 'Open FAQ topic'
+                });
+            });
+        });
+
+        return uniqueBy(links, function (link) {
+            return link.url + '|' + link.label;
+        }).slice(0, 4);
+    }
+
+    function buildRelatedPagesForOpportunity(opp, audit, matches, primaryCategory, inLinksMap) {
+        var pages = (audit && audit.pages_reviewed) || [];
+        if (!pages.length) return [];
+
+        var contextTokens = tokenizeText(
+            buildOpportunityText(opp) + ' ' +
+            matches.map(function (match) {
+                return [
+                    match.item.criterion,
+                    match.slug,
+                    (match.findings || []).map(function (finding) {
+                        return [finding.type, finding.severity, finding.description].filter(Boolean).join(' ');
+                    }).join(' ')
+                ].join(' ');
+            }).join(' ')
+        );
+        var targetPillar = getNormalizedCategoryKey(primaryCategory);
+
+        var ranked = pages.map(function (page) {
+            var score = 0;
+            var reasons = [];
+            var pageScore = getPageScore(page);
+            var inboundLinks = lookupInLinks(inLinksMap, page.url);
+            var weakest = getWeakestPagePillar(page);
+            var issuesText = (page.issues || []).map(function (issue) {
+                return [issue.label, issue.check, issue.severity].filter(Boolean).join(' ');
+            }).join(' ');
+            var pageText = [page.title, page.url, page.category, issuesText].concat(page.topFixes || []).join(' ');
+            var overlap = tokenOverlapCount(contextTokens, tokenizeText(pageText));
+
+            if (pageScore > 0) {
+                score += Math.max(0, 70 - pageScore);
+                if (pageScore < 40) reasons.push('low AEO rank');
+                else if (pageScore < 55) reasons.push('needs attention');
+            }
+            if (inboundLinks > 0) {
+                score += Math.min(inboundLinks * 4, 18);
+                if (inboundLinks >= 3) reasons.push('high leverage');
+            }
+            if (pageHasCriticalIssue(page)) {
+                score += 14;
+                reasons.push('critical issue');
+            }
+            if (weakest && weakest.key === targetPillar) {
+                score += 12;
+                reasons.push(weakest.label.toLowerCase() + ' gap');
+            }
+            if (overlap > 0) {
+                score += overlap * 7;
+                reasons.push('matching issue set');
+            }
+
+            return {
+                url: page.url,
+                title: page.title || page.url,
+                shortUrl: (page.url || '').replace(/^https?:\/\/[^/]+/, '') || page.url || '',
+                score: pageScore,
+                issueCount: getPageIssueCount(page),
+                inLinks: inboundLinks,
+                reasons: uniqueBy(reasons.map(function (reason) { return { reason: reason }; }), function (entry) {
+                    return entry.reason;
+                }).map(function (entry) { return entry.reason; }).slice(0, 3),
+                priorityScore: score
+            };
+        });
+
+        ranked.sort(function (a, b) {
+            if (b.priorityScore !== a.priorityScore) return b.priorityScore - a.priorityScore;
+            if (a.score !== b.score) return a.score - b.score;
+            return b.inLinks - a.inLinks;
+        });
+
+        return uniqueBy(ranked, function (page) {
+            return page.url;
+        }).slice(0, 4);
+    }
+
+    function buildOpportunityActions(opp, matches, relatedPages) {
+        var actions = [];
+        if (opp && opp.description) {
+            actions.push(trimText(opp.description, 165));
+        }
+
+        matches.forEach(function (match) {
+            (match.findings || []).forEach(function (finding) {
+                if (!finding || !finding.description) return;
+                var severity = String(finding.severity || '').toUpperCase();
+                if (severity === 'GOOD' || severity === 'WORKING' || severity === 'GOOD PATTERN') return;
+                actions.push(trimText(finding.description, 165));
+            });
+        });
+
+        if (relatedPages.length) {
+            var pageTitles = relatedPages.slice(0, 2).map(function (page) {
+                return '"' + trimText(page.title, 48) + '"';
+            });
+            actions.push('Start on ' + pageTitles.join(' and ') + ' because they combine low scores with the strongest leverage.');
+        }
+
+        return uniqueBy(actions.map(function (text) {
+            return { text: text };
+        }), function (entry) {
+            return String(entry.text || '').toLowerCase();
+        }).map(function (entry) {
+            return entry.text;
+        }).filter(Boolean).slice(0, 3);
+    }
+
+    function buildOpportunityWhyNow(primaryCategory, relatedPages, potentialGain) {
+        var parts = [];
+        if (primaryCategory) {
+            parts.push(primaryCategory.label + ' is where this gap is suppressing visibility.');
+        }
+        if (relatedPages.length) {
+            var leverageCount = relatedPages.filter(function (page) { return page.inLinks >= 3; }).length;
+            if (leverageCount > 0) {
+                parts.push(leverageCount + ' linked page' + (leverageCount === 1 ? '' : 's') + ' can move quickly once fixed.');
+            } else {
+                parts.push('The pages below are the fastest places to apply the fix.');
+            }
+        }
+        if (potentialGain > 0) {
+            parts.push('Potential recovery: +' + potentialGain + ' points on the weakest linked signal.');
+        }
+        return trimText(parts.join(' '), 220);
+    }
+
+    function buildOpportunityModels(audit) {
+        var opps = audit.opportunities || [];
+        var scorecard = audit.scorecard || [];
+        var cats = getCategories(scorecard);
+        var findingsMap = buildDetailedFindingsMap(audit);
+        var inLinksMap = buildInLinksMap(audit);
+
+        return opps.map(function (opp) {
+            var matchedCriteria = findMatchedCriteriaForOpportunity(opp, scorecard, cats, findingsMap);
+            var primaryCategory = matchedCriteria[0] ? matchedCriteria[0].category : null;
+            var impact = opp.impact || 'N/A';
+            var effort = opp.effort || '';
+            var potentialGain = 0;
+            matchedCriteria.forEach(function (match) {
+                potentialGain = Math.max(potentialGain, Math.max(0, 10 - (match.item.score || 0)));
+            });
+            if (!potentialGain && impactRank(impact) > 0) {
+                potentialGain = impactRank(impact) * 2;
+            }
+
+            var relatedPages = buildRelatedPagesForOpportunity(opp, audit, matchedCriteria, primaryCategory, inLinksMap);
+            var knowledgeLinks = buildKnowledgeLinksForOpportunity(matchedCriteria, primaryCategory);
+            var faqLinks = buildFaqLinksForOpportunity(opp, matchedCriteria, primaryCategory);
+            var actions = buildOpportunityActions(opp, matchedCriteria, relatedPages);
+            var isCritical = isCriticalImpact(impact) || matchedCriteria.some(function (match) {
+                return isCriticalScorecardItem(match.item);
+            });
+            var priorityScore = impactRank(impact) * 100 + potentialGain * 8 + (String(effort || '').toLowerCase() === 'low' ? 12 : 0);
+
+            return {
+                opp: opp,
+                impact: impact,
+                effort: effort,
+                impactColor: getImpactColor(impact),
+                effortColor: getEffortColor(effort),
+                matchedCriteria: matchedCriteria,
+                primaryCategory: primaryCategory,
+                potentialGain: potentialGain,
+                relatedPages: relatedPages,
+                knowledgeLinks: knowledgeLinks,
+                faqLinks: faqLinks,
+                actions: actions,
+                isCritical: isCritical,
+                whyNow: buildOpportunityWhyNow(primaryCategory, relatedPages, potentialGain),
+                priorityScore: priorityScore
+            };
+        }).sort(function (a, b) {
+            return b.priorityScore - a.priorityScore;
+        });
+    }
+
     /* ── Render Scoreboard Tab ────────────────────────── */
 
     function renderScoreboard(audit) {
@@ -432,10 +1004,7 @@
         var cats = getCategories(scorecard);
 
         // Build detailed findings lookup by criterion id
-        var findingsMap = {};
-        (audit.detailed_findings || []).forEach(function (c) {
-            findingsMap[c.id] = c.findings || [];
-        });
+        var findingsMap = buildDetailedFindingsMap(audit);
 
         var html = '<div class="aeo-scoreboard-list">';
 
@@ -503,38 +1072,143 @@
     /* ── Render Opportunities Tab ─────────────────────── */
 
     function renderOpportunities(audit) {
-        var opps = audit.opportunities || [];
-        if (!opps.length) return '<p>No opportunities identified.</p>';
+        var models = buildOpportunityModels(audit);
+        if (!models.length) return '<p>No opportunities identified.</p>';
 
-        var html = '<div class="aeo-opportunities-list">';
+        var uniquePages = {};
+        var resourceCount = 0;
+        var quickWins = 0;
+        var criticalCount = 0;
 
-        opps.forEach(function (opp) {
-            var impactColor = '#646970';
-            var impact = (opp.impact || '').toLowerCase();
-            if (impact === 'high' || impact === 'critical') impactColor = '#ea4335';
-            else if (impact === 'medium') impactColor = '#f9ab00';
-            else if (impact === 'low') impactColor = '#34a853';
-
-            html += '<div class="aeo-accordion-item aeo-opp-card">';
-            html += '<div class="aeo-accordion-header aeo-opp-header">';
-            html += '<span class="aeo-accordion-arrow">&#8963;</span>';
-            html += '<span class="aeo-opp-impact" style="background:' + impactColor + '20;color:' + impactColor + ';">' + esc(opp.impact || 'N/A') + '</span>';
-            html += '<span class="aeo-opp-name">' + esc(opp.name || '') + '</span>';
-            if (opp.effort) {
-                var effortLower = (opp.effort || '').toLowerCase();
-                var effortColor = '#646970';
-                if (effortLower === 'low') effortColor = '#34a853';
-                else if (effortLower === 'medium') effortColor = '#f9ab00';
-                else if (effortLower === 'high') effortColor = '#ea4335';
-                html += '<span class="aeo-opp-effort" style="background:' + effortColor + '20;color:' + effortColor + ';border:1px solid ' + effortColor + '30;">' + esc(opp.effort) + '</span>';
-            }
-            html += '</div>';
-
-            html += '<div class="aeo-accordion-body" style="display:none;">';
-            html += '<p>' + esc(opp.description || 'No description.') + '</p>';
-            html += '</div></div>';
+        models.forEach(function (model) {
+            if (model.isCritical) criticalCount++;
+            if (String(model.effort || '').toLowerCase() === 'low') quickWins++;
+            model.relatedPages.forEach(function (page) { uniquePages[page.url] = 1; });
+            resourceCount += model.knowledgeLinks.length + model.faqLinks.length;
         });
 
+        var html = '';
+        html += '<div class="aeo-opportunities-shell">';
+        html +=   '<div class="aeo-site-audit-header">';
+        html +=     '<h2>Opportunities</h2>';
+        html +=     '<p class="description">Priority fixes with the best pages to edit first, the right AEO guides, and related FAQs for implementation context.</p>';
+        html +=     '<p><a href="#" class="button button-primary aeo-trigger-reaudit">Run Full Site Re-Audit</a></p>';
+        html +=   '</div>';
+        html +=   '<div class="aeo-log-stats">';
+        html +=     '<div class="aeo-stat-card"><span class="aeo-stat-number">' + models.length + '</span><span class="aeo-stat-label">Total Opportunities</span></div>';
+        html +=     '<div class="aeo-stat-card"><span class="aeo-stat-number" style="color:#ea4335;">' + criticalCount + '</span><span class="aeo-stat-label">Critical Now</span></div>';
+        html +=     '<div class="aeo-stat-card"><span class="aeo-stat-number aeo-stat-success">' + quickWins + '</span><span class="aeo-stat-label">Quick Wins</span></div>';
+        html +=     '<div class="aeo-stat-card"><span class="aeo-stat-number">' + Object.keys(uniquePages).length + '</span><span class="aeo-stat-label">High-Leverage Pages</span></div>';
+        html +=     '<div class="aeo-stat-card"><span class="aeo-stat-number">' + resourceCount + '</span><span class="aeo-stat-label">Guides & FAQs</span></div>';
+        html +=   '</div>';
+        html +=   '<div class="aeo-opportunities-list">';
+
+        models.forEach(function (model) {
+            var opp = model.opp;
+
+            html += '<div class="aeo-accordion-item aeo-opp-card">';
+            html +=   '<div class="aeo-accordion-header aeo-opp-header">';
+            html +=     '<span class="aeo-accordion-arrow">&#8963;</span>';
+            html +=     '<span class="aeo-opp-impact" style="background:' + model.impactColor + '20;color:' + model.impactColor + ';">' + esc(model.impact || 'N/A') + '</span>';
+            html +=     '<div class="aeo-opp-primary">';
+            html +=       '<span class="aeo-opp-name">' + esc(opp.name || '') + '</span>';
+            html +=       '<span class="aeo-opp-subtitle">' + esc(model.whyNow || 'Review the linked pages and guides below.') + '</span>';
+            html +=     '</div>';
+            html +=     '<div class="aeo-opp-meta">';
+            if (model.primaryCategory) {
+                html += '<span class="aeo-cat-badge" style="background:' + model.primaryCategory.bg + ';color:' + model.primaryCategory.color + ';">' + esc(model.primaryCategory.label) + '</span>';
+            }
+            if (model.potentialGain > 0) {
+                html += '<span class="aeo-opp-potential">+ ' + model.potentialGain + ' pts</span>';
+            }
+            if (model.effort) {
+                html += '<span class="aeo-opp-effort" style="background:' + model.effortColor + '20;color:' + model.effortColor + ';border:1px solid ' + model.effortColor + '30;">' + esc(model.effort) + '</span>';
+            }
+            html +=     '</div>';
+            html +=   '</div>';
+
+            html +=   '<div class="aeo-accordion-body" style="display:none;">';
+            html +=     '<div class="aeo-opp-body">';
+            html +=       '<div class="aeo-opp-summary"><p>' + esc(opp.description || 'No description provided.') + '</p></div>';
+            html +=       '<div class="aeo-opp-grid">';
+
+            html +=         '<section class="aeo-opp-panel">';
+            html +=           '<h3 class="aeo-opp-panel-title">Related Site Pages</h3>';
+            if (model.relatedPages.length) {
+                html += '<div class="aeo-opp-page-list">';
+                model.relatedPages.forEach(function (page) {
+                    var pageColor = scoreColor100(page.score || 0);
+                    var pageBg = scoreBg100(page.score || 0);
+                    html += '<div class="aeo-opp-page-item">';
+                    html +=   '<div class="aeo-opp-page-main">';
+                    html +=     '<div class="aeo-opp-page-title">' + esc(page.title) + '</div>';
+                    html +=     '<div class="aeo-opp-page-url"><a href="' + esc(page.url) + '" target="_blank" rel="noopener">' + esc(page.shortUrl) + ' &#8599;</a></div>';
+                    if (page.reasons.length) {
+                        html += '<div class="aeo-opp-page-reasons">';
+                        page.reasons.forEach(function (reason) {
+                            html += '<span class="aeo-opp-reason-chip">' + esc(reason) + '</span>';
+                        });
+                        html += '</div>';
+                    }
+                    html +=   '</div>';
+                    html +=   '<div class="aeo-opp-page-side">';
+                    html +=     '<span class="aeo-score-badge-pill" style="background:' + pageBg + ';color:' + pageColor + ';">' + (page.score > 0 ? page.score : '—') + '</span>';
+                    html +=     '<span class="aeo-opp-page-meta">' + (page.issueCount || 0) + ' issue' + ((page.issueCount || 0) === 1 ? '' : 's') + '</span>';
+                    html +=   '</div>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            } else {
+                html += '<p class="aeo-opp-empty">No related pages surfaced in the latest audit yet.</p>';
+            }
+            html +=         '</section>';
+
+            html +=         '<section class="aeo-opp-panel">';
+            html +=           '<h3 class="aeo-opp-panel-title">Knowledge Base Topics</h3>';
+            html +=           '<div class="aeo-opp-link-list">';
+            model.knowledgeLinks.forEach(function (link) {
+                html += '<a href="' + esc(link.url) + '" target="_blank" rel="noopener" class="aeo-opp-link-item">';
+                html +=   '<span class="aeo-opp-link-kicker">' + esc(link.topic) + '</span>';
+                html +=   '<span class="aeo-opp-link-title">' + esc(link.label) + '</span>';
+                if (link.meta) html += '<span class="aeo-opp-link-meta">' + esc(link.meta) + '</span>';
+                html += '</a>';
+            });
+            html +=           '</div>';
+            html +=         '</section>';
+
+            html +=         '<section class="aeo-opp-panel">';
+            html +=           '<h3 class="aeo-opp-panel-title">Related FAQs</h3>';
+            html +=           '<div class="aeo-opp-link-list">';
+            model.faqLinks.forEach(function (link) {
+                html += '<a href="' + esc(link.url) + '" target="_blank" rel="noopener" class="aeo-opp-link-item">';
+                html +=   '<span class="aeo-opp-link-kicker">' + esc(link.topic) + '</span>';
+                html +=   '<span class="aeo-opp-link-title">' + esc(link.label) + '</span>';
+                if (link.meta) html += '<span class="aeo-opp-link-meta">' + esc(link.meta) + '</span>';
+                html += '</a>';
+            });
+            html +=           '</div>';
+            html +=         '</section>';
+
+            html +=         '<section class="aeo-opp-panel">';
+            html +=           '<h3 class="aeo-opp-panel-title">What To Do Now</h3>';
+            if (model.actions.length) {
+                html += '<ul class="aeo-opp-action-list">';
+                model.actions.forEach(function (action) {
+                    html += '<li>' + esc(action) + '</li>';
+                });
+                html += '</ul>';
+            } else {
+                html += '<p class="aeo-opp-empty">Use the related pages, guides, and FAQs above to scope the fix.</p>';
+            }
+            html +=         '</section>';
+
+            html +=       '</div>';
+            html +=     '</div>';
+            html +=   '</div>';
+            html += '</div>';
+        });
+
+        html +=   '</div>';
         html += '</div>';
         return html;
     }
@@ -803,64 +1477,48 @@
 
     /* ── Render Rewrite Candidates Tab ────────────────── */
 
-    function renderRewriteCandidates(audit) {
+    function buildRewriteCandidates(audit) {
         var pages = audit.pages_reviewed || [];
-        if (!pages.length) {
+        if (!pages.length) return [];
+
+        var inLinksMap = buildInLinksMap(audit);
+        var candidates = pages.filter(function (page) {
+            var score = getPageScore(page);
+            return score > 0 && score < 70;
+        }).map(function (page) {
+            var score = getPageScore(page);
+            var tier = score < 40 ? 'high' : score < 55 ? 'medium' : 'low';
+            var inLinks = lookupInLinks(inLinksMap, page.url);
+            var weakest = getWeakestPagePillar(page);
+            var priority = (100 - score) + Math.min(inLinks * 5, 50);
+
+            return {
+                url: page.url,
+                title: page.title || page.url,
+                category: page.category || '',
+                score: score,
+                tier: tier,
+                inLinks: inLinks,
+                words: page.wordCount || 0,
+                weakest: weakest ? { name: weakest.label, score: weakest.score } : null,
+                priority: priority,
+                topFixes: page.topFixes || [],
+                isStale: page.issues ? page.issues.some(function (issue) { return (issue.check || '').indexOf('freshness') !== -1; }) : false
+            };
+        });
+
+        candidates.sort(function (a, b) { return b.priority - a.priority; });
+        return candidates;
+    }
+
+    function renderRewriteCandidates(audit) {
+        var candidates = buildRewriteCandidates(audit);
+        if (!audit.pages_reviewed || !audit.pages_reviewed.length) {
             return renderAuditWaiting(
                 'Rewrite candidates loading…',
                 'Pages scoring below 70 will appear here as rewrite candidates once the audit completes.'
             );
         }
-
-        // Build link graph lookup
-        var linkGraph = audit.link_graph || {};
-        var nodes = linkGraph.nodes || [];
-        var inLinksMap = {};
-        nodes.forEach(function (n) { inLinksMap[n.url] = n.inDegree || 0; });
-
-        // Filter to pages scoring below 70
-        var candidates = pages.filter(function (p) {
-            var score = p.pageRankScore || (p.pageRank ? p.pageRank.score : 0);
-            return score > 0 && score < 70;
-        }).map(function (p) {
-            var score = p.pageRankScore || (p.pageRank ? p.pageRank.score : 0);
-            var tier = score < 40 ? 'high' : score < 55 ? 'medium' : 'low';
-            var inLinks = inLinksMap[p.url] || 0;
-
-            // Find weakest pillar
-            var weakest = null;
-            if (p.pillarScores) {
-                var pillars = [
-                    { name: 'Answer Readiness', score: p.pillarScores.answerReadiness || 0 },
-                    { name: 'Content Structure', score: p.pillarScores.contentStructure || 0 },
-                    { name: 'Trust & Authority', score: p.pillarScores.trustAuthority || 0 },
-                    { name: 'Technical Foundation', score: p.pillarScores.technicalFoundation || 0 },
-                    { name: 'AI Discovery', score: p.pillarScores.aiDiscovery || 0 },
-                ];
-                pillars.sort(function (a, b) { return a.score - b.score; });
-                weakest = pillars[0];
-            }
-
-            // Priority score: lower AEO score + more inlinks = higher priority
-            var priority = (100 - score) + Math.min(inLinks * 5, 50);
-
-            return {
-                url: p.url,
-                title: p.title || p.url,
-                category: p.category || '',
-                score: score,
-                tier: tier,
-                inLinks: inLinks,
-                words: p.wordCount || 0,
-                weakest: weakest,
-                priority: priority,
-                topFixes: p.topFixes || [],
-                isStale: p.issues ? p.issues.some(function (i) { return (i.check || '').indexOf('freshness') !== -1; }) : false,
-            };
-        });
-
-        // Sort by priority descending
-        candidates.sort(function (a, b) { return b.priority - a.priority; });
 
         var highCount = candidates.filter(function (c) { return c.tier === 'high'; }).length;
         var medCount = candidates.filter(function (c) { return c.tier === 'medium'; }).length;
@@ -949,6 +1607,60 @@
         return '<div class="aeo-tab-loading"><span class="spinner is-active" style="float:none;margin:0 8px 0 0;"></span>Loading audit data...</div>';
     }
 
+    function ensureTabBadge(tabId) {
+        var tab = wrap.querySelector('.nav-tab[data-tab="' + tabId + '"]');
+        if (!tab) return null;
+        var badge = tab.querySelector('.aeo-tab-alert-count');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'aeo-tab-alert-count';
+            tab.appendChild(badge);
+        }
+        return badge;
+    }
+
+    function setTabCriticalBadge(tabId, count) {
+        var badge = ensureTabBadge(tabId);
+        if (!badge) return;
+        if (!count) {
+            badge.textContent = '';
+            badge.classList.remove('is-visible');
+            return;
+        }
+        badge.textContent = String(count);
+        badge.classList.add('is-visible');
+    }
+
+    function clearTabCriticalBadges() {
+        wrap.querySelectorAll('.aeo-tab-alert-count').forEach(function (badge) {
+            badge.textContent = '';
+            badge.classList.remove('is-visible');
+        });
+    }
+
+    function updateTabCriticalBadges(audit) {
+        if (!audit) {
+            clearTabCriticalBadges();
+            return;
+        }
+
+        var scorecardCritical = (audit.scorecard || []).filter(function (item) {
+            return isCriticalScorecardItem(item);
+        }).length;
+        var pageCritical = (audit.pages_reviewed || []).filter(pageHasCriticalIssue).length;
+        var oppCritical = buildOpportunityModels(audit).filter(function (model) {
+            return model.isCritical;
+        }).length;
+        var rewriteCritical = buildRewriteCandidates(audit).filter(function (candidate) {
+            return candidate.tier === 'high';
+        }).length;
+
+        setTabCriticalBadge('scoreboard', scorecardCritical);
+        setTabCriticalBadge('site-audit', pageCritical);
+        setTabCriticalBadge('opportunities', oppCritical);
+        setTabCriticalBadge('rewrite', rewriteCritical);
+    }
+
     function renderAuditWaiting(title, description) {
         // Shared waiting card used by all audit-driven tabs when no data
         // is available yet. Shows the same rotating verb + stage + progress
@@ -983,6 +1695,7 @@
     }
 
     function setAuditTabsLoading() {
+        clearTabCriticalBadges();
         AUDIT_TAB_IDS.forEach(function (id) {
             var el = document.getElementById('tab-' + id);
             if (el) el.innerHTML = renderAuditLoading();
@@ -990,6 +1703,7 @@
     }
 
     function setAuditTabsEmpty(message) {
+        clearTabCriticalBadges();
         AUDIT_TAB_IDS.forEach(function (id) {
             var el = document.getElementById('tab-' + id);
             if (el) el.innerHTML = renderAuditEmpty(message);
@@ -1387,6 +2101,7 @@
             connectAudit.style.display = '';
         }
         refreshSiteAuditCount();
+        updateTabCriticalBadges(audit);
     }
 
     /* ── Score Breakdown Modal ────────────────────────── */
@@ -1686,14 +2401,12 @@
                     stopAuditRetry();
                     renderAudit(res.data);
                 } else {
+                    if (checkAuthExpired(res)) return;
                     var msg = 'Your first site audit is still running.';
                     if (res.data) {
                         if (typeof res.data === 'string') msg = res.data;
                         else if (res.data.message) msg = res.data.message;
                     }
-                    // Other audit tabs (Overview/Scoreboard/Opportunities/Rewrite)
-                    // show the simple empty state, but Site Audit shows the
-                    // live progress card so users watch it populate.
                     AUDIT_TAB_IDS.forEach(function (id) {
                         var el = document.getElementById('tab-' + id);
                         if (!el) return;
@@ -1804,6 +2517,7 @@
                         startDiscoveryPolling();
                     }
                 } else {
+                    if (checkAuthExpired(res)) return;
                     var msg = (res.data && res.data.message) ? res.data.message : 'Failed to load discovery.';
                     var code = (res.data && res.data.code) || '';
                     if (code === 'aeocas_no_discovery') {
@@ -1979,6 +2693,7 @@
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (!res.success) {
+                    if (checkAuthExpired(res)) return;
                     stopPolling();
                     hideReauditProgress();
                     showError(res.data && res.data.message ? res.data.message : 'Failed to trigger re-audit.');
@@ -2090,6 +2805,28 @@
     });
 
     /* ── Util ─────────────────────────────────────────── */
+
+    /**
+     * Check if an AJAX response indicates the API key is dead. If so, force
+     * a page reload to the Connect tab so the user sees the "Continue with
+     * Google" reconnect flow. Returns true if auth expired (caller should
+     * stop processing).
+     */
+    function checkAuthExpired(res) {
+        var code = res && res.data && res.data.code;
+        if (code === 'aeocas_auth_expired' || code === 'aeocas_no_key') {
+            // Stop all polling so we don't spam dead requests.
+            stopDiscoveryPolling();
+            stopDiscoveryTicker();
+            stopAuditRetry();
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            // Redirect to the Connect tab which will show the reconnect UI
+            // (the PHP already cleared the options server-side).
+            window.location.href = window.location.pathname + '?page=aeocas-audit-report&tab=connect';
+            return true;
+        }
+        return false;
+    }
 
     function esc(str) {
         if (!str) return '';
