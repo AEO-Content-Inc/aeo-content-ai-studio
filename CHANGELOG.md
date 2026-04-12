@@ -7,9 +7,11 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Replaced the settings-page API-key-first onboarding with a connect-first flow for new installs
 - Added account, sign-in, and disconnect actions to the WordPress settings screen
+- Switched the wp-admin sidebar menu icon to a dedicated transparent SVG mark that sits correctly on the dark admin background
 
 ### Added
 - PHPUnit scaffold and helper tests for onboarding URL generation
+- PHPUnit coverage for the admin menu icon data URI and transparent SVG contract
 
 ## [1.0.0] - 2026-03-13
 

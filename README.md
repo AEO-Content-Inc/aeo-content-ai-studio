@@ -124,7 +124,7 @@ composer install
 composer run test
 ```
 
-The current unit tests cover the new onboarding URL helpers in [`AEOCAS_Settings`](./includes/class-aeo-settings.php). They run against the WordPress stubs in [`tests/bootstrap.php`](./tests/bootstrap.php), so no WP install is needed.
+The current unit tests cover the onboarding URL helpers in [`AEOCAS_Settings`](./includes/class-aeo-settings.php) plus the admin-menu icon contract, so regressions in the dark-sidebar icon do not rely on visual QA alone. They run against the WordPress stubs in [`tests/bootstrap.php`](./tests/bootstrap.php), so no WP install is needed.
 
 #### End-to-end testing in a local WordPress (Docker)
 
@@ -152,14 +152,20 @@ The fastest way to exercise the plugin against a real WordPress is to build the 
 
 3. **Install the ZIP** via **Plugins → Add New → Upload Plugin**, choose the ZIP, and activate. Open **AEO Content → Settings** to verify the onboarding flow.
 
-4. **Smoke-test the REST API**
+4. **Check the admin branding surfaces**
+
+   Confirm the two icon surfaces behave differently on purpose:
+   - the left wp-admin menu uses the compact transparent icon directly on the dark sidebar
+   - the plugin header uses the richer tiled logo on the light content background
+
+5. **Smoke-test the REST API**
 
    ```bash
    curl http://localhost:8888/wp-json/aeo/v1/status
    curl -H "x-api-key: <key>" http://localhost:8888/wp-json/aeo/v1/posts
    ```
 
-5. **Tear down** when finished:
+6. **Tear down** when finished:
 
    ```bash
    npx @wordpress/env stop      # stop containers

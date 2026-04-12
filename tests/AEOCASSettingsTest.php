@@ -11,6 +11,7 @@ final class AEOCASSettingsTest extends TestCase {
             'aeocas_real_site_url' => 'https://captured.example',
             'aeocas_real_home_url' => 'https://home-captured.example',
         );
+        $GLOBALS['aeocas_test_menu_page_args'] = null;
     }
 
     public function test_get_site_url_prefers_captured_site_url(): void {
@@ -102,5 +103,30 @@ final class AEOCASSettingsTest extends TestCase {
 
         // Token should now be stored.
         $this->assertNotEmpty( $GLOBALS['aeocas_test_options']['aeocas_plugin_token'] ?? '' );
+    }
+
+    public function test_add_menu_uses_inline_svg_icon_for_dark_admin_sidebar(): void {
+        $settings = new AEOCAS_Settings();
+
+        $settings->add_menu();
+
+        $this->assertIsArray( $GLOBALS['aeocas_test_menu_page_args'] );
+        $this->assertStringStartsWith(
+            'data:image/svg+xml;base64,',
+            $GLOBALS['aeocas_test_menu_page_args']['icon_url']
+        );
+    }
+
+    public function test_menu_icon_svg_is_transparent_and_not_the_header_tile(): void {
+        $method = new ReflectionMethod( AEOCAS_Settings::class, 'get_menu_icon_data_uri' );
+        $method->setAccessible( true );
+
+        $icon = $method->invoke( null );
+        $svg  = base64_decode( substr( $icon, strlen( 'data:image/svg+xml;base64,' ) ), true );
+
+        $this->assertIsString( $svg );
+        $this->assertStringContainsString( '<svg', $svg );
+        $this->assertStringContainsString( 'fill="none"', $svg );
+        $this->assertStringNotContainsString( '<rect', $svg );
     }
 }

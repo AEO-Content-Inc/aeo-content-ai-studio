@@ -40,9 +40,38 @@ class AEOCAS_Settings {
             'manage_options',
             'aeocas-audit-report',
             array( $this, 'render_audit_report' ),
-            AEOCAS_PLUGIN_URL . 'admin/images/icon.png',
+            self::get_menu_icon_data_uri(),
             30
         );
+    }
+
+    /**
+     * Return a compact, transparent admin menu icon.
+     *
+     * The richer app logo uses a soft tile background for the page header,
+     * but the wp-admin sidebar needs a clean mark that sits directly on the
+     * dark menu background without its own box.
+     *
+     * @return string
+     */
+    private static function get_menu_icon_data_uri() {
+        $svg = <<<'SVG'
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+  <g fill="none" stroke="#a7aaad" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 10.2a5 5 0 0 1 8.5-3.55"/>
+    <path d="M6.35 13.8A4.95 4.95 0 0 0 10 15.4c2.98 0 5.4-2.42 5.4-5.4"/>
+    <path d="M10 10l4.12-3.98"/>
+    <path d="M10 10l-3.62 3.36"/>
+    <path d="M10 10L6.92 7.24"/>
+  </g>
+  <circle cx="10" cy="10" r="1.9" fill="#dcdcde"/>
+  <circle cx="14.25" cy="6.02" r="1.18" fill="#dcdcde"/>
+  <circle cx="6.32" cy="13.38" r="1.12" fill="#dcdcde"/>
+  <circle cx="6.96" cy="7.24" r="1.04" fill="#dcdcde"/>
+</svg>
+SVG;
+
+        return 'data:image/svg+xml;base64,' . base64_encode( $svg );
     }
 
     public function register_settings() {
