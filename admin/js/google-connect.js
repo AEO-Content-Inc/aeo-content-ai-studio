@@ -12,8 +12,12 @@
 
     var popup = null;
     var pollTimer = null;
+    var isConnecting = false;
+    var handledConnection = false;
 
     btn.addEventListener('click', function () {
+        handledConnection = false;
+        isConnecting = true;
         var w = 500;
         var h = 650;
         var left = Math.round((screen.width - w) / 2);
@@ -32,6 +36,9 @@
         pollTimer = setInterval(function () {
             if (popup && popup.closed) {
                 clearInterval(pollTimer);
+                pollTimer = null;
+                popup = null;
+                isConnecting = false;
                 var el = document.getElementById('aeo-google-status');
                 if (el && el.className.indexOf('success') === -1) {
                     el.style.display = 'none';
@@ -43,12 +50,17 @@
     // Listen for postMessage from the platform popup.
     window.addEventListener('message', function (event) {
         if (event.origin !== aeocasGoogle.accountOrigin) return;
+        if (!isConnecting || handledConnection || !popup || popup.closed) return;
 
         var data = event.data;
         if (!data || data.type !== 'aeocas_connected') return;
 
+        handledConnection = true;
         if (pollTimer) clearInterval(pollTimer);
+        pollTimer = null;
         if (popup && !popup.closed) popup.close();
+        popup = null;
+        isConnecting = false;
 
         setStatus(aeocasGoogle.i18n.connecting, 'loading');
 

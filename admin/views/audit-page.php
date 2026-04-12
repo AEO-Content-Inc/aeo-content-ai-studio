@@ -242,12 +242,14 @@ $aeocas_active_stage = isset( $aeocas_stage_by_tab[ $aeocas_active_tab ] ) ? $ae
             </div>
         </div>
         <div class="aeo-header-actions">
-            <a href="#" id="aeo-refresh-audit" class="button button-secondary">
-                <?php esc_html_e( 'Refresh', 'aeo-content-ai-studio' ); ?>
-            </a>
-            <a href="#" id="aeo-reaudit-btn" class="button button-primary">
-                <?php esc_html_e( 'Re-audit', 'aeo-content-ai-studio' ); ?>
-            </a>
+            <?php if ( $aeocas_connected ) : ?>
+                <a href="#" id="aeo-refresh-audit" class="button button-secondary">
+                    <?php esc_html_e( 'Refresh', 'aeo-content-ai-studio' ); ?>
+                </a>
+                <a href="#" id="aeo-reaudit-btn" class="button button-primary">
+                    <?php esc_html_e( 'Re-audit', 'aeo-content-ai-studio' ); ?>
+                </a>
+            <?php endif; ?>
             <span class="aeo-version">v<?php echo esc_html( AEOCAS_VERSION ); ?></span>
         </div>
     </div>
