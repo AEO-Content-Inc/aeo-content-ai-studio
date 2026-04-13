@@ -11,9 +11,6 @@
     if (!btn) return;
 
     var switchLink = document.getElementById('aeo-google-switch-account');
-    var allowedOrigins = Array.isArray(aeocasGoogle.allowedOrigins)
-        ? aeocasGoogle.allowedOrigins
-        : (aeocasGoogle.accountOrigin ? [aeocasGoogle.accountOrigin] : []);
     var popup = null;
     var pollTimer = null;
     var isConnecting = false;
@@ -74,8 +71,8 @@
 
     // Listen for postMessage from the platform popup.
     window.addEventListener('message', function (event) {
-        if (allowedOrigins.indexOf(event.origin) === -1) return;
-        if (!isConnecting || handledConnection) return;
+        if (event.origin !== aeocasGoogle.accountOrigin) return;
+        if (!isConnecting || handledConnection || !popup || popup.closed) return;
 
         var data = event.data;
         if (!data || data.type !== 'aeocas_connected') return;

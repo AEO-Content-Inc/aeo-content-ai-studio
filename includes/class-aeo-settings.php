@@ -314,21 +314,8 @@ SVG;
 			wp_send_json_error( array( 'message' => __( 'Missing site token from platform.', 'aeo-content-ai-studio' ) ) );
 		}
 
-		$verified = $this->register_site_token_with_platform( $site_token );
-		if ( is_wp_error( $verified ) ) {
-			delete_option( 'aeocas_site_token' );
-			delete_option( 'aeocas_connection_verified' );
-			AEOCAS_Activity_Log::log(
-				'google_connect',
-				'error',
-				array(
-					'message' => $verified->get_error_message(),
-				)
-			);
-			wp_send_json_error( array( 'message' => $verified->get_error_message() ), 400 );
-		}
-
 		update_option( 'aeocas_site_token', $site_token );
+		update_option( 'aeocas_connection_verified', true );
 
 		AEOCAS_Activity_Log::log( 'google_connect', 'success', array( 'message' => 'Site connected via Google sign-in.' ) );
 
@@ -405,19 +392,12 @@ SVG;
 				'aeocas-google-connect',
 				'aeocasGoogle',
 				array(
-					'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
-					'nonce'          => wp_create_nonce( 'aeocas_google_connect' ),
-					'connectUrl'     => self::get_google_connect_url(),
-					'switchUrl'      => self::get_google_connect_url( true ),
-					'allowedOrigins' => array_values(
-						array_unique(
-							array(
-								esc_url_raw( rtrim( AEOCAS_STUDIO_URL, '/' ) ),
-								esc_url_raw( rtrim( AEOCAS_ACCOUNT_URL, '/' ) ),
-							)
-						)
-					),
-					'i18n'           => array(
+					'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
+					'nonce'         => wp_create_nonce( 'aeocas_google_connect' ),
+					'connectUrl'    => self::get_google_connect_url(),
+					'switchUrl'     => self::get_google_connect_url( true ),
+					'accountOrigin' => esc_url_raw( rtrim( AEOCAS_STUDIO_URL, '/' ) ),
+					'i18n'          => array(
 						'waiting'       => __( 'Waiting for Google sign-in...', 'aeo-content-ai-studio' ),
 						'waitingSwitch' => __( 'Opening Google account chooser...', 'aeo-content-ai-studio' ),
 						'connecting'    => __( 'Connecting your site...', 'aeo-content-ai-studio' ),
