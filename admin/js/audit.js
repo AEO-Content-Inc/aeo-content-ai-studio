@@ -2080,56 +2080,59 @@
         var planLabel = formatRewritePlanLabel(data.plan, data.planLabel);
         var upgradeUrl = getRewriteUpgradeUrl();
         var cardClass = 'aeo-header-trial-offer';
-        var kicker = '$1 Starter Trial';
-        var title = 'Syncing starter trial status...';
-        var body = 'A one-time Stripe Checkout payment unlocks ' + starterArticles + ' AEO article credits for rewrites or new articles.';
+        var kicker = 'Starter Trial';
+        var title = 'Checking trial status...';
+        var body = 'Unlock ' + starterArticles + ' AEO article credits for rewrites or new content.';
         var note = '';
         var actionHtml = '';
 
         if (rewriteAvailabilityState.phase === 'error') {
             cardClass += ' is-error';
-            title = 'Starter trial is temporarily unavailable';
-            body = rewriteAvailabilityState.message || 'The plugin could not load article trial availability right now.';
-            note = canManagePlugin ? 'You can still open Studio to manage billing directly.' : 'A site administrator can manage billing in Studio.';
+            title = 'Starter trial unavailable';
+            body = rewriteAvailabilityState.message || 'Could not load trial availability right now.';
+            note = canManagePlugin ? 'You can manage billing directly in Studio.' : 'A site administrator can manage billing in Studio.';
             if (canManagePlugin && upgradeUrl) {
                 actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Manage in Studio</a>';
             }
         } else if (available > 0) {
             cardClass += ' is-active';
-            kicker = planLabel || 'AEO Article Credits';
-            title = available + ' of ' + (limit > 0 ? limit : starterArticles) + ' article credits remaining';
-            body = 'Use them on full rewrites or brand-new article runs in Studio.';
-            note = canManagePlugin ? ('The ' + (planLabel || 'active plan') + ' balance is attached to this connected account.') : 'A site administrator manages billing for this connected account.';
+            kicker = planLabel || 'Article Credits';
+            title = available + ' of ' + (limit > 0 ? limit : starterArticles) + ' credits remaining';
+            body = 'Use them on rewrites or new articles in Studio.';
+            note = canManagePlugin ? (planLabel || 'Active plan') + ' balance is attached to this account.' : 'A site administrator manages billing for this account.';
             if (canManagePlugin && upgradeUrl) {
                 actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Manage in Studio</a>';
             }
         } else if (data.checkoutEnabled && data.starterEligible) {
-            title = starterArticles + ' AEO articles for ' + starterPrice;
+            kicker = starterPrice + ' Starter';
+            title = 'Unlock ' + starterArticles + ' articles for rewrites and new content';
             if (canManagePlugin) {
-                body = 'Move this account out of Free with a one-time Stripe Checkout payment. Use the credits on rewrites or new article creation in Studio.';
-                note = 'Stripe Checkout collects card details for the one-time starter payment.';
-                actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening Stripe checkout...' : ('Upgrade for ' + starterPrice)) + '</button>';
+                body = 'One-time payment via Stripe Checkout. Credits work for both page rewrites and new article creation in Studio.';
+                note = '';
+                actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening checkout...' : ('Start for ' + starterPrice)) + '</button>';
             } else {
-                body = 'No AEO article credits remain on this account.';
-                note = 'A site administrator must manage billing to unlock more article credits.';
+                body = 'No article credits remain on this account.';
+                note = 'A site administrator must manage billing to unlock credits.';
             }
         } else {
             cardClass += ' is-exhausted';
             kicker = planLabel || 'Starter Trial';
-            title = planLabel === '$1 Trial Plan' ? 'Your $1 trial is exhausted' : 'Starter trial unavailable';
-            body = canManagePlugin ? 'Upgrade in Studio to keep generating AEO rewrites and new articles after the trial credits are spent.' : 'No AEO article credits remain on this account.';
-            note = canManagePlugin ? 'Billing runs through Stripe Checkout as a one-time payment for the starter trial.' : 'A site administrator must manage billing to unlock more article credits.';
+            title = (planLabel && planLabel !== 'Starter Trial') ? planLabel + ' credits exhausted' : 'Starter trial unavailable';
+            body = canManagePlugin ? 'Upgrade in Studio to keep generating rewrites and new articles.' : 'No article credits remain on this account.';
+            note = canManagePlugin ? 'Billing is handled via Stripe Checkout.' : 'A site administrator must manage billing to unlock credits.';
             if (canManagePlugin && upgradeUrl) {
                 actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Upgrade in Studio</a>';
             }
         }
 
+        var bannerClass = 'aeo-trial-banner';
+        if (cardClass.indexOf('is-error') !== -1) bannerClass += ' is-error';
+        else if (cardClass.indexOf('is-exhausted') !== -1) bannerClass += ' is-exhausted';
+
         return ''
-            + '<div id="aeo-header-trial-offer" class="' + esc(cardClass) + '">'
+            + '<div id="aeo-header-trial-offer" class="' + esc(bannerClass) + '">'
             +   '<span class="aeo-header-trial-kicker">' + esc(kicker) + '</span>'
-            +   '<h2 class="aeo-header-trial-title">' + esc(title) + '</h2>'
-            +   '<p class="aeo-header-trial-body">' + esc(body) + '</p>'
-            +   (note ? '<p class="aeo-header-trial-note"><strong>Billing:</strong> ' + esc(note) + '</p>' : '')
+            +   '<span class="aeo-header-trial-title">' + esc(title) + '</span>'
             +   (actionHtml ? '<div class="aeo-header-trial-actions">' + actionHtml + '</div>' : '')
             + '</div>';
     }
@@ -2283,7 +2286,7 @@
     function formatRewritePlanLabel(plan, explicitLabel) {
         if (explicitLabel) return explicitLabel;
         if (!plan) return '';
-        if (plan === 'starter') return '$1 Trial Plan';
+        if (plan === 'starter') return 'Starter Plan';
         if (plan === 'pro') return 'Pro Plan';
         return String(plan)
             .replace(/[_-]+/g, ' ')
@@ -2338,8 +2341,8 @@
             else body += '.';
         } else if (data.checkoutEnabled && data.starterEligible) {
             if (canManagePlugin) {
-                body = 'Unlock ' + starterArticles + ' AEO article credits for ' + starterPrice + '. Use them on rewrites or new articles in Studio.';
-                actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening checkout...' : ('Upgrade for ' + starterPrice)) + '</button>';
+                body = 'Unlock ' + starterArticles + ' article credits for rewrites or new content in Studio.';
+                actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening checkout...' : ('Start for ' + starterPrice)) + '</button>';
             } else {
                 body = 'No AEO article credits remain on this account. Ask a site administrator to manage billing.';
             }
@@ -2568,7 +2571,7 @@
                 return { kind: 'unavailable', label: 'Admin required', reason: 'A site administrator must manage billing for additional article credits.' };
             }
             if (availability.checkoutEnabled && availability.starterEligible) {
-                return { kind: 'starter', label: 'Unlock for $1' };
+                return { kind: 'starter', label: 'Rewrite' };
             }
             return { kind: 'upgrade', label: 'Upgrade', href: getRewriteUpgradeUrl() };
         }
@@ -4281,24 +4284,10 @@
             + '</aside>';
     }
 
-    function renderStageHero(stageId, context) {
-        var stage = STAGE_BY_ID[stageId];
-        if (!stage) return '';
-
-        var state = getStageState(stageId, context);
-        var action = getNextBestAction(stageId, context);
-
-        return ''
-            + '<div class="aeo-stage-hero-main">'
-            +   '<div class="aeo-stage-kicker">Step ' + stage.order + ' of ' + STAGE_CONFIGS.length + '</div>'
-            +   '<div class="aeo-stage-title-row">'
-            +     '<h2 class="aeo-stage-title">' + esc(stage.title) + '</h2>'
-            +     renderStatusChip(state.label, state.tone)
-            +   '</div>'
-            +   '<p class="aeo-stage-description">' + esc(getStageDescription(stageId)) + '</p>'
-            +   '<p class="aeo-stage-context">' + esc(getStageContextLine(stageId, context)) + '</p>'
-            + '</div>'
-            + renderNextActionCard(action);
+    function renderStageHero() {
+        // Hero removed to reduce vertical bloat. Stage state and next-best
+        // action are already visible in the compact workflow rail.
+        return '';
     }
 
     function renderStageSummary(stageId, context) {
@@ -4324,8 +4313,14 @@
         STAGE_CONFIGS.forEach(function (stage) {
             var hero = document.getElementById('aeo-stage-hero-' + stage.id);
             var summary = document.getElementById('aeo-stage-summary-' + stage.id);
-            if (hero) hero.innerHTML = renderStageHero(stage.id, context);
-            if (summary) summary.innerHTML = renderStageSummary(stage.id, context);
+            if (hero) {
+                hero.innerHTML = renderStageHero(stage.id, context);
+                hero.style.display = hero.innerHTML.trim() ? '' : 'none';
+            }
+            if (summary) {
+                summary.innerHTML = renderStageSummary(stage.id, context);
+                summary.style.display = summary.innerHTML.trim() ? '' : 'none';
+            }
             applyWorkflowStepState(stage.id, getStageState(stage.id, context));
         });
         updateWorkflowBadges(context);

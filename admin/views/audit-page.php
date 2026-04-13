@@ -237,10 +237,10 @@ if ( ! $aeocas_connected ) {
 	#aeo-audit-wrap .aeo-workflow-rail::before {
 		content: '';
 		position: absolute;
-		top: 52px;
-		left: 84px;
-		right: 84px;
-		height: 3px;
+		top: 34px;
+		left: 60px;
+		right: 60px;
+		height: 2px;
 		background: linear-gradient(90deg, rgba(15, 118, 110, 0.18), rgba(15, 118, 110, 0.08));
 		pointer-events: none;
 	}
@@ -248,11 +248,11 @@ if ( ! $aeocas_connected ) {
 		position: relative;
 		display: flex !important;
 		flex-direction: column;
-		gap: 16px;
-		min-height: 154px;
-		padding: 20px 20px 18px;
+		gap: 8px;
+		min-height: 70px;
+		padding: 12px 14px;
 		border: 1px solid rgba(31, 42, 51, 0.12);
-		border-radius: 24px;
+		border-radius: 16px;
 		background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(249,245,236,0.94));
 		box-shadow: 0 18px 40px rgba(31, 42, 51, 0.08);
 		color: #1f2a33 !important;
@@ -276,24 +276,23 @@ if ( ! $aeocas_connected ) {
 		background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(228,243,232,0.92));
 		border-color: rgba(47, 133, 90, 0.28);
 	}
-	#aeo-audit-wrap .aeo-workflow-step-top { display:flex; align-items:center; gap:12px; min-width:0; padding-right:24px; }
+	#aeo-audit-wrap .aeo-workflow-step-top { display:flex; align-items:center; gap:8px; min-width:0; }
 	#aeo-audit-wrap .aeo-workflow-step-index {
 		position:relative; z-index:1; display:inline-flex; align-items:center; justify-content:center;
-		width:40px; height:40px; border-radius:999px; border:1px solid rgba(31,42,51,0.12);
-		background:#fff; font-size:15px; font-weight:700; box-shadow:0 10px 20px rgba(31,42,51,0.08);
+		width:28px; height:28px; border-radius:999px; border:1px solid rgba(31,42,51,0.12);
+		background:#fff; font-size:12px; font-weight:700; box-shadow:0 6px 12px rgba(31,42,51,0.06);
 	}
 	#aeo-audit-wrap .aeo-workflow-step-icon {
-		display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px;
-		border-radius:14px; border:1px solid rgba(15,118,110,0.16); background:rgba(15,118,110,0.08); color:#0f766e;
-		box-shadow: inset 0 1px 0 rgba(255,255,255,0.82);
+		display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px;
+		border-radius:10px; border:1px solid rgba(15,118,110,0.16); background:rgba(15,118,110,0.08); color:#0f766e;
 	}
-	#aeo-audit-wrap .aeo-workflow-step-icon .dashicons { width:20px; height:20px; font-size:20px; }
-	#aeo-audit-wrap .aeo-workflow-step-body { display:flex; flex-direction:column; gap:8px; min-width:0; padding-right:26px; }
-	#aeo-audit-wrap .aeo-workflow-step-title { display:block; font-size:18px; font-weight:700; line-height:1.2; }
-	#aeo-audit-wrap .aeo-workflow-step-label { display:block; color:#66717d; font-size:14px; line-height:1.55; }
+	#aeo-audit-wrap .aeo-workflow-step-icon .dashicons { width:16px; height:16px; font-size:16px; }
+	#aeo-audit-wrap .aeo-workflow-step-body { display:flex; flex-direction:column; gap:4px; min-width:0; }
+	#aeo-audit-wrap .aeo-workflow-step-title { display:block; font-size:14px; font-weight:700; line-height:1.2; }
+	#aeo-audit-wrap .aeo-workflow-step-label { display:none; }
 	#aeo-audit-wrap .aeo-workflow-step-state {
 		display:inline-flex; align-items:center; justify-content:center; width:max-content; max-width:100%;
-		margin-top:auto; padding:6px 10px; border-radius:999px; font-size:11px; font-weight:700;
+		margin-top:auto; padding:4px 8px; border-radius:999px; font-size:10px; font-weight:700;
 		letter-spacing:0.03em; text-transform:uppercase; background:#eef2f4; color:#66717d;
 	}
 	#aeo-audit-wrap .aeo-workflow-step-state.is-attention { background:#fde7e2; color:#c43d3d; }
@@ -360,7 +359,7 @@ if ( ! $aeocas_connected ) {
 			#aeo-audit-wrap .aeo-header-insights-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
 			#aeo-audit-wrap .aeo-workflow-rail { display:flex; overflow-x:auto; padding-bottom:8px; }
 			#aeo-audit-wrap .aeo-workflow-rail::before { display:none; }
-			#aeo-audit-wrap .aeo-workflow-step { min-width:270px; flex:0 0 270px; }
+			#aeo-audit-wrap .aeo-workflow-step { min-width:180px; flex:0 0 180px; }
 		}
 		@media (max-width: 782px) {
 			#aeo-audit-wrap .aeo-header { grid-template-columns:minmax(0, 1fr) !important; padding:18px 20px; }
@@ -373,7 +372,7 @@ if ( ! $aeocas_connected ) {
 		}
 	</style>
 	<div class="wrap aeo-settings" id="aeo-audit-wrap" data-requested-tab="<?php echo esc_attr( $aeocas_requested_tab ); ?>" data-connected="<?php echo $aeocas_connected ? '1' : '0'; ?>" data-feature-count="<?php echo esc_attr( count( $aeocas_features ) ); ?>">
-		<div class="aeo-header<?php echo $aeocas_connected ? ' has-insights' : ''; ?>">
+		<div class="aeo-header">
 			<div class="aeo-header-brand">
 				<span class="aeo-header-wordmark-wrap">
 					<img class="aeo-header-wordmark" src="<?php echo esc_url( $aeocas_wordmark_url ); ?>" alt="<?php esc_attr_e( 'AEO Content', 'aeo-content-ai-studio' ); ?>" width="360" height="89" loading="eager" decoding="async" />
@@ -390,32 +389,31 @@ if ( ! $aeocas_connected ) {
 						<span class="aeo-rewrite-badge" id="aeo-rewrite-availability" hidden aria-live="polite"></span>
 					<?php endif; ?>
 					</div>
-					<?php if ( $aeocas_connected ) : ?>
-						<div class="aeo-header-trial-offer" id="aeo-header-trial-offer" aria-live="polite">
-							<span class="aeo-header-trial-kicker"><?php esc_html_e( '$1 Starter Trial', 'aeo-content-ai-studio' ); ?></span>
-							<h2 class="aeo-header-trial-title"><?php esc_html_e( 'Checking article trial availability…', 'aeo-content-ai-studio' ); ?></h2>
-							<p class="aeo-header-trial-body"><?php esc_html_e( 'A one-time Stripe Checkout charge can unlock 5 AEO article credits for rewrites or new articles in Studio.', 'aeo-content-ai-studio' ); ?></p>
-						</div>
-					<?php endif; ?>
 				</div>
 			</div>
-			<?php if ( $aeocas_connected ) : ?>
-				<div class="aeo-header-insights-grid">
-					<div class="aeo-header-priority" id="aeo-header-rewrite-priority" aria-live="polite">
-						<div class="aeo-header-priority-empty">
-							<strong><?php esc_html_e( 'Loading rewrite priorities…', 'aeo-content-ai-studio' ); ?></strong>
-							<p><?php esc_html_e( 'The lowest-scoring blog articles from the latest audit will surface here.', 'aeo-content-ai-studio' ); ?></p>
-						</div>
-					</div>
-					<div class="aeo-header-priority" id="aeo-header-content-suggestions" aria-live="polite">
-						<div class="aeo-header-priority-empty">
-							<strong><?php esc_html_e( 'Loading content suggestions…', 'aeo-content-ai-studio' ); ?></strong>
-							<p><?php esc_html_e( 'Discovery gaps and intent signals will surface new article ideas here.', 'aeo-content-ai-studio' ); ?></p>
-						</div>
-					</div>
-				</div>
-			<?php endif; ?>
 		</div>
+
+		<?php if ( $aeocas_connected ) : ?>
+		<div class="aeo-trial-banner" id="aeo-header-trial-offer" aria-live="polite">
+			<span class="aeo-header-trial-kicker"><?php esc_html_e( 'Starter Trial', 'aeo-content-ai-studio' ); ?></span>
+			<span class="aeo-header-trial-title"><?php esc_html_e( 'Checking trial status…', 'aeo-content-ai-studio' ); ?></span>
+		</div>
+
+		<div class="aeo-header-insights-grid" id="aeo-insights-grid-mount">
+			<div class="aeo-header-priority" id="aeo-header-rewrite-priority" aria-live="polite">
+				<div class="aeo-header-priority-empty">
+					<strong><?php esc_html_e( 'Loading rewrite priorities…', 'aeo-content-ai-studio' ); ?></strong>
+					<p><?php esc_html_e( 'Lowest-scoring articles from the latest audit will surface here.', 'aeo-content-ai-studio' ); ?></p>
+				</div>
+			</div>
+			<div class="aeo-header-priority" id="aeo-header-content-suggestions" aria-live="polite">
+				<div class="aeo-header-priority-empty">
+					<strong><?php esc_html_e( 'Loading content suggestions…', 'aeo-content-ai-studio' ); ?></strong>
+					<p><?php esc_html_e( 'Discovery gaps and intent signals will surface article ideas here.', 'aeo-content-ai-studio' ); ?></p>
+				</div>
+			</div>
+		</div>
+		<?php endif; ?>
 
 	<!-- Loading state -->
 	<div id="aeo-audit-loading" class="aeo-audit-loading" <?php echo $aeocas_connected ? '' : 'style="display: none;"'; ?>>

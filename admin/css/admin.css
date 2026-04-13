@@ -90,6 +90,45 @@
     height: auto;
 }
 
+.aeo-trial-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: -8px 0 18px;
+    padding: 10px 18px;
+    border: 1px solid rgba(15, 118, 110, 0.14);
+    border-radius: 14px;
+    background: linear-gradient(90deg, rgba(223, 244, 239, 0.4), rgba(255, 253, 248, 0.9));
+    font-size: 13px;
+}
+
+.aeo-trial-banner .aeo-header-trial-kicker {
+    margin: 0;
+}
+
+.aeo-trial-banner .aeo-header-trial-title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.aeo-trial-banner .aeo-header-trial-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+}
+
+.aeo-trial-banner.is-error {
+    border-color: rgba(196, 61, 61, 0.18);
+    background: linear-gradient(90deg, rgba(253, 231, 226, 0.4), rgba(255, 253, 248, 0.9));
+}
+
+.aeo-trial-banner.is-exhausted {
+    border-color: rgba(31, 42, 51, 0.1);
+    background: linear-gradient(90deg, rgba(238, 242, 244, 0.4), rgba(255, 253, 248, 0.9));
+}
+
 .aeo-header-trial-offer {
     display: flex;
     flex-direction: column;
@@ -284,7 +323,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
     min-width: 0;
-    align-self: start;
+    margin-bottom: 18px;
 }
 
 .aeo-header-priority {
@@ -886,10 +925,10 @@
 .aeo-workflow-rail::before {
     content: '';
     position: absolute;
-    top: 52px;
-    left: 84px;
-    right: 84px;
-    height: 3px;
+    top: 34px;
+    left: 60px;
+    right: 60px;
+    height: 2px;
     background: linear-gradient(90deg, rgba(15, 118, 110, 0.18), rgba(15, 118, 110, 0.08));
     pointer-events: none;
 }
@@ -898,11 +937,11 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    min-height: 154px;
-    padding: 20px 20px 18px;
+    gap: 8px;
+    min-height: 70px;
+    padding: 12px 14px;
     border: 1px solid var(--aeo-line);
-    border-radius: 24px;
+    border-radius: 16px;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 245, 236, 0.94));
     box-shadow: var(--aeo-shadow);
     text-align: left;
@@ -948,9 +987,8 @@
 .aeo-workflow-step-top {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     min-width: 0;
-    padding-right: 24px;
 }
 
 .aeo-workflow-step-index {
@@ -959,14 +997,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 28px;
+    height: 28px;
     border-radius: 999px;
     background: var(--aeo-surface-strong);
     border: 1px solid var(--aeo-line);
-    font-size: 15px;
+    font-size: 12px;
     font-weight: 700;
-    box-shadow: 0 10px 20px rgba(31, 42, 51, 0.08);
+    box-shadow: 0 6px 12px rgba(31, 42, 51, 0.06);
 }
 
 .aeo-workflow-step.is-healthy .aeo-workflow-step-index::after {
@@ -991,19 +1029,18 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
     border: 1px solid rgba(15, 118, 110, 0.16);
     background: rgba(15, 118, 110, 0.08);
     color: var(--aeo-accent);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
 }
 
 .aeo-workflow-step-icon .dashicons {
-    width: 20px;
-    height: 20px;
-    font-size: 20px;
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
 }
 
 .aeo-workflow-step[data-stage="connect"] .aeo-workflow-step-icon {
@@ -1039,16 +1076,15 @@
 .aeo-workflow-step-body {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
     min-width: 0;
-    padding-right: 26px;
 }
 
 .aeo-workflow-step-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 12px;
+    gap: 6px;
+    margin-top: 4px;
     position: relative;
     z-index: 1;
 }
@@ -1088,16 +1124,13 @@
 
 .aeo-workflow-step-title {
     display: block;
-    font-size: 18px;
+    font-size: 14px;
     font-weight: 700;
     line-height: 1.2;
 }
 
 .aeo-workflow-step-label {
-    display: block;
-    color: var(--aeo-muted);
-    font-size: 14px;
-    line-height: 1.55;
+    display: none;
 }
 
 .aeo-workflow-step-state,
@@ -1107,9 +1140,9 @@
     justify-content: center;
     width: fit-content;
     max-width: 100%;
-    padding: 6px 10px;
+    padding: 4px 8px;
     border-radius: 999px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -1178,8 +1211,8 @@
 
 .aeo-workflow-badge {
     position: absolute;
-    top: 14px;
-    right: 14px;
+    top: 8px;
+    right: 8px;
     z-index: 2;
 }
 
@@ -1199,6 +1232,11 @@
     display: grid;
     grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.75fr);
     gap: 16px;
+}
+
+.aeo-stage-hero:empty,
+.aeo-stage-summary:empty {
+    display: none;
 }
 
 .aeo-stage-hero-main,
@@ -1904,8 +1942,8 @@
     }
 
     .aeo-workflow-step {
-        min-width: 270px;
-        flex: 0 0 270px;
+        min-width: 180px;
+        flex: 0 0 180px;
     }
 
     .aeo-stage-summary {
@@ -1971,7 +2009,7 @@
     }
 
     .aeo-workflow-step {
-        min-height: 132px;
+        min-height: 60px;
     }
 }
 
