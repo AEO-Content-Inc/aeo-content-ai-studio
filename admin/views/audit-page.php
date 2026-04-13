@@ -309,6 +309,7 @@ if ( ! $aeocas_connected ) {
 			<?php endif; ?>
 		</div>
 
+		<?php if ( $aeocas_connected ) : ?>
 		<div class="aeo-header-insights-grid" id="aeo-insights-grid-mount">
 			<div class="aeo-header-priority" id="aeo-header-rewrite-priority" aria-live="polite">
 				<div class="aeo-header-priority-empty">
