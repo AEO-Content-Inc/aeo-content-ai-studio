@@ -58,6 +58,20 @@ $aeocas_stage_by_tab     = array(
 $aeocas_active_tab       = in_array( $aeocas_requested_tab, $aeocas_valid_tabs, true ) ? $aeocas_requested_tab : 'connect';
 $aeocas_active_tab       = in_array( $aeocas_active_tab, array( 'visibility', 'activity' ), true ) ? 'visibility-overview' : $aeocas_active_tab;
 $aeocas_active_stage     = isset( $aeocas_stage_by_tab[ $aeocas_active_tab ] ) ? $aeocas_stage_by_tab[ $aeocas_active_tab ] : 'connect';
+$aeocas_tab_labels       = array(
+	'connect'                => __( 'Settings', 'aeo-content-ai-studio' ),
+	'discovery'              => __( 'Discovery', 'aeo-content-ai-studio' ),
+	'scoreboard'             => __( 'Site Audit', 'aeo-content-ai-studio' ),
+	'site-audit'             => __( 'Pages Audit', 'aeo-content-ai-studio' ),
+	'opportunities'          => __( 'Opportunities', 'aeo-content-ai-studio' ),
+	'rewrite'                => __( 'Rewrites', 'aeo-content-ai-studio' ),
+	'visibility-overview'    => __( 'AI Visibility', 'aeo-content-ai-studio' ),
+	'visibility-citations'   => __( 'Citations', 'aeo-content-ai-studio' ),
+	'visibility-competitors' => __( 'Competitors', 'aeo-content-ai-studio' ),
+	'visibility-trends'      => __( 'Trends', 'aeo-content-ai-studio' ),
+);
+// Collapse the overview chrome when arriving from a sidebar submenu link.
+$aeocas_direct_tab = $aeocas_connected && '' !== $aeocas_requested_tab && 'connect' !== $aeocas_requested_tab;
 
 if ( ! $aeocas_connected ) {
 	$aeocas_active_tab   = 'connect';
@@ -288,7 +302,19 @@ if ( ! $aeocas_connected ) {
 			#aeo-audit-wrap .aeo-workflow-step-actions { width:100%; }
 		}
 	</style>
-	<div class="wrap aeo-settings" id="aeo-audit-wrap" data-requested-tab="<?php echo esc_attr( $aeocas_requested_tab ); ?>" data-connected="<?php echo $aeocas_connected ? '1' : '0'; ?>" data-feature-count="<?php echo esc_attr( count( $aeocas_features ) ); ?>">
+	<div class="wrap aeo-settings<?php echo $aeocas_direct_tab ? ' aeo-direct-tab' : ''; ?>" id="aeo-audit-wrap" data-requested-tab="<?php echo esc_attr( $aeocas_requested_tab ); ?>" data-connected="<?php echo $aeocas_connected ? '1' : '0'; ?>" data-feature-count="<?php echo esc_attr( count( $aeocas_features ) ); ?>">
+
+		<?php if ( $aeocas_direct_tab ) : ?>
+		<div class="aeo-page-title-bar">
+			<h1 class="aeo-page-title"><?php echo esc_html( isset( $aeocas_tab_labels[ $aeocas_active_tab ] ) ? $aeocas_tab_labels[ $aeocas_active_tab ] : 'AEO Content AI Studio' ); ?></h1>
+			<button type="button" class="aeo-overview-toggle" id="aeo-overview-toggle" aria-expanded="false">
+				<span class="dashicons dashicons-arrow-down-alt2"></span>
+				<?php esc_html_e( 'Show overview', 'aeo-content-ai-studio' ); ?>
+			</button>
+		</div>
+		<?php endif; ?>
+
+		<div class="aeo-overview-panel" id="aeo-overview-panel" <?php echo $aeocas_direct_tab ? 'hidden' : ''; ?>>
 		<div class="aeo-header">
 			<span class="aeo-header-wordmark-wrap">
 				<img class="aeo-header-wordmark" src="<?php echo esc_url( $aeocas_wordmark_url ); ?>" alt="<?php esc_attr_e( 'AEO Content', 'aeo-content-ai-studio' ); ?>" width="360" height="89" loading="eager" decoding="async" />
@@ -407,6 +433,7 @@ if ( ! $aeocas_connected ) {
 			</a>
 		</nav>
 		<?php endif; ?>
+		</div><!-- /.aeo-overview-panel -->
 
 		<section class="aeo-stage-shell <?php echo 'connect' === $aeocas_active_stage ? 'is-active' : ''; ?>" id="stage-connect" data-stage="connect" <?php echo 'connect' === $aeocas_active_stage ? '' : 'style="display: none;"'; ?>>
 			<?php if ( $aeocas_connected ) : ?>
@@ -696,3 +723,25 @@ if ( ! $aeocas_connected ) {
 		</div>
 	</div>
 </div>
+<?php if ( $aeocas_direct_tab ) : ?>
+<script>
+(function(){
+	var btn = document.getElementById('aeo-overview-toggle');
+	var panel = document.getElementById('aeo-overview-panel');
+	if (!btn || !panel) return;
+	btn.addEventListener('click', function(){
+		var open = panel.hidden;
+		panel.hidden = !open;
+		btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+		btn.querySelector('.dashicons').className = 'dashicons dashicons-arrow-' + (open ? 'up' : 'down') + '-alt2';
+		var label = btn.childNodes;
+		for (var i = 0; i < label.length; i++) {
+			if (label[i].nodeType === 3 && label[i].textContent.trim()) {
+				label[i].textContent = open ? ' <?php echo esc_js( __( 'Hide overview', 'aeo-content-ai-studio' ) ); ?>' : ' <?php echo esc_js( __( 'Show overview', 'aeo-content-ai-studio' ) ); ?>';
+				break;
+			}
+		}
+	});
+})();
+</script>
+<?php endif; ?>

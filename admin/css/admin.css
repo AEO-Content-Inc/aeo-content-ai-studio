@@ -25,6 +25,58 @@
     color: var(--aeo-ink);
 }
 
+/* ─── Page title bar (direct submenu access) ──── */
+
+.aeo-page-title-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 6px 0 16px;
+}
+
+.aeo-page-title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--aeo-ink);
+}
+
+.aeo-overview-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1px solid var(--aeo-line);
+    border-radius: 8px;
+    background: var(--aeo-surface);
+    color: var(--aeo-muted);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.aeo-overview-toggle:hover {
+    background: var(--aeo-neutral-soft);
+    color: var(--aeo-ink);
+}
+
+.aeo-overview-toggle .dashicons {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+    transition: transform 0.2s;
+}
+
+.aeo-overview-toggle[aria-expanded="true"] .dashicons {
+    transform: rotate(180deg);
+}
+
+.aeo-overview-panel[hidden] {
+    display: none;
+}
+
 .aeo-settings h1 {
     margin: 0;
     font-size: 32px;

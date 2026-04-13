@@ -31,18 +31,45 @@ class AEOCAS_Settings {
 	}
 
 	public function add_menu() {
-		// Single top-level menu item. Everything is on the audit report page,
-		// organized into tabs (Discovery, Site Audit, Connect, Scoreboard,
-		// Opportunities, Rewrite Candidates, Activity Log).
+		$cap      = AEOCAS_Capabilities::view_reports_capability();
+		$icon     = self::get_menu_icon_data_uri();
+		$base     = 'aeocas-audit-report';
+		$base_url = 'admin.php?page=' . $base;
+
 		add_menu_page(
 			__( 'AEO Content AI Studio', 'aeo-content-ai-studio' ),
 			__( 'AEO Content', 'aeo-content-ai-studio' ),
-			AEOCAS_Capabilities::view_reports_capability(),
-			'aeocas-audit-report',
+			$cap,
+			$base,
 			array( $this, 'render_audit_report' ),
-			self::get_menu_icon_data_uri(),
+			$icon,
 			30
 		);
+
+		// Submenu items link directly to tab query args on the same page.
+		// We inject raw URLs into the global $submenu array so WordPress
+		// renders them as sidebar links without registering new page slugs.
+		global $submenu;
+
+		$tabs = array(
+			array( 'Site Audit',    'scoreboard' ),
+			array( 'Pages Audit',   'site-audit' ),
+			array( 'Opportunities', 'opportunities' ),
+			array( 'Rewrites',      'rewrite' ),
+			array( 'AI Visibility', 'visibility-overview' ),
+			array( 'Settings',      'connect' ),
+		);
+
+		foreach ( $tabs as $item ) {
+			$submenu[ $base ][] = array(
+				$item[0],
+				$cap,
+				esc_url( admin_url( $base_url . '&tab=' . $item[1] ) ),
+			);
+		}
+
+		// Remove the auto-generated duplicate top-level submenu entry.
+		remove_submenu_page( $base, $base );
 	}
 
 	/**
