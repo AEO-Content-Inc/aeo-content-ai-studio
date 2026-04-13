@@ -284,9 +284,12 @@ final class AEOCASSettingsTest extends TestCase {
         $this->assertTrue( true );
     }
 
-    public function test_ajax_google_connect_stores_token_and_returns_success(): void {
+    public function test_ajax_google_connect_stores_token_directly_and_returns_success(): void {
         $GLOBALS['aeocas_test_json_response'] = null;
         $GLOBALS['aeocas_test_remote_post_calls'] = array();
+        // The Google connect handler saves the token directly without a
+        // platform registration round-trip, so the only remote call is the
+        // fire-and-forget onboarding trigger.
         $GLOBALS['aeocas_test_remote_post'] = static function (): array {
             return array(
                 'response' => array( 'code' => 200 ),
@@ -326,17 +329,10 @@ final class AEOCASSettingsTest extends TestCase {
     public function test_ajax_google_connect_handles_onboarding_failure(): void {
         $GLOBALS['aeocas_test_json_response'] = null;
         $GLOBALS['aeocas_test_remote_post_calls'] = array();
-        $call_count = 0;
-        $GLOBALS['aeocas_test_remote_post'] = static function () use ( &$call_count ) {
-            ++$call_count;
-
-            if ( 1 === $call_count ) {
-                return array(
-                    'response' => array( 'code' => 200 ),
-                    'body'     => wp_json_encode( array( 'ok' => true ) ),
-                );
-            }
-
+        // The only remote call is the onboarding trigger (no platform
+        // registration). Return WP_Error on the first call to simulate
+        // onboarding failure.
+        $GLOBALS['aeocas_test_remote_post'] = static function () {
             return new WP_Error( 'http_error', 'Connection refused' );
         };
 
@@ -348,34 +344,18 @@ final class AEOCASSettingsTest extends TestCase {
 
         $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
         $this->assertTrue( $GLOBALS['aeocas_test_json_response']['success'] );
+        // Token should still be saved even though onboarding failed.
+        $this->assertSame( 'valid-token', $GLOBALS['aeocas_test_options']['aeocas_site_token'] );
+        $this->assertTrue( $GLOBALS['aeocas_test_options']['aeocas_connection_verified'] );
         // The warning should contain the error from failed onboarding.
         $this->assertNotEmpty( $GLOBALS['aeocas_test_json_response']['data']['warning'] );
 
         unset( $_POST['site_token'], $_POST['nonce'] );
     }
 
-    public function test_ajax_google_connect_returns_error_when_verification_fails(): void {
-        $GLOBALS['aeocas_test_json_response'] = null;
-        $GLOBALS['aeocas_test_remote_post'] = static function (): array {
-            return array(
-                'response' => array( 'code' => 403 ),
-                'body'     => wp_json_encode( array( 'error' => 'Token rejected.' ) ),
-            );
-        };
-
-        $_POST['site_token'] = 'invalid-token';
-        $_POST['nonce']      = 'test-nonce';
-
-        $settings = new AEOCAS_Settings();
-        try { $settings->ajax_google_connect(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
-
-        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
-        $this->assertFalse( $GLOBALS['aeocas_test_json_response']['success'] );
-        $this->assertArrayNotHasKey( 'aeocas_site_token', $GLOBALS['aeocas_test_options'] );
-        $this->assertArrayNotHasKey( 'aeocas_connection_verified', $GLOBALS['aeocas_test_options'] );
-
-        unset( $_POST['site_token'], $_POST['nonce'] );
-    }
+    // Platform verification removed from ajax_google_connect -- the handler
+    // now trusts the site_token from Studio and saves it directly. Verification
+    // tests remain for the manual API key flow (sanitize_and_register_api_key).
 
     public function test_register_settings_runs_without_error(): void {
         $settings = new AEOCAS_Settings();
