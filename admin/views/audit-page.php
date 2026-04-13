@@ -351,6 +351,7 @@ if ( ! $aeocas_connected ) {
 			</div>
 		</div>
 		<?php endif; ?>
+		</div><!-- /.aeo-overview-panel -->
 
 	<!-- Loading state -->
 	<div id="aeo-audit-loading" class="aeo-audit-loading" <?php echo $aeocas_connected ? '' : 'style="display: none;"'; ?>>
@@ -433,7 +434,6 @@ if ( ! $aeocas_connected ) {
 			</a>
 		</nav>
 		<?php endif; ?>
-		</div><!-- /.aeo-overview-panel -->
 
 		<section class="aeo-stage-shell <?php echo 'connect' === $aeocas_active_stage ? 'is-active' : ''; ?>" id="stage-connect" data-stage="connect" <?php echo 'connect' === $aeocas_active_stage ? '' : 'style="display: none;"'; ?>>
 			<?php if ( $aeocas_connected ) : ?>

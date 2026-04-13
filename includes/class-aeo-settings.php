@@ -46,9 +46,18 @@ class AEOCAS_Settings {
 			30
 		);
 
-		// Submenu items link directly to tab query args on the same page.
-		// We inject raw URLs into the global $submenu array so WordPress
-		// renders them as sidebar links without registering new page slugs.
+		// Rename the auto-generated first submenu entry from "AEO Content"
+		// to "Overview" so it serves as the dashboard landing page.
+		add_submenu_page(
+			$base,
+			__( 'Overview - AEO Content', 'aeo-content-ai-studio' ),
+			__( 'Overview', 'aeo-content-ai-studio' ),
+			$cap,
+			$base,
+			array( $this, 'render_audit_report' )
+		);
+
+		// Additional submenu items link directly to tab query args.
 		global $submenu;
 
 		$tabs = array(
@@ -57,7 +66,6 @@ class AEOCAS_Settings {
 			array( 'Opportunities', 'opportunities' ),
 			array( 'Rewrites',      'rewrite' ),
 			array( 'AI Visibility', 'visibility-overview' ),
-			array( 'Settings',      'connect' ),
 		);
 
 		foreach ( $tabs as $item ) {
@@ -67,9 +75,6 @@ class AEOCAS_Settings {
 				esc_url( admin_url( $base_url . '&tab=' . $item[1] ) ),
 			);
 		}
-
-		// Remove the auto-generated duplicate top-level submenu entry.
-		remove_submenu_page( $base, $base );
 	}
 
 	/**

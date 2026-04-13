@@ -77,6 +77,10 @@
     display: none;
 }
 
+.aeo-direct-tab .aeo-workflow-rail {
+    display: none;
+}
+
 .aeo-settings h1 {
     margin: 0;
     font-size: 32px;
