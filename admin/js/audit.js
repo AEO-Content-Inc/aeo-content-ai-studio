@@ -2125,7 +2125,7 @@
             }
         }
 
-        var bannerClass = 'aeo-trial-banner';
+        var bannerClass = 'aeo-header-trial';
         if (cardClass.indexOf('is-error') !== -1) bannerClass += ' is-error';
         else if (cardClass.indexOf('is-exhausted') !== -1) bannerClass += ' is-exhausted';
 

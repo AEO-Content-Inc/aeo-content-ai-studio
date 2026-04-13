@@ -68,120 +68,44 @@ if ( ! $aeocas_connected ) {
 		/* Critical shell styles live inline as a cache-safe fallback so plugin
 			upgrades do not leave the workflow header/rail unstyled in wp-admin. */
 		#aeo-audit-wrap .aeo-header {
-			display: grid;
-			grid-template-columns: minmax(0, 1fr);
-			align-items: start;
-			gap: 18px;
-		margin: 6px 0 24px;
-		padding: 22px 24px;
-		border: 1px solid rgba(31, 42, 51, 0.12);
-		border-radius: 26px;
-		background:
-			radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 36%),
-				linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 245, 236, 0.96));
-			box-shadow: 0 18px 40px rgba(31, 42, 51, 0.08);
-		}
-		#aeo-audit-wrap .aeo-header.has-insights { grid-template-columns:minmax(300px, 360px) minmax(0, 1fr); }
-		#aeo-audit-wrap .aeo-header-brand {
 			display:flex;
-			flex-direction:column;
-			align-items:flex-start;
-			justify-content:flex-start;
+			align-items:center;
 			gap:16px;
-			min-width:0;
-			min-height:0;
-			padding-right:0;
-			align-self:start;
+			flex-wrap:wrap;
+			margin: 6px 0 16px;
+			padding: 14px 20px;
+			border: 1px solid rgba(31, 42, 51, 0.12);
+			border-radius: 16px;
+			background:
+				radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 36%),
+				linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 245, 236, 0.96));
+			box-shadow: 0 12px 28px rgba(31, 42, 51, 0.06);
 		}
-		#aeo-audit-wrap .aeo-header-copy { display:flex; flex-direction:column; gap:12px; min-width:0; }
-	#aeo-audit-wrap .aeo-header-meta { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-	#aeo-audit-wrap .aeo-header-wordmark-wrap {
-		display:block;
-		width:min(320px, 100%);
-	max-width:100%;
-	}
+		#aeo-audit-wrap .aeo-header-copy { display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0; }
+		#aeo-audit-wrap .aeo-header-copy h1 { margin:0; font-size:20px; line-height:1.2; white-space:nowrap; }
+		#aeo-audit-wrap .aeo-header-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+		#aeo-audit-wrap .aeo-header-wordmark-wrap {
+			display:block;
+			width:140px;
+			flex-shrink:0;
+		}
 		#aeo-audit-wrap .aeo-header-wordmark { display:block; width:100%; max-width:100%; height:auto; }
-	#aeo-audit-wrap .aeo-header-trial-offer {
-		display:flex;
-		flex-direction:column;
-		gap:10px;
-		width:100%;
-		padding:16px 18px;
-		border:1px solid rgba(15, 118, 110, 0.18);
-		border-radius:20px;
-		background:
-			radial-gradient(circle at top right, rgba(251, 240, 215, 0.9), transparent 42%),
-			linear-gradient(180deg, rgba(255,255,255,0.98), rgba(223,244,239,0.82));
-		box-shadow:0 16px 30px rgba(31, 42, 51, 0.08);
-	}
+		#aeo-audit-wrap .aeo-header-trial { display:flex; align-items:center; gap:10px; margin-left:auto; flex-wrap:wrap; font-size:13px; }
+		#aeo-audit-wrap .aeo-header-trial .aeo-header-trial-title { font-size:13px; font-weight:600; margin:0; }
+		#aeo-audit-wrap .aeo-header-trial .aeo-header-trial-actions { display:flex; gap:8px; }
+		#aeo-audit-wrap .aeo-header-trial .aeo-header-trial-kicker { margin:0; }
 	#aeo-audit-wrap .aeo-header-trial-kicker {
-		display:inline-flex;
-		align-items:center;
-		justify-content:center;
-		width:max-content;
-		max-width:100%;
-		min-height:28px;
-		padding:0 10px;
-		border-radius:999px;
-		background:#fbf0d7;
-		color:#8a5a12;
-		font-size:11px;
-		font-weight:700;
-		letter-spacing:0.05em;
-		text-transform:uppercase;
+		display:inline-flex; align-items:center; justify-content:center; width:max-content;
+		min-height:24px; padding:0 8px; border-radius:999px; background:#fbf0d7; color:#8a5a12;
+		font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase;
 	}
-	#aeo-audit-wrap .aeo-header-trial-title {
-		margin:0;
-		font-size:18px;
-		line-height:1.2;
-		color:#1f2a33;
-	}
-	#aeo-audit-wrap .aeo-header-trial-body,
-	#aeo-audit-wrap .aeo-header-trial-note {
-		margin:0;
-		font-size:13px;
-		line-height:1.55;
-		color:#50575e;
-	}
-	#aeo-audit-wrap .aeo-header-trial-note strong {
-		color:#1f2a33;
-	}
-	#aeo-audit-wrap .aeo-header-trial-actions {
-		display:flex;
-		align-items:center;
-		gap:10px;
-		flex-wrap:wrap;
-	}
-	#aeo-audit-wrap .aeo-header-trial-actions .button {
-		min-height:36px;
-		padding-inline:14px;
-	}
-	#aeo-audit-wrap .aeo-header-trial-offer.is-active {
-		border-color:rgba(47, 133, 90, 0.24);
-		background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(228,243,232,0.92));
-	}
-	#aeo-audit-wrap .aeo-header-trial-offer.is-exhausted {
-		border-color:rgba(31, 42, 51, 0.14);
-		background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(238,242,244,0.94));
-	}
-	#aeo-audit-wrap .aeo-header-trial-offer.is-error {
-		border-color:rgba(196, 61, 61, 0.2);
-		background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(253,231,226,0.92));
-	}
-	#aeo-audit-wrap .aeo-settings h1,
-	#aeo-audit-wrap h1 {
-			margin:0;
-			font-size:32px;
-		line-height:1.05;
-	}
-	#aeo-audit-wrap .aeo-subtitle { margin:0; font-size:15px; line-height:1.6; max-width:70ch; }
 	#aeo-audit-wrap .aeo-version {
-		display:inline-flex; align-items:center; justify-content:center; min-height:34px; padding:0 12px;
-		border-radius:999px; background:rgba(31, 42, 51, 0.06); color:#66717d; font-size:12px; font-weight:700;
+		display:inline-flex; align-items:center; justify-content:center; min-height:28px; padding:0 10px;
+		border-radius:999px; background:rgba(31, 42, 51, 0.06); color:#66717d; font-size:11px; font-weight:700;
 	}
 	#aeo-audit-wrap .aeo-rewrite-badge {
-		display:inline-flex; align-items:center; justify-content:center; min-height:34px; padding:0 12px;
-		border-radius:999px; background:#dff4ef; color:#0f766e; font-size:12px; font-weight:700;
+		display:inline-flex; align-items:center; justify-content:center; min-height:28px; padding:0 10px;
+		border-radius:999px; background:#dff4ef; color:#0f766e; font-size:11px; font-weight:700;
 	}
 	#aeo-audit-wrap .aeo-rewrite-badge.is-exhausted { background:#eef2f4; color:#50575e; }
 	#aeo-audit-wrap .aeo-rewrite-badge.is-loading { background:#fbf0d7; color:#8a5a12; }
@@ -350,53 +274,39 @@ if ( ! $aeocas_connected ) {
 	#aeo-audit-wrap .aeo-subtab-badge { margin-left:auto; }
 
 		@media (max-width: 1200px) {
-			#aeo-audit-wrap .aeo-header.has-insights { grid-template-columns:minmax(0, 1fr); }
-			#aeo-audit-wrap .aeo-header-brand {
-				min-height:auto;
-				padding-right:0;
-				justify-content:flex-start;
-			}
 			#aeo-audit-wrap .aeo-header-insights-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
 			#aeo-audit-wrap .aeo-workflow-rail { display:flex; overflow-x:auto; padding-bottom:8px; }
 			#aeo-audit-wrap .aeo-workflow-rail::before { display:none; }
 			#aeo-audit-wrap .aeo-workflow-step { min-width:180px; flex:0 0 180px; }
 		}
 		@media (max-width: 782px) {
-			#aeo-audit-wrap .aeo-header { grid-template-columns:minmax(0, 1fr) !important; padding:18px 20px; }
-			#aeo-audit-wrap .aeo-header-brand { min-height:auto; }
-			#aeo-audit-wrap .aeo-header-wordmark-wrap { width:min(300px, 100%); }
+			#aeo-audit-wrap .aeo-header { padding:12px 16px; }
+			#aeo-audit-wrap .aeo-header-wordmark-wrap { width:120px; }
+			#aeo-audit-wrap .aeo-header-copy h1 { font-size:16px; }
+			#aeo-audit-wrap .aeo-header-trial { margin-left:0; width:100%; }
 			#aeo-audit-wrap .aeo-header-insights-grid { grid-template-columns:minmax(0, 1fr); }
-			#aeo-audit-wrap .aeo-settings h1,
-			#aeo-audit-wrap h1 { font-size:28px; }
 			#aeo-audit-wrap .aeo-workflow-step-actions { width:100%; }
 		}
 	</style>
 	<div class="wrap aeo-settings" id="aeo-audit-wrap" data-requested-tab="<?php echo esc_attr( $aeocas_requested_tab ); ?>" data-connected="<?php echo $aeocas_connected ? '1' : '0'; ?>" data-feature-count="<?php echo esc_attr( count( $aeocas_features ) ); ?>">
 		<div class="aeo-header">
-			<div class="aeo-header-brand">
-				<span class="aeo-header-wordmark-wrap">
-					<img class="aeo-header-wordmark" src="<?php echo esc_url( $aeocas_wordmark_url ); ?>" alt="<?php esc_attr_e( 'AEO Content', 'aeo-content-ai-studio' ); ?>" width="360" height="89" loading="eager" decoding="async" />
-				</span>
+			<span class="aeo-header-wordmark-wrap">
+				<img class="aeo-header-wordmark" src="<?php echo esc_url( $aeocas_wordmark_url ); ?>" alt="<?php esc_attr_e( 'AEO Content', 'aeo-content-ai-studio' ); ?>" width="360" height="89" loading="eager" decoding="async" />
+			</span>
 			<div class="aeo-header-copy">
 				<h1><?php esc_html_e( 'AEO Content AI Studio', 'aeo-content-ai-studio' ); ?></h1>
-				<p class="aeo-subtitle">
-					<?php esc_html_e( 'AI Engine Optimization for WordPress. Powered by', 'aeo-content-ai-studio' ); ?>
-					<a href="<?php echo esc_url( 'https://www.aeocontent.ai' ); ?>" target="_blank" rel="noopener">aeocontent.ai</a>
-				</p>
 				<div class="aeo-header-meta">
 					<span class="aeo-version">v<?php echo esc_html( AEOCAS_VERSION ); ?></span>
 					<?php if ( $aeocas_connected ) : ?>
 						<span class="aeo-rewrite-badge" id="aeo-rewrite-availability" hidden aria-live="polite"></span>
 					<?php endif; ?>
-					</div>
 				</div>
 			</div>
-		</div>
-
-		<?php if ( $aeocas_connected ) : ?>
-		<div class="aeo-trial-banner" id="aeo-header-trial-offer" aria-live="polite">
-			<span class="aeo-header-trial-kicker"><?php esc_html_e( 'Starter Trial', 'aeo-content-ai-studio' ); ?></span>
-			<span class="aeo-header-trial-title"><?php esc_html_e( 'Checking trial status…', 'aeo-content-ai-studio' ); ?></span>
+			<?php if ( $aeocas_connected ) : ?>
+			<div class="aeo-header-trial" id="aeo-header-trial-offer" aria-live="polite">
+				<span class="aeo-header-trial-title"><?php esc_html_e( 'Checking trial status…', 'aeo-content-ai-studio' ); ?></span>
+			</div>
+			<?php endif; ?>
 		</div>
 
 		<div class="aeo-header-insights-grid" id="aeo-insights-grid-mount">
