@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AEO Content AI Studio
  * Description: AI Engine Optimization for WordPress. Connects your site to AEO Content AI Studio for AI-powered content management and audit reports.
- * Version: 1.2.2
+ * Version: 1.2.3
  * Author: AEO Content, Inc.
  * Author URI: https://www.aeocontent.ai
  * License: GPL v2 or later
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AEOCAS_VERSION', '1.2.2' );
+define( 'AEOCAS_VERSION', '1.2.3' );
 define( 'AEOCAS_PLUGIN_FILE', __FILE__ );
 define( 'AEOCAS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AEOCAS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

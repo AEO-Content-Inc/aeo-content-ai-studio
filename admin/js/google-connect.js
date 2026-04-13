@@ -10,27 +10,52 @@
     var btn = document.getElementById('aeo-google-btn');
     if (!btn) return;
 
+    var switchLink = document.getElementById('aeo-google-switch-account');
+    var allowedOrigins = Array.isArray(aeocasGoogle.allowedOrigins)
+        ? aeocasGoogle.allowedOrigins
+        : (aeocasGoogle.accountOrigin ? [aeocasGoogle.accountOrigin] : []);
     var popup = null;
     var pollTimer = null;
     var isConnecting = false;
     var handledConnection = false;
 
     btn.addEventListener('click', function () {
+        openConnectPopup(aeocasGoogle.connectUrl, aeocasGoogle.i18n.waiting);
+    });
+
+    if (switchLink) {
+        switchLink.addEventListener('click', function (event) {
+            event.preventDefault();
+            openConnectPopup(aeocasGoogle.switchUrl || aeocasGoogle.connectUrl, aeocasGoogle.i18n.waitingSwitch || aeocasGoogle.i18n.waiting);
+        });
+    }
+
+    function openConnectPopup(url, waitingText) {
         handledConnection = false;
         isConnecting = true;
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
         var w = 500;
         var h = 650;
         var left = Math.round((screen.width - w) / 2);
         var top = Math.round((screen.height - h) / 2);
 
         popup = window.open(
-            aeocasGoogle.connectUrl,
+            url,
             'aeocas_google',
             'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top +
             ',toolbar=no,menubar=no,scrollbars=yes'
         );
 
-        setStatus(aeocasGoogle.i18n.waiting, 'loading');
+        if (!popup) {
+            isConnecting = false;
+            setStatus(aeocasGoogle.i18n.error, 'error');
+            return;
+        }
+
+        setStatus(waitingText, 'loading');
 
         // Detect popup closed without completing.
         pollTimer = setInterval(function () {
@@ -45,12 +70,12 @@
                 }
             }
         }, 500);
-    });
+    }
 
     // Listen for postMessage from the platform popup.
     window.addEventListener('message', function (event) {
-        if (event.origin !== aeocasGoogle.accountOrigin) return;
-        if (!isConnecting || handledConnection || !popup || popup.closed) return;
+        if (allowedOrigins.indexOf(event.origin) === -1) return;
+        if (!isConnecting || handledConnection) return;
 
         var data = event.data;
         if (!data || data.type !== 'aeocas_connected') return;

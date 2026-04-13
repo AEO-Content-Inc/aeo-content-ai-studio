@@ -107,6 +107,15 @@ final class AEOCASSettingsTest extends TestCase {
         $this->assertNotEmpty( $GLOBALS['aeocas_test_options']['aeocas_plugin_token'] ?? '' );
     }
 
+    public function test_get_google_connect_url_can_force_google_account_chooser(): void {
+        $url = AEOCAS_Settings::get_google_connect_url( true );
+        $parts = wp_parse_url( $url );
+
+        parse_str( $parts['query'], $query );
+
+        $this->assertSame( 'select_account', $query['prompt'] );
+    }
+
     public function test_add_menu_uses_inline_svg_favicon_for_admin_sidebar(): void {
         $settings = new AEOCAS_Settings();
 

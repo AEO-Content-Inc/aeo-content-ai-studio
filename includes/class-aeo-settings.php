@@ -271,9 +271,10 @@ SVG;
 	/**
 	 * Build the popup URL for Google-based connect flow.
 	 *
+	 * @param bool $switch_account Force the Google chooser to ask for account selection.
 	 * @return string
 	 */
-	public static function get_google_connect_url() {
+	public static function get_google_connect_url( $switch_account = false ) {
 		// Ensure plugin_token exists before opening popup.
 		$plugin_token = get_option( 'aeocas_plugin_token', '' );
 		if ( empty( $plugin_token ) ) {
@@ -281,15 +282,20 @@ SVG;
 			update_option( 'aeocas_plugin_token', $plugin_token, false );
 		}
 
-		return add_query_arg(
-			array(
-				'site_url'     => self::get_site_url(),
-				'home_url'     => get_option( 'aeocas_real_home_url', home_url() ),
-				'plugin_token' => $plugin_token,
-				'return_url'   => admin_url( 'admin.php?page=aeocas-audit-report&tab=connect' ),
-			),
-			trailingslashit( AEOCAS_STUDIO_URL ) . 'wp-connect'
+		$args = array(
+			'site_url'     => self::get_site_url(),
+			'home_url'     => get_option( 'aeocas_real_home_url', home_url() ),
+			'plugin_token' => $plugin_token,
+			'return_url'   => admin_url( 'admin.php?page=aeocas-audit-report&tab=connect' ),
 		);
+
+		if ( $switch_account ) {
+			// Google OAuth supports `prompt=select_account` to force the account chooser.
+			// The Studio bridge can forward this hint to the underlying Google auth flow.
+			$args['prompt'] = 'select_account';
+		}
+
+		return add_query_arg( $args, trailingslashit( AEOCAS_STUDIO_URL ) . 'wp-connect' );
 	}
 
 	/**
@@ -399,15 +405,24 @@ SVG;
 				'aeocas-google-connect',
 				'aeocasGoogle',
 				array(
-					'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
-					'nonce'         => wp_create_nonce( 'aeocas_google_connect' ),
-					'connectUrl'    => self::get_google_connect_url(),
-					'accountOrigin' => esc_url_raw( rtrim( AEOCAS_STUDIO_URL, '/' ) ),
-					'i18n'          => array(
-						'waiting'    => __( 'Waiting for Google sign-in...', 'aeo-content-ai-studio' ),
-						'connecting' => __( 'Connecting your site...', 'aeo-content-ai-studio' ),
-						'success'    => __( 'Connected! Reloading...', 'aeo-content-ai-studio' ),
-						'error'      => __( 'Connection failed. Please try again.', 'aeo-content-ai-studio' ),
+					'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+					'nonce'          => wp_create_nonce( 'aeocas_google_connect' ),
+					'connectUrl'     => self::get_google_connect_url(),
+					'switchUrl'      => self::get_google_connect_url( true ),
+					'allowedOrigins' => array_values(
+						array_unique(
+							array(
+								esc_url_raw( rtrim( AEOCAS_STUDIO_URL, '/' ) ),
+								esc_url_raw( rtrim( AEOCAS_ACCOUNT_URL, '/' ) ),
+							)
+						)
+					),
+					'i18n'           => array(
+						'waiting'       => __( 'Waiting for Google sign-in...', 'aeo-content-ai-studio' ),
+						'waitingSwitch' => __( 'Opening Google account chooser...', 'aeo-content-ai-studio' ),
+						'connecting'    => __( 'Connecting your site...', 'aeo-content-ai-studio' ),
+						'success'       => __( 'Connected! Reloading...', 'aeo-content-ai-studio' ),
+						'error'         => __( 'Connection failed. Please try again.', 'aeo-content-ai-studio' ),
 					),
 				)
 			);

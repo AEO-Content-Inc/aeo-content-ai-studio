@@ -542,12 +542,42 @@
     flex-wrap: wrap;
 }
 
+.aeo-google-switch-link {
+    color: var(--aeo-accent);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.aeo-google-switch-link:hover,
+.aeo-google-switch-link:focus {
+    color: #0b5f58;
+    text-decoration: underline;
+}
+
 .aeo-inline-form {
     margin: 0;
 }
 
 .aeo-connect-help {
     margin-bottom: 0;
+}
+
+.aeo-connect-legal {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.aeo-connect-legal a {
+    color: var(--aeo-accent);
+    text-decoration: none;
+}
+
+.aeo-connect-legal a:hover,
+.aeo-connect-legal a:focus {
+    text-decoration: underline;
 }
 
 /* ─── Google Connect Button ─────────────────────────── */
