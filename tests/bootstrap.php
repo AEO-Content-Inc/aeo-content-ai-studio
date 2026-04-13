@@ -127,6 +127,18 @@ function add_menu_page( $page_title, $menu_title, $capability, $menu_slug, $call
     return $menu_slug;
 }
 
+function add_submenu_page( $parent_slug, $page_title, $menu_title, $capability, $menu_slug, $callback = '' ) {
+    return $menu_slug;
+}
+
+function remove_submenu_page( $menu_slug, $submenu_slug ) {
+    return true;
+}
+
+function get_current_screen() {
+    return null;
+}
+
 function site_url() {
     return 'https://site.example';
 }

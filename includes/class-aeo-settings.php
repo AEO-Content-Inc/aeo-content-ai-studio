@@ -16,6 +16,7 @@ class AEOCAS_Settings {
 		add_action( 'admin_post_aeocas_disconnect', array( $this, 'handle_disconnect' ) );
 		add_action( 'wp_ajax_aeocas_google_connect', array( $this, 'ajax_google_connect' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( AEOCAS_PLUGIN_FILE ), array( $this, 'add_settings_link' ) );
+		add_filter( 'submenu_file', array( $this, 'highlight_submenu_tab' ) );
 	}
 
 	/**
@@ -75,6 +76,27 @@ class AEOCAS_Settings {
 				esc_url( admin_url( $base_url . '&tab=' . $item[1] ) ),
 			);
 		}
+	}
+
+	/**
+	 * Highlight the correct submenu item based on the active tab.
+	 *
+	 * @param string|null $submenu_file Current submenu file.
+	 * @return string|null
+	 */
+	public function highlight_submenu_tab( $submenu_file ) {
+		$screen = get_current_screen();
+		if ( ! $screen || 'toplevel_page_aeocas-audit-report' !== $screen->id ) {
+			return $submenu_file;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only menu highlight.
+		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
+		if ( '' === $tab ) {
+			return $submenu_file;
+		}
+
+		return esc_url( admin_url( 'admin.php?page=aeocas-audit-report&tab=' . $tab ) );
 	}
 
 	/**

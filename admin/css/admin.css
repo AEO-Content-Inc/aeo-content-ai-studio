@@ -77,8 +77,9 @@
     display: none;
 }
 
-.aeo-direct-tab .aeo-workflow-rail {
-    display: none;
+#aeo-audit-wrap.aeo-direct-tab .aeo-workflow-rail,
+#aeo-audit-wrap.aeo-direct-tab .aeo-stage-chrome {
+    display: none !important;
 }
 
 .aeo-settings h1 {

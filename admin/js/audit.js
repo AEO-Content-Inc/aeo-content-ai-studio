@@ -3745,7 +3745,7 @@
             +   renderVisibilityCard('Critical alerts', 'What needs attention before the next visibility review.', renderVisibilityAlertList(snapshot))
             +   renderVisibilityCard('Engine coverage', 'Where citations are appearing across answer engines.', renderVisibilityEngineRows(snapshot))
             +   renderVisibilityCard('Top cited pages', 'Pages that are earning the most AI citations right now.', renderVisibilityTopPages(snapshot))
-            +   renderVisibilityAdminCard(snapshot)
+            // Admin workspace card removed.
             + '</div>';
     }
 
@@ -3761,7 +3761,7 @@
         return ''
             + '<div class="aeo-visibility-grid aeo-visibility-grid-compact">'
             +   renderVisibilityCard('Recent citations', 'Latest captured mentions, quoted pages, and engine sources.', renderVisibilityCitationRows(snapshot), 'aeo-visibility-card-wide')
-            +   renderVisibilityAdminCard(snapshot, true)
+            // Admin workspace card removed.
             + '</div>';
     }
 
@@ -3789,7 +3789,7 @@
                     }),
                     isStale: false
                 }))
-            +   renderVisibilityAdminCard(snapshot, true)
+            // Admin workspace card removed.
             + '</div>';
     }
 
@@ -3816,12 +3816,28 @@
             + '<div class="aeo-visibility-grid aeo-visibility-grid-compact">'
             +   renderVisibilityCard('Visibility trend', 'How the visibility score is moving over time.', trendBody, 'aeo-visibility-card-wide')
             +   renderVisibilityCard('Trend alerts', 'Negative swings and stale syncs that need review.', renderVisibilityAlertList(snapshot))
-            +   renderVisibilityAdminCard(snapshot, true)
+            // Admin workspace card removed.
             + '</div>';
     }
 
-    function renderVisibility(snapshot) {
+    var visibilityRenderedOnce = false;
+
+    function renderVisibility(snapshot, forceRefresh) {
         var normalized = buildVisibilitySnapshot(snapshot);
+
+        // Once visibility has been rendered with real data, lock the UI.
+        // Only a manual refresh (forceRefresh=true) can re-render. This
+        // prevents race conditions between the audit embedded data and the
+        // standalone visibility endpoint producing flickering scores.
+        if (visibilityRenderedOnce && !forceRefresh) {
+            refreshWorkflowChrome();
+            return;
+        }
+
+        if (normalized.available) {
+            visibilityRenderedOnce = true;
+        }
+
         currentVisibilityPayload = normalized;
         var panels = {
             'visibility-overview': renderVisibilityOverview(normalized),
@@ -5187,6 +5203,8 @@
         if (!currentVisibilityPayload || !currentVisibilityPayload.available) {
             setVisibilityTabsLoading(refresh ? 'Refreshing AI visibility...' : 'Loading AI visibility...');
         }
+
+        if (refresh) visibilityRenderedOnce = false;
 
         visibilityUiState.phase = refresh ? 'refreshing' : 'loading';
         visibilityUiState.message = '';
