@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-04-14
+
+### Fixed
+- Studio connect handoff now requires a nonce-protected admin confirmation instead of mutating plugin connection state on page load
+- Local content index now omits posts the current dashboard user cannot edit
+- Activity log CSV export now escapes spreadsheet formula-like values
+
 ## [1.2.5] - 2026-04-14
 
 ### Fixed

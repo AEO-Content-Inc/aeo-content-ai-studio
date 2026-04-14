@@ -4,19 +4,19 @@ Tags: ai, content, publishing, audit, optimization
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.2.5
+Stable tag: 1.2.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Find out why AI engines skip your content and start getting cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews.
+Track AI citations, audit your site for answer-engine readiness, and publish optimized drafts back to WordPress.
 
 == Description ==
 
-When someone asks ChatGPT or Perplexity a question your website can answer, do they cite you or a competitor? Most websites never show up in AI-generated answers because their content is not structured for how AI engines read, extract, and decide what to quote.
+When someone asks ChatGPT, Perplexity, Claude, Gemini, or Google AI Overview a question your website can answer, do they cite you or someone else? Most websites never show up in AI-generated answers because their pages are not structured for extraction, trust, and citation.
 
-AEO Content AI Studio is the most comprehensive AI Engine Optimization solution available for WordPress. The scoring methodology is built on published research into how large language models select sources, not on SEO heuristics or opinions. It is the only plugin that combines a research-backed content audit with real-time AI citation monitoring across all major engines.
+AEO Content AI Studio helps WordPress teams understand what AI engines see, what they ignore, and what to fix first. The scoring methodology is built on published research into how large language models select sources, not on SEO heuristics or opinions.
 
-It connects your site to [aeocontent.ai](https://www.aeocontent.ai) and gives you everything you need to get cited.
+It connects your site to [aeocontent.ai](https://www.aeocontent.ai) for site audits, AI Visibility tracking, prioritized rewrite opportunities, and WordPress publishing.
 
 = Know Your Score =
 
@@ -129,6 +129,11 @@ The plugin requires a valid site connection to the AEO Content platform. Without
 5. Rewrite Candidates:pages ranked by rewrite priority with weakest pillar and word count
 
 == Changelog ==
+
+= 1.2.6 =
+* Security hardening for Studio connection handoff: admin confirmation is now nonce-protected instead of auto-completing on page load
+* Local content index now excludes posts the current dashboard user cannot edit
+* Activity log CSV export now neutralizes spreadsheet formula cells
 
 = 1.2.2 =
 * AI Visibility stage:live daily monitoring from 5 AI engines (ChatGPT, Perplexity, Claude, Gemini, Google AI Overview)
