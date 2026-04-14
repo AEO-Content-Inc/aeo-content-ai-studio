@@ -533,6 +533,12 @@ if ( ! $aeocas_connected ) {
 									<span aria-hidden="true">•</span>
 									<a href="<?php echo esc_url( $aeocas_terms_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Terms', 'aeo-content-ai-studio' ); ?></a>
 								</p>
+								<p class="description aeo-connect-help">
+									<?php esc_html_e( 'Need help?', 'aeo-content-ai-studio' ); ?>
+									<a href="<?php echo esc_url( AEOCAS_Settings::get_docs_url() ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Docs', 'aeo-content-ai-studio' ); ?></a>
+									<span aria-hidden="true">•</span>
+									<a href="<?php echo esc_url( AEOCAS_Settings::get_support_forum_url() ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Support Forum', 'aeo-content-ai-studio' ); ?></a>
+								</p>
 							<?php else : ?>
 								<p class="description"><?php esc_html_e( 'Only a site administrator can manage billing, disconnect the site, or change plugin features.', 'aeo-content-ai-studio' ); ?></p>
 							<?php endif; ?>
@@ -626,6 +632,12 @@ if ( ! $aeocas_connected ) {
 									<a href="<?php echo esc_url( $aeocas_terms_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Terms', 'aeo-content-ai-studio' ); ?></a>
 									<?php esc_html_e( 'and', 'aeo-content-ai-studio' ); ?>
 									<a href="<?php echo esc_url( $aeocas_privacy_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Privacy Policy', 'aeo-content-ai-studio' ); ?></a>.
+								</p>
+								<p class="description aeo-connect-help">
+									<?php esc_html_e( 'Need help installing or connecting the plugin?', 'aeo-content-ai-studio' ); ?>
+									<a href="<?php echo esc_url( AEOCAS_Settings::get_docs_url() ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Docs', 'aeo-content-ai-studio' ); ?></a>
+									<span aria-hidden="true">•</span>
+									<a href="<?php echo esc_url( AEOCAS_Settings::get_support_forum_url() ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Support Forum', 'aeo-content-ai-studio' ); ?></a>
 								</p>
 							<?php else : ?>
 								<p class="description aeo-connect-help"><?php esc_html_e( 'Ask a site administrator to complete the connection flow or provide a verified site token.', 'aeo-content-ai-studio' ); ?></p>

@@ -231,9 +231,33 @@ final class AEOCASSettingsTest extends TestCase {
 
         $result = $settings->add_settings_link( $links );
 
-        $this->assertCount( 2, $result );
+        $this->assertCount( 3, $result );
         $this->assertStringContainsString( 'aeocas-audit-report', $result[0] );
         $this->assertStringContainsString( 'Settings', $result[0] );
+        $this->assertStringContainsString( 'wordpress.org/support/plugin/aeo-content-ai-studio', $result[1] );
+        $this->assertStringContainsString( 'Support', $result[1] );
+    }
+
+    public function test_add_plugin_row_meta_appends_docs_and_support_for_plugin_file(): void {
+        $settings = new AEOCAS_Settings();
+        $links    = array( '<a href="#">Version</a>' );
+
+        $result = $settings->add_plugin_row_meta( $links, plugin_basename( AEOCAS_PLUGIN_FILE ) );
+
+        $this->assertCount( 3, $result );
+        $this->assertStringContainsString( 'https://www.aeocontent.ai/knowledge/', $result[1] );
+        $this->assertStringContainsString( 'Docs', $result[1] );
+        $this->assertStringContainsString( 'wordpress.org/support/plugin/aeo-content-ai-studio', $result[2] );
+        $this->assertStringContainsString( 'Support Forum', $result[2] );
+    }
+
+    public function test_add_plugin_row_meta_leaves_other_plugins_unchanged(): void {
+        $settings = new AEOCAS_Settings();
+        $links    = array( '<a href="#">Version</a>' );
+
+        $result = $settings->add_plugin_row_meta( $links, 'other-plugin/other-plugin.php' );
+
+        $this->assertSame( $links, $result );
     }
 
     public function test_sanitize_and_register_clears_connection_on_empty_key(): void {

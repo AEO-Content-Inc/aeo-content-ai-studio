@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-04-14
+
+### Added
+- Direct Docs and Support Forum links on the plugin Connect screen for both connected and disconnected states
+- Support and Settings links on the Plugins list page, plus Docs and Support Forum links in plugin row meta
+- WordPress.org FAQ updates covering the Studio-first connection flow, Push as Draft troubleshooting, and what to include in support requests
+
 ## [1.2.6] - 2026-04-14
 
 ### Fixed

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AEO Content AI Studio
  * Description: AI visibility audits and content publishing for WordPress. Track citations, prioritize fixes, and publish optimized drafts from AEO Content AI Studio.
- * Version: 1.2.6
+ * Version: 1.2.7
  * Author: AEO Content, Inc.
  * Author URI: https://www.aeocontent.ai
  * License: GPL v2 or later
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AEOCAS_VERSION', '1.2.6' );
+define( 'AEOCAS_VERSION', '1.2.7' );
 define( 'AEOCAS_PLUGIN_FILE', __FILE__ );
 define( 'AEOCAS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AEOCAS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

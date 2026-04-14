@@ -35,7 +35,7 @@ if ( ! defined( 'MINUTE_IN_SECONDS' ) ) {
 }
 
 if ( ! defined( 'AEOCAS_VERSION' ) ) {
-    define( 'AEOCAS_VERSION', '1.2.6' );
+    define( 'AEOCAS_VERSION', '1.2.7' );
 }
 
 $GLOBALS['wp_version'] = '6.9';

@@ -11,6 +11,8 @@ class AEOCAS_Settings {
 
 	const CONNECT_NOTICE_TRANSIENT = 'aeocas_connect_notice';
 	const STUDIO_CONNECT_ACTION    = 'aeocas_complete_studio_connect';
+	const SUPPORT_FORUM_URL        = 'https://wordpress.org/support/plugin/aeo-content-ai-studio/';
+	const DOCS_URL                 = 'https://www.aeocontent.ai/knowledge/';
 
 	public function __construct() {
 		add_action( 'admin_menu', array( $this, 'add_menu' ) );
@@ -20,6 +22,7 @@ class AEOCAS_Settings {
 		add_action( 'admin_post_aeocas_disconnect', array( $this, 'handle_disconnect' ) );
 		add_action( 'wp_ajax_aeocas_google_connect', array( $this, 'ajax_google_connect' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( AEOCAS_PLUGIN_FILE ), array( $this, 'add_settings_link' ) );
+		add_filter( 'plugin_row_meta', array( $this, 'add_plugin_row_meta' ), 10, 2 );
 		add_filter( 'submenu_file', array( $this, 'highlight_submenu_tab' ) );
 	}
 
@@ -31,7 +34,27 @@ class AEOCAS_Settings {
 	 */
 	public function add_settings_link( $links ) {
 		$settings_link = '<a href="' . esc_url( admin_url( 'admin.php?page=aeocas-audit-report&tab=connect' ) ) . '">' . esc_html__( 'Settings', 'aeo-content-ai-studio' ) . '</a>';
+		$support_link  = '<a href="' . esc_url( self::get_support_forum_url() ) . '" target="_blank" rel="noopener">' . esc_html__( 'Support', 'aeo-content-ai-studio' ) . '</a>';
+		array_unshift( $links, $support_link );
 		array_unshift( $links, $settings_link );
+		return $links;
+	}
+
+	/**
+	 * Add documentation links to the plugin row meta on the plugins list page.
+	 *
+	 * @param array  $links Existing plugin row meta links.
+	 * @param string $file  Plugin file basename.
+	 * @return array
+	 */
+	public function add_plugin_row_meta( $links, $file ) {
+		if ( plugin_basename( AEOCAS_PLUGIN_FILE ) !== $file ) {
+			return $links;
+		}
+
+		$links[] = '<a href="' . esc_url( self::get_docs_url() ) . '" target="_blank" rel="noopener">' . esc_html__( 'Docs', 'aeo-content-ai-studio' ) . '</a>';
+		$links[] = '<a href="' . esc_url( self::get_support_forum_url() ) . '" target="_blank" rel="noopener">' . esc_html__( 'Support Forum', 'aeo-content-ai-studio' ) . '</a>';
+
 		return $links;
 	}
 
@@ -277,6 +300,24 @@ SVG;
 		);
 
 		return add_query_arg( $args, trailingslashit( AEOCAS_ACCOUNT_URL ) . 'login' );
+	}
+
+	/**
+	 * Return the public documentation URL for onboarding and troubleshooting.
+	 *
+	 * @return string
+	 */
+	public static function get_docs_url() {
+		return self::DOCS_URL;
+	}
+
+	/**
+	 * Return the public WordPress.org support forum URL.
+	 *
+	 * @return string
+	 */
+	public static function get_support_forum_url() {
+		return self::SUPPORT_FORUM_URL;
 	}
 
 	/**

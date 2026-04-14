@@ -4,7 +4,7 @@ Tags: ai, content, publishing, audit, optimization
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.2.6
+Stable tag: 1.2.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,8 @@ Start from **AEO Content** in your WordPress admin sidebar:
 2. The popup closes automatically and your site is connected
 3. Or use **Create Account Manually** / **I Already Have an Account** for email-based setup
 
+You can also start from AEO Content AI Studio, enter your site URL, and finish the connection from WordPress admin.
+
 = External Service =
 
 This plugin connects to the AEO Content platform at `aeocontent.ai` for the following purposes:
@@ -92,6 +94,10 @@ Alternatively, search for "AEO Content AI Studio" in the WordPress plugin direct
 
 Yes. The plugin connects to the AEO Content platform which manages content optimization and audit scoring. Visit [aeocontent.ai](https://www.aeocontent.ai) to get started with a free audit.
 
+= Can I connect my WordPress site from AEO Content AI Studio? =
+
+Yes. You can start from Studio, enter your site URL, and complete the connection from your WordPress admin screen. You can also start from the plugin inside WordPress. Both flows connect the same site.
+
 = What does the Audit Report show? =
 
 The site audit evaluates 48 criteria across five pillars: Content Originality (25%), Content Uniqueness (25%), Extractability (25%), Entity and Data Richness (15%), and Structural Signals (10%). Each page also gets a per-page AEO Page Rank score from 0 to 100 with letter grades (A through F) based on 17 content-specific checks. The workflow screen is organized into Connect, Diagnose, Fix, and AI Visibility stages. Most websites score between 30 and 60. Above 70 indicates strong AI citation readiness.
@@ -104,6 +110,10 @@ The AI Visibility stage tracks whether AI engines actually cite your site in the
 
 AEO Content AI Studio reads your posts via the plugin's REST API, optimizes them using AI, and sends updated content back. The plugin creates or updates WordPress posts with the optimized content, including categories, tags, featured images, and FAQ structured data. You control which posts are updated from the platform.
 
+= Why does Push as Draft fail? =
+
+Most draft publishing failures come from one of these issues: the site is not fully connected, the connected domain does not match the current WordPress site URL, the plugin is out of date, or a security layer is blocking REST API requests. Update the plugin, confirm the site connection, and try again.
+
 = Is it compatible with Yoast SEO / Rank Math? =
 
 Yes. The plugin does not inject schema or modify meta tags on the frontend. It manages post content and metadata through standard WordPress functions, so it works alongside any SEO plugin without conflicts.
@@ -111,6 +121,14 @@ Yes. The plugin does not inject schema or modify meta tags on the frontend. It m
 = What data does the plugin send to aeocontent.ai? =
 
 The heartbeat sends only technical metadata: site URL, plugin version, WordPress version, PHP version, and enabled features. Post content is only transmitted when you explicitly use AEO Content AI Studio to read or publish posts. All communication is encrypted via HTTPS.
+
+= Where do I get support? =
+
+For plugin setup, connection, audit, and publishing issues, use the [WordPress.org support forum](https://wordpress.org/support/plugin/aeo-content-ai-studio/). For private account or billing issues, use support through [aeocontent.ai](https://www.aeocontent.ai).
+
+= What information should I include in a support request? =
+
+Please include your plugin version, WordPress version, PHP version, site URL, whether you started from WordPress or Studio, the exact error message, and the steps needed to reproduce the issue. Do not post API keys, tokens, or passwords.
 
 = Does the plugin slow down my site? =
 
@@ -129,6 +147,11 @@ The plugin requires a valid site connection to the AEO Content platform. Without
 5. Rewrite Candidates:pages ranked by rewrite priority with weakest pillar and word count
 
 == Changelog ==
+
+= 1.2.7 =
+* Added support visibility improvements in WordPress admin with direct Docs and Support Forum links
+* Added plugin list links for Settings, Support, Docs, and Support Forum discovery
+* Expanded the FAQ with Studio-first connection help and publishing troubleshooting guidance
 
 = 1.2.6 =
 * Security hardening for Studio connection handoff: admin confirmation is now nonce-protected instead of auto-completing on page load
@@ -175,6 +198,9 @@ The plugin stores the IP address of incoming API requests in the activity log fo
 Local logging remains available for secure platform-to-plugin diagnostics, but user-facing operational logs are no longer rendered inside the WordPress admin UI.
 
 == Upgrade Notice ==
+
+= 1.2.7 =
+Improves support visibility with direct Docs and Support Forum links in WordPress admin and adds troubleshooting FAQ updates on WordPress.org.
 
 = 1.2.2 =
 Adds AI Visibility stage with live daily monitoring from 5 AI engines, workflow-based 4-stage UI, and discovery profiles.
