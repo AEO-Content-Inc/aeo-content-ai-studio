@@ -1,6 +1,6 @@
 <?php
 /**
- * REST API endpoints under /wp-json/aeocas/v1/.
+ * REST API endpoints under /wp-json/aeo/v1/ with /wp-json/aeocas/v1/ aliases.
  *
  * All mutating endpoints require authenticated platform requests.
  */
@@ -14,29 +14,41 @@ class AEOCAS_Rest_Api {
 	/** @var AEOCAS_Plugin */
 	private $plugin;
 
-	const REST_NAMESPACE = 'aeocas/v1';
+	const REST_NAMESPACE        = 'aeo/v1';
+	const LEGACY_REST_NAMESPACE = 'aeocas/v1';
 
 	public function __construct( $plugin ) {
 		$this->plugin = $plugin;
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 	}
 
+	public static function get_rest_namespaces() {
+		return array(
+			self::REST_NAMESPACE,
+			self::LEGACY_REST_NAMESPACE,
+		);
+	}
+
+	private function register_route( $route, $args ) {
+		foreach ( self::get_rest_namespaces() as $namespace ) {
+			register_rest_route( $namespace, $route, $args );
+		}
+	}
+
 	public function register_routes() {
 		// Public health check.
-		register_rest_route(
-			self::REST_NAMESPACE,
+		$this->register_route(
 			'/status',
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'handle_status' ),
-				'permission_callback' => array( $this, 'check_auth' ),
+				'permission_callback' => array( $this, 'allow_public_request' ),
 				'args'                => array(),
 			)
 		);
 
 		// Unified command dispatch.
-		register_rest_route(
-			self::REST_NAMESPACE,
+		$this->register_route(
 			'/command',
 			array(
 				'methods'             => 'POST',
@@ -56,8 +68,7 @@ class AEOCAS_Rest_Api {
 		);
 
 		// Activity log (authenticated platform requests).
-		register_rest_route(
-			self::REST_NAMESPACE,
+		$this->register_route(
 			'/logs',
 			array(
 				'methods'             => 'GET',
@@ -95,8 +106,7 @@ class AEOCAS_Rest_Api {
 		);
 
 		// Posts list (read).
-		register_rest_route(
-			self::REST_NAMESPACE,
+		$this->register_route(
 			'/posts',
 			array(
 				'methods'             => 'GET',
@@ -138,8 +148,7 @@ class AEOCAS_Rest_Api {
 		);
 
 		// Single post (read).
-		register_rest_route(
-			self::REST_NAMESPACE,
+		$this->register_route(
 			'/posts/(?P<id>\d+)',
 			array(
 				'methods'             => 'GET',
@@ -155,8 +164,7 @@ class AEOCAS_Rest_Api {
 		);
 
 		// Publish endpoint.
-		register_rest_route(
-			self::REST_NAMESPACE,
+		$this->register_route(
 			'/publish',
 			array(
 				'methods'             => 'POST',
@@ -167,8 +175,7 @@ class AEOCAS_Rest_Api {
 		);
 
 		// Categories list.
-		register_rest_route(
-			self::REST_NAMESPACE,
+		$this->register_route(
 			'/categories',
 			array(
 				'methods'             => 'GET',
@@ -201,8 +208,7 @@ class AEOCAS_Rest_Api {
 		);
 
 		// Tags list.
-		register_rest_route(
-			self::REST_NAMESPACE,
+		$this->register_route(
 			'/tags',
 			array(
 				'methods'             => 'GET',
@@ -238,17 +244,27 @@ class AEOCAS_Rest_Api {
 		return AEOCAS_Auth::verify_request( $request );
 	}
 
+	public function allow_public_request() {
+		return true;
+	}
+
 	// ─── Status ───────────────────────────────────────────────
 
 	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- REST callback signature includes the request argument for consistency.
 	public function handle_status( $request ) {
+		$connected = ! empty( get_option( 'aeocas_site_token', '' ) ) && get_option( 'aeocas_connection_verified', false );
+
 		return rest_ensure_response(
 			array(
-				'ok'       => true,
-				'version'  => AEOCAS_VERSION,
-				'features' => $this->plugin->get_enabled_features(),
-				'site_url' => get_site_url(),
-				'home_url' => get_home_url(),
+				'ok'             => true,
+				'version'        => AEOCAS_VERSION,
+				'plugin_version' => AEOCAS_VERSION,
+				'connected'      => (bool) $connected,
+				'namespace'      => self::REST_NAMESPACE,
+				'namespaces'     => self::get_rest_namespaces(),
+				'features'       => $this->plugin->get_enabled_features(),
+				'site_url'       => get_site_url(),
+				'home_url'       => get_home_url(),
 			)
 		);
 	}

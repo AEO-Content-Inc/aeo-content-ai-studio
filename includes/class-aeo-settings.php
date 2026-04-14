@@ -9,9 +9,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class AEOCAS_Settings {
 
+	const CONNECT_NOTICE_TRANSIENT = 'aeocas_connect_notice';
+
 	public function __construct() {
 		add_action( 'admin_menu', array( $this, 'add_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'admin_init', array( $this, 'handle_studio_connect' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
 		add_action( 'admin_post_aeocas_disconnect', array( $this, 'handle_disconnect' ) );
 		add_action( 'wp_ajax_aeocas_google_connect', array( $this, 'ajax_google_connect' ) );
@@ -330,11 +333,7 @@ SVG;
 	 */
 	public static function get_google_connect_url( $switch_account = false ) {
 		// Ensure plugin_token exists before opening popup.
-		$plugin_token = get_option( 'aeocas_plugin_token', '' );
-		if ( empty( $plugin_token ) ) {
-			$plugin_token = AEOCAS_Auth::generate_plugin_token();
-			update_option( 'aeocas_plugin_token', $plugin_token, false );
-		}
+		$plugin_token = self::get_or_create_plugin_token();
 
 		$args = array(
 			'site_url'     => self::get_site_url(),
@@ -350,6 +349,165 @@ SVG;
 		}
 
 		return add_query_arg( $args, trailingslashit( AEOCAS_STUDIO_URL ) . 'wp-connect' );
+	}
+
+	private static function get_or_create_plugin_token() {
+		$plugin_token = get_option( 'aeocas_plugin_token', '' );
+		if ( empty( $plugin_token ) ) {
+			$plugin_token = AEOCAS_Auth::generate_plugin_token();
+			update_option( 'aeocas_plugin_token', $plugin_token, false );
+		}
+
+		return $plugin_token;
+	}
+
+	public static function set_connect_notice( $type, $message ) {
+		$allowed_type = in_array( $type, array( 'success', 'warning', 'error', 'info' ), true ) ? $type : 'info';
+		$notice       = array(
+			'type'    => $allowed_type,
+			'message' => sanitize_text_field( (string) $message ),
+		);
+
+		set_transient( self::CONNECT_NOTICE_TRANSIENT, $notice, 10 * MINUTE_IN_SECONDS );
+	}
+
+	public static function consume_connect_notice() {
+		$notice = get_transient( self::CONNECT_NOTICE_TRANSIENT );
+		if ( ! is_array( $notice ) ) {
+			return null;
+		}
+
+		delete_transient( self::CONNECT_NOTICE_TRANSIENT );
+		return $notice;
+	}
+
+	private static function get_plugin_admin_url( $tab = 'connect' ) {
+		return add_query_arg(
+			array(
+				'page' => 'aeocas-audit-report',
+				'tab'  => sanitize_key( $tab ),
+			),
+			admin_url( 'admin.php' )
+		);
+	}
+
+	private function is_studio_connect_request() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- One-time platform token handled server-side.
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- One-time platform token handled server-side.
+		$connect_token = isset( $_GET['aeo_connect'] ) ? sanitize_text_field( wp_unslash( $_GET['aeo_connect'] ) ) : '';
+
+		return 'aeocas-audit-report' === $page && '' !== $connect_token;
+	}
+
+	public function handle_studio_connect() {
+		if ( ! $this->is_studio_connect_request() ) {
+			return;
+		}
+
+		if ( ! AEOCAS_Capabilities::can_manage_plugin() ) {
+			wp_die( esc_html__( 'Unauthorized.', 'aeo-content-ai-studio' ) );
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- One-time platform token handled server-side.
+		$connect_token = sanitize_text_field( wp_unslash( $_GET['aeo_connect'] ) );
+		$plugin_token  = self::get_or_create_plugin_token();
+		$result        = $this->exchange_connect_token_with_platform( $connect_token, $plugin_token );
+
+		if ( is_wp_error( $result ) ) {
+			self::set_connect_notice( 'error', $result->get_error_message() );
+			wp_safe_redirect( self::get_plugin_admin_url( 'connect' ) );
+			return;
+		}
+
+		$site_token = isset( $result['site_token'] ) ? sanitize_text_field( (string) $result['site_token'] ) : '';
+		if ( '' === $site_token ) {
+			self::set_connect_notice( 'error', __( 'AEO Content did not return a site token for this connection.', 'aeo-content-ai-studio' ) );
+			wp_safe_redirect( self::get_plugin_admin_url( 'connect' ) );
+			return;
+		}
+
+		$returned_plugin_token = isset( $result['plugin_token'] ) ? sanitize_text_field( (string) $result['plugin_token'] ) : '';
+		if ( '' !== $returned_plugin_token ) {
+			$plugin_token = $returned_plugin_token;
+		}
+
+		update_option( 'aeocas_real_site_url', site_url(), false );
+		update_option( 'aeocas_real_home_url', home_url(), false );
+		update_option( 'aeocas_site_token', $site_token );
+		update_option( 'aeocas_plugin_token', $plugin_token, false );
+		update_option( 'aeocas_connection_verified', true );
+
+		AEOCAS_Activity_Log::log( 'studio_connect', 'success', array( 'message' => 'Site connected from Studio.' ) );
+
+		$onboard_result = AEOCAS_Audit_Api::trigger_onboarding();
+		if ( is_wp_error( $onboard_result ) ) {
+			self::set_connect_notice(
+				'warning',
+				sprintf(
+					/* translators: %s: onboarding error message. */
+					__( 'Connected successfully, but Discovery kickoff failed: %s', 'aeo-content-ai-studio' ),
+					$onboard_result->get_error_message()
+				)
+			);
+		} else {
+			update_option( 'aeocas_onboarding_pending', 1 );
+			self::set_connect_notice( 'success', __( 'Connected successfully from Studio.', 'aeo-content-ai-studio' ) );
+		}
+
+		wp_safe_redirect( self::get_plugin_admin_url( 'discovery' ) );
+	}
+
+	private function exchange_connect_token_with_platform( $connect_token, $plugin_token ) {
+		$response = wp_remote_post(
+			trailingslashit( AEOCAS_PLATFORM_URL ) . 'api/v1/plugin/connect/exchange',
+			array(
+				'body'    => wp_json_encode(
+					array(
+						'connect_token'  => sanitize_text_field( (string) $connect_token ),
+						'site_url'       => site_url(),
+						'home_url'       => home_url(),
+						'plugin_token'   => sanitize_text_field( (string) $plugin_token ),
+						'version'        => AEOCAS_VERSION,
+						'plugin_version' => AEOCAS_VERSION,
+						'wp'             => isset( $GLOBALS['wp_version'] ) ? sanitize_text_field( (string) $GLOBALS['wp_version'] ) : '',
+						'wp_version'     => isset( $GLOBALS['wp_version'] ) ? sanitize_text_field( (string) $GLOBALS['wp_version'] ) : '',
+						'php'            => PHP_VERSION,
+						'php_version'    => PHP_VERSION,
+					)
+				),
+				'headers' => array(
+					'Content-Type' => 'application/json',
+					'Accept'       => 'application/json',
+				),
+				'timeout' => 15,
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return new WP_Error( 'aeocas_connect_exchange_failed', __( 'Could not reach AEO Content to finish this connection.', 'aeo-content-ai-studio' ) );
+		}
+
+		$status = wp_remote_retrieve_response_code( $response );
+		$body   = json_decode( wp_remote_retrieve_body( $response ), true );
+		$body   = is_array( $body ) ? $body : array();
+
+		if ( 200 !== $status || empty( $body['ok'] ) ) {
+			$message = '';
+			if ( ! empty( $body['error'] ) && is_string( $body['error'] ) ) {
+				$message = sanitize_text_field( $body['error'] );
+			} elseif ( ! empty( $body['message'] ) && is_string( $body['message'] ) ) {
+				$message = sanitize_text_field( $body['message'] );
+			}
+
+			if ( '' === $message ) {
+				$message = __( 'AEO Content rejected this WordPress connection request.', 'aeo-content-ai-studio' );
+			}
+
+			return new WP_Error( 'aeocas_connect_exchange_failed', $message );
+		}
+
+		return $body;
 	}
 
 	/**

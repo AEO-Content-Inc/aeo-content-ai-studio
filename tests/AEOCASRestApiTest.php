@@ -43,6 +43,10 @@ final class AEOCASRestApiTest extends TestCase {
 
         $this->assertTrue( $data['ok'] );
         $this->assertSame( AEOCAS_VERSION, $data['version'] );
+        $this->assertSame( AEOCAS_VERSION, $data['plugin_version'] );
+        $this->assertFalse( $data['connected'] );
+        $this->assertSame( AEOCAS_Rest_Api::REST_NAMESPACE, $data['namespace'] );
+        $this->assertSame( AEOCAS_Rest_Api::get_rest_namespaces(), $data['namespaces'] );
         $this->assertIsArray( $data['features'] );
     }
 
@@ -125,16 +129,25 @@ final class AEOCASRestApiTest extends TestCase {
 
         $this->assertNotEmpty( $GLOBALS['aeocas_test_registered_rest_routes'] );
 
-        $command_route = null;
+        $command_routes = array();
+        $status_routes  = array();
         foreach ( $GLOBALS['aeocas_test_registered_rest_routes'] as $route ) {
             if ( '/command' === $route['route'] ) {
-                $command_route = $route;
-                break;
+                $command_routes[ $route['namespace'] ] = $route;
+            }
+
+            if ( '/status' === $route['route'] ) {
+                $status_routes[ $route['namespace'] ] = $route;
             }
         }
 
-        $this->assertIsArray( $command_route );
-        $this->assertArrayHasKey( 'command', $command_route['args']['args'] );
+        $this->assertSame( AEOCAS_Rest_Api::get_rest_namespaces(), array_keys( $command_routes ) );
+        $this->assertSame( AEOCAS_Rest_Api::get_rest_namespaces(), array_keys( $status_routes ) );
+        $this->assertArrayHasKey( 'command', $command_routes[ AEOCAS_Rest_Api::REST_NAMESPACE ]['args']['args'] );
+        $this->assertSame(
+            array( $this->rest_api, 'allow_public_request' ),
+            $status_routes[ AEOCAS_Rest_Api::REST_NAMESPACE ]['args']['permission_callback']
+        );
     }
 
     public function test_handle_get_posts_with_module_and_results(): void {

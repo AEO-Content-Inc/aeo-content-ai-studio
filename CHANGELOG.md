@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-04-13
+
+### Added
+- Studio-first WordPress handoff: the plugin can now consume one-time `aeo_connect` tokens issued by Studio and complete the connection without manual API-key copy/paste
+- Public `/wp-json/aeo/v1/status` health endpoint with connection metadata for Studio install/connect detection
+
+### Changed
+- REST API now serves both `aeo/v1` and `aeocas/v1` namespaces during the migration window so old and new platform clients can coexist
+
+### Fixed
+- Studio and plugin contract mismatch that prevented direct draft-publish flows from recognizing an already connected WordPress site
+
 ## [1.2.2] - 2026-04-12
 
 ### Added

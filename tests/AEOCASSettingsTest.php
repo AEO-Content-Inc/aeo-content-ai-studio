@@ -12,8 +12,10 @@ final class AEOCASSettingsTest extends TestCase {
             'aeocas_real_home_url' => 'https://home-captured.example',
         );
         $GLOBALS['aeocas_test_menu_page_args'] = null;
+        $GLOBALS['aeocas_test_transients'] = array();
         $GLOBALS['aeocas_test_remote_post'] = null;
         $GLOBALS['aeocas_test_remote_post_calls'] = array();
+        $GLOBALS['aeocas_test_redirect'] = null;
     }
 
     public function test_get_site_url_prefers_captured_site_url(): void {
@@ -114,6 +116,89 @@ final class AEOCASSettingsTest extends TestCase {
         parse_str( $parts['query'], $query );
 
         $this->assertSame( 'select_account', $query['prompt'] );
+    }
+
+    public function test_handle_studio_connect_exchanges_token_and_redirects_to_discovery(): void {
+        $GLOBALS['aeocas_test_remote_post'] = static function ( string $url, array $args ) {
+            if ( false !== strpos( $url, '/api/v1/plugin/connect/exchange' ) ) {
+                return array(
+                    'response' => array( 'code' => 200 ),
+                    'body'     => wp_json_encode(
+                        array(
+                            'ok'         => true,
+                            'site_token' => 'studio-site-token',
+                        )
+                    ),
+                );
+            }
+
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode( array( 'ok' => true ) ),
+            );
+        };
+
+        $_GET['page']        = 'aeocas-audit-report';
+        $_GET['tab']         = 'connect';
+        $_GET['aeo_connect'] = 'studio-token';
+
+        $settings = new AEOCAS_Settings();
+        $settings->handle_studio_connect();
+
+        $this->assertSame( 'studio-site-token', $GLOBALS['aeocas_test_options']['aeocas_site_token'] );
+        $this->assertTrue( $GLOBALS['aeocas_test_options']['aeocas_connection_verified'] );
+        $this->assertNotEmpty( $GLOBALS['aeocas_test_options']['aeocas_plugin_token'] );
+        $this->assertSame( 'https://site.example', $GLOBALS['aeocas_test_options']['aeocas_real_site_url'] );
+        $this->assertSame( 'https://home.example', $GLOBALS['aeocas_test_options']['aeocas_real_home_url'] );
+        $this->assertSame( 1, $GLOBALS['aeocas_test_options']['aeocas_onboarding_pending'] );
+        $this->assertSame(
+            'https://site.example/wp-admin/admin.php?page=aeocas-audit-report&tab=discovery',
+            $GLOBALS['aeocas_test_redirect']['location']
+        );
+        $this->assertCount( 2, $GLOBALS['aeocas_test_remote_post_calls'] );
+
+        $exchange_call = $GLOBALS['aeocas_test_remote_post_calls'][0];
+        $payload = json_decode( $exchange_call['args']['body'], true );
+
+        $this->assertSame( 'https://www.aeocontent.ai/api/v1/plugin/connect/exchange', $exchange_call['url'] );
+        $this->assertSame( 'studio-token', $payload['connect_token'] );
+        $this->assertSame( 'https://site.example', $payload['site_url'] );
+        $this->assertSame( 'https://home.example', $payload['home_url'] );
+        $this->assertArrayHasKey( 'plugin_token', $payload );
+        $this->assertNotEmpty( $payload['plugin_token'] );
+        $this->assertSame( 'success', $GLOBALS['aeocas_test_transients'][ AEOCAS_Settings::CONNECT_NOTICE_TRANSIENT ]['type'] );
+
+        unset( $_GET['page'], $_GET['tab'], $_GET['aeo_connect'] );
+    }
+
+    public function test_handle_studio_connect_stores_error_notice_when_exchange_fails(): void {
+        $GLOBALS['aeocas_test_remote_post'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 400 ),
+                'body'     => wp_json_encode( array( 'error' => 'Connection token expired.' ) ),
+            );
+        };
+
+        $_GET['page']        = 'aeocas-audit-report';
+        $_GET['tab']         = 'connect';
+        $_GET['aeo_connect'] = 'expired-token';
+
+        $settings = new AEOCAS_Settings();
+        $settings->handle_studio_connect();
+
+        $this->assertArrayNotHasKey( 'aeocas_site_token', $GLOBALS['aeocas_test_options'] );
+        $this->assertSame(
+            'https://site.example/wp-admin/admin.php?page=aeocas-audit-report&tab=connect',
+            $GLOBALS['aeocas_test_redirect']['location']
+        );
+        $this->assertSame( 'error', $GLOBALS['aeocas_test_transients'][ AEOCAS_Settings::CONNECT_NOTICE_TRANSIENT ]['type'] );
+        $this->assertSame(
+            'Connection token expired.',
+            $GLOBALS['aeocas_test_transients'][ AEOCAS_Settings::CONNECT_NOTICE_TRANSIENT ]['message']
+        );
+        $this->assertCount( 1, $GLOBALS['aeocas_test_remote_post_calls'] );
+
+        unset( $_GET['page'], $_GET['tab'], $_GET['aeo_connect'] );
     }
 
     public function test_add_menu_uses_inline_svg_favicon_for_admin_sidebar(): void {

@@ -28,6 +28,7 @@ $aeocas_can_manage  = AEOCAS_Capabilities::can_manage_plugin();
 $aeocas_notice        = isset( $_GET['aeocas_notice'] ) ? sanitize_key( wp_unslash( $_GET['aeocas_notice'] ) ) : '';
 $aeocas_requested_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
 // phpcs:enable WordPress.Security.NonceVerification.Recommended
+$aeocas_connect_notice = AEOCAS_Settings::consume_connect_notice();
 $aeocas_module_labels = array(
 	'content' => array(
 		'label' => 'Content Publishing',
@@ -361,6 +362,20 @@ if ( ! $aeocas_connected ) {
 
 	<!-- Error state (rendered by JS when needed) -->
 	<div id="aeo-audit-error"></div>
+
+	<?php if ( is_array( $aeocas_connect_notice ) && ! empty( $aeocas_connect_notice['message'] ) ) : ?>
+		<?php
+		$aeocas_connect_notice_class = 'notice-info';
+		if ( 'success' === $aeocas_connect_notice['type'] ) {
+			$aeocas_connect_notice_class = 'notice-success';
+		} elseif ( 'warning' === $aeocas_connect_notice['type'] ) {
+			$aeocas_connect_notice_class = 'notice-warning';
+		} elseif ( 'error' === $aeocas_connect_notice['type'] ) {
+			$aeocas_connect_notice_class = 'notice-error';
+		}
+		?>
+		<div class="notice <?php echo esc_attr( $aeocas_connect_notice_class ); ?> is-dismissible"><p><?php echo esc_html( $aeocas_connect_notice['message'] ); ?></p></div>
+	<?php endif; ?>
 
 	<!-- Re-audit progress -->
 	<div id="aeo-reaudit-progress" style="display: none;">
