@@ -65,14 +65,15 @@ class AEOCAS_Settings {
 		global $submenu;
 
 		$tabs = array(
-			array( 'Site Audit',    'scoreboard' ),
-			array( 'Pages Audit',   'site-audit' ),
+			array( 'Site Audit', 'scoreboard' ),
+			array( 'Pages Audit', 'site-audit' ),
 			array( 'Opportunities', 'opportunities' ),
-			array( 'Rewrites',      'rewrite' ),
+			array( 'Rewrites', 'rewrite' ),
 			array( 'AI Visibility', 'visibility-overview' ),
 		);
 
 		foreach ( $tabs as $item ) {
+			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- WordPress submenu registration uses the global $submenu array.
 			$submenu[ $base ][] = array(
 				$item[0],
 				$cap,

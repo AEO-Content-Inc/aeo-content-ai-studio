@@ -29,7 +29,7 @@ $aeocas_notice        = isset( $_GET['aeocas_notice'] ) ? sanitize_key( wp_unsla
 $aeocas_requested_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
 // phpcs:enable WordPress.Security.NonceVerification.Recommended
 $aeocas_connect_notice = AEOCAS_Settings::consume_connect_notice();
-$aeocas_module_labels = array(
+$aeocas_module_labels  = array(
 	'content' => array(
 		'label' => 'Content Publishing',
 		'desc'  => 'Allow the AEO Content platform to read, create, and update posts on this site.',

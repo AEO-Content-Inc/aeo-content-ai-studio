@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-04-14
+
+### Fixed
+- Release lint issues so the Studio-first WordPress connect flow can be published to WordPress.org successfully
+
 ## [1.2.4] - 2026-04-13
 
 ### Added
