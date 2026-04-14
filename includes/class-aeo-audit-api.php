@@ -56,7 +56,12 @@ class AEOCAS_Audit_Api {
 				continue;
 			}
 
-			$items[] = self::decorate_local_content_item( $item );
+			$item = self::decorate_local_content_item( $item );
+			if ( empty( $item['can_edit'] ) ) {
+				continue;
+			}
+
+			$items[] = $item;
 		}
 
 		return $items;

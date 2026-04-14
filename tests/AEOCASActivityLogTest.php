@@ -211,6 +211,14 @@ final class AEOCASActivityLogTest extends TestCase {
         $this->assertTrue( true );
     }
 
+    public function test_escape_csv_cell_prefixes_formula_like_values(): void {
+        $method = aeocas_make_reflection_method_accessible( new ReflectionMethod( AEOCAS_Activity_Log::class, 'escape_csv_cell' ) );
+
+        $this->assertSame( "'=SUM(A1:A2)", $method->invoke( null, '=SUM(A1:A2)' ) );
+        $this->assertSame( "' +HYPERLINK(\"https://example.com\")", $method->invoke( null, ' +HYPERLINK("https://example.com")' ) );
+        $this->assertSame( 'safe-value', $method->invoke( null, 'safe-value' ) );
+    }
+
     public function test_handle_rest_logs_with_filters(): void {
         $GLOBALS['wpdb']->get_var_result     = 0;
         $GLOBALS['wpdb']->get_results_result = array();

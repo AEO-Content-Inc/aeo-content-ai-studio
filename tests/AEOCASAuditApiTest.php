@@ -6,11 +6,11 @@ use PHPUnit\Framework\TestCase;
 
 final class AEOCASAuditApiTest extends TestCase {
 
-    protected function setUp(): void {
-        $GLOBALS['aeocas_test_options'] = array(
-            'aeocas_site_token'           => 'site-token',
-            'aeocas_connection_verified'  => true,
-        );
+	    protected function setUp(): void {
+	        $GLOBALS['aeocas_test_options'] = array(
+	            'aeocas_site_token'           => 'site-token',
+	            'aeocas_connection_verified'  => true,
+	        );
         $GLOBALS['aeocas_test_transients'] = array();
         $GLOBALS['aeocas_test_remote_get_calls'] = array();
         $GLOBALS['aeocas_test_remote_get'] = null;
@@ -19,10 +19,13 @@ final class AEOCASAuditApiTest extends TestCase {
         $GLOBALS['aeocas_test_post_ids'] = array();
         $GLOBALS['aeocas_test_post_data'] = array();
         $GLOBALS['aeocas_test_post_meta'] = array();
-        $GLOBALS['aeocas_test_current_user_can'] = null;
-        $GLOBALS['aeocas_test_wp_kses_post'] = null;
-        $GLOBALS['aeocas_test_filters'] = array();
-    }
+	        $GLOBALS['aeocas_test_current_user_can'] = null;
+	        $GLOBALS['aeocas_test_wp_kses_post'] = null;
+	        $GLOBALS['aeocas_test_filters'] = array();
+
+	        $property = new ReflectionProperty( AEOCAS_Audit_Api::class, 'local_content_index_bundle' );
+	        $property->setValue( null, null );
+	    }
 
     public function test_get_visibility_returns_cached_visibility_snapshot_without_remote_call(): void {
         $GLOBALS['aeocas_test_transients']['aeocas_visibility_helpsquad-com'] = array(
@@ -1027,7 +1030,7 @@ final class AEOCASAuditApiTest extends TestCase {
 
     // --- ajax_get_local_content_index test ---
 
-    public function test_ajax_get_local_content_index_returns_items(): void {
+	    public function test_ajax_get_local_content_index_returns_items(): void {
         $GLOBALS['aeocas_test_json_response'] = null;
         $GLOBALS['aeocas_test_post_ids'] = array( 1, 2 );
         $GLOBALS['aeocas_test_post_data'] = array(
@@ -1066,8 +1069,31 @@ final class AEOCASAuditApiTest extends TestCase {
         $this->assertSame( 0, $GLOBALS['aeocas_test_json_response']['data']['items'][1]['faq_count'] );
         $this->assertSame( 'draft', $GLOBALS['aeocas_test_json_response']['data']['items'][1]['status'] );
 
-        unset( $GLOBALS['aeocas_test_post_ids'], $GLOBALS['aeocas_test_post_meta'], $GLOBALS['aeocas_test_post_data'] );
-    }
+	        unset( $GLOBALS['aeocas_test_post_ids'], $GLOBALS['aeocas_test_post_meta'], $GLOBALS['aeocas_test_post_data'] );
+	    }
+
+	    public function test_ajax_get_local_content_index_excludes_posts_the_user_cannot_edit(): void {
+	        $GLOBALS['aeocas_test_json_response'] = null;
+	        $GLOBALS['aeocas_test_post_ids'] = array( 1, 2 );
+	        $GLOBALS['aeocas_test_post_data'] = array(
+	            1 => (object) array( 'ID' => 1, 'post_type' => 'page', 'post_status' => 'publish' ),
+	            2 => (object) array( 'ID' => 2, 'post_type' => 'post', 'post_status' => 'private' ),
+	        );
+	        $GLOBALS['aeocas_test_current_user_can'] = static function ( string $capability, ...$args ): bool {
+	            if ( 'edit_post' === $capability && 2 === (int) ( $args[0] ?? 0 ) ) {
+	                return false;
+	            }
+
+	            return true;
+	        };
+
+	        try { AEOCAS_Audit_Api::ajax_get_local_content_index(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
+
+	        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
+	        $this->assertTrue( $GLOBALS['aeocas_test_json_response']['success'] );
+	        $this->assertCount( 1, $GLOBALS['aeocas_test_json_response']['data']['items'] );
+	        $this->assertSame( 1, $GLOBALS['aeocas_test_json_response']['data']['items'][0]['id'] );
+	    }
 
     // --- register_ajax test ---
 

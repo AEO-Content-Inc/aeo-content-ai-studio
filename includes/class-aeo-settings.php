@@ -10,12 +10,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 class AEOCAS_Settings {
 
 	const CONNECT_NOTICE_TRANSIENT = 'aeocas_connect_notice';
+	const STUDIO_CONNECT_ACTION    = 'aeocas_complete_studio_connect';
 
 	public function __construct() {
 		add_action( 'admin_menu', array( $this, 'add_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
-		add_action( 'admin_init', array( $this, 'handle_studio_connect' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
+		add_action( 'admin_post_' . self::STUDIO_CONNECT_ACTION, array( $this, 'handle_studio_connect' ) );
 		add_action( 'admin_post_aeocas_disconnect', array( $this, 'handle_disconnect' ) );
 		add_action( 'wp_ajax_aeocas_google_connect', array( $this, 'ajax_google_connect' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( AEOCAS_PLUGIN_FILE ), array( $this, 'add_settings_link' ) );
@@ -382,42 +383,59 @@ SVG;
 		return $notice;
 	}
 
-	private static function get_plugin_admin_url( $tab = 'connect' ) {
-		return add_query_arg(
+	private static function get_plugin_admin_url( $tab = 'connect', $extra_args = array() ) {
+		$args = array_merge(
 			array(
 				'page' => 'aeocas-audit-report',
 				'tab'  => sanitize_key( $tab ),
 			),
-			admin_url( 'admin.php' )
+			is_array( $extra_args ) ? $extra_args : array()
 		);
+
+		return add_query_arg( $args, admin_url( 'admin.php' ) );
 	}
 
-	private function is_studio_connect_request() {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- One-time platform token handled server-side.
+	public static function get_requested_studio_connect_token() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only query inspection for rendering the confirmation form.
 		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- One-time platform token handled server-side.
-		$connect_token = isset( $_GET['aeo_connect'] ) ? sanitize_text_field( wp_unslash( $_GET['aeo_connect'] ) ) : '';
+		if ( 'aeocas-audit-report' !== $page ) {
+			return '';
+		}
 
-		return 'aeocas-audit-report' === $page && '' !== $connect_token;
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only query inspection for rendering the confirmation form.
+		return isset( $_GET['aeo_connect'] ) ? sanitize_text_field( wp_unslash( $_GET['aeo_connect'] ) ) : '';
 	}
 
 	public function handle_studio_connect() {
-		if ( ! $this->is_studio_connect_request() ) {
-			return;
-		}
-
 		if ( ! AEOCAS_Capabilities::can_manage_plugin() ) {
 			wp_die( esc_html__( 'Unauthorized.', 'aeo-content-ai-studio' ) );
 		}
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- One-time platform token handled server-side.
-		$connect_token = sanitize_text_field( wp_unslash( $_GET['aeo_connect'] ) );
-		$plugin_token  = self::get_or_create_plugin_token();
-		$result        = $this->exchange_connect_token_with_platform( $connect_token, $plugin_token );
+		check_admin_referer( self::STUDIO_CONNECT_ACTION );
+
+		$connect_token = isset( $_POST['connect_token'] )
+			? sanitize_text_field( wp_unslash( $_POST['connect_token'] ) )
+			: '';
+
+		if ( '' === $connect_token ) {
+			self::set_connect_notice( 'error', __( 'Missing Studio connection token.', 'aeo-content-ai-studio' ) );
+			wp_safe_redirect( self::get_plugin_admin_url( 'connect' ) );
+			return;
+		}
+
+		$plugin_token = self::get_or_create_plugin_token();
+		$result       = $this->exchange_connect_token_with_platform( $connect_token, $plugin_token );
 
 		if ( is_wp_error( $result ) ) {
 			self::set_connect_notice( 'error', $result->get_error_message() );
-			wp_safe_redirect( self::get_plugin_admin_url( 'connect' ) );
+			wp_safe_redirect(
+				self::get_plugin_admin_url(
+					'connect',
+					array(
+						'aeo_connect' => $connect_token,
+					)
+				)
+			);
 			return;
 		}
 

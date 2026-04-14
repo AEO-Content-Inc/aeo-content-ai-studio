@@ -154,6 +154,24 @@ class AEOCAS_Activity_Log {
 	}
 
 	/**
+	 * Escape formula-like values before writing them to CSV.
+	 *
+	 * @param mixed $value CSV cell value.
+	 * @return mixed
+	 */
+	private static function escape_csv_cell( $value ) {
+		if ( ! is_string( $value ) ) {
+			return $value;
+		}
+
+		if ( preg_match( '/^\s*[=\+\-@]/', $value ) ) {
+			return "'" . $value;
+		}
+
+		return $value;
+	}
+
+	/**
 	 * Get paginated log entries.
 	 *
 	 * @param int    $page     Page number (1-indexed).
@@ -379,16 +397,20 @@ class AEOCAS_Activity_Log {
 		fputcsv( $output, array( 'ID', 'Timestamp', 'Command', 'Status', 'Post ID', 'Details' ) );
 
 		foreach ( $items as $item ) {
+			$row = array(
+				$item['id'],
+				$item['created_at'],
+				$item['command'],
+				$item['status'],
+				$item['post_id'] ? $item['post_id'] : '',
+				is_array( $item['details'] ) ? wp_json_encode( $item['details'] ) : ( $item['details'] ? $item['details'] : '' ),
+			);
+
+			$row = array_map( array( __CLASS__, 'escape_csv_cell' ), $row );
+
 			fputcsv(
 				$output,
-				array(
-					$item['id'],
-					$item['created_at'],
-					$item['command'],
-					$item['status'],
-					$item['post_id'] ? $item['post_id'] : '',
-					is_array( $item['details'] ) ? wp_json_encode( $item['details'] ) : ( $item['details'] ? $item['details'] : '' ),
-				)
+				$row
 			);
 		}
 
