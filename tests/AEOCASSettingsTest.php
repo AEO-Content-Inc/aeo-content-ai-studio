@@ -14,10 +14,12 @@ final class AEOCASSettingsTest extends TestCase {
         $GLOBALS['aeocas_test_menu_page_args'] = null;
         $GLOBALS['aeocas_test_transients'] = array();
         $GLOBALS['aeocas_test_remote_post'] = null;
-	        $GLOBALS['aeocas_test_remote_post_calls'] = array();
+        $GLOBALS['aeocas_test_remote_post_calls'] = array();
 	        $GLOBALS['aeocas_test_redirect'] = null;
 	        $_GET  = array();
 	        $_POST = array();
+	        $_REQUEST = array();
+	        $_SERVER  = array();
 	    }
 
     public function test_get_site_url_prefers_captured_site_url(): void {
@@ -258,6 +260,46 @@ final class AEOCASSettingsTest extends TestCase {
         $result = $settings->add_plugin_row_meta( $links, 'other-plugin/other-plugin.php' );
 
         $this->assertSame( $links, $result );
+    }
+
+    public function test_review_prompt_requires_connection_and_a_real_outcome(): void {
+        AEOCAS_Settings::record_review_milestone( 'connected' );
+
+        $method = aeocas_make_reflection_method_accessible( new ReflectionMethod( AEOCAS_Settings::class, 'should_show_review_prompt' ) );
+        $this->assertFalse( $method->invoke( null ) );
+
+        AEOCAS_Settings::record_review_milestone( 'audit_completed' );
+        $this->assertTrue( $method->invoke( null ) );
+    }
+
+    public function test_handle_review_prompt_action_dismisses_notice_and_redirects_to_referer(): void {
+        AEOCAS_Settings::record_review_milestone( 'connected' );
+        AEOCAS_Settings::record_review_milestone( 'publish_success' );
+
+        $_REQUEST['aeocas_review_action'] = 'dismiss';
+        $_SERVER['HTTP_REFERER']          = 'https://site.example/wp-admin/plugins.php';
+
+        $settings = new AEOCAS_Settings();
+        $settings->handle_review_prompt_action();
+
+        $state = get_option( AEOCAS_Settings::REVIEW_PROMPT_OPTION, array() );
+        $this->assertTrue( $state['dismissed'] );
+        $this->assertFalse( $state['reviewed'] );
+        $this->assertSame( 'https://site.example/wp-admin/plugins.php', $GLOBALS['aeocas_test_redirect']['location'] );
+    }
+
+    public function test_handle_review_prompt_action_can_mark_review_as_completed(): void {
+        AEOCAS_Settings::record_review_milestone( 'connected' );
+        AEOCAS_Settings::record_review_milestone( 'publish_success' );
+
+        $_REQUEST['aeocas_review_action'] = 'reviewed';
+
+        $settings = new AEOCAS_Settings();
+        $settings->handle_review_prompt_action();
+
+        $state = get_option( AEOCAS_Settings::REVIEW_PROMPT_OPTION, array() );
+        $this->assertTrue( $state['dismissed'] );
+        $this->assertTrue( $state['reviewed'] );
     }
 
     public function test_sanitize_and_register_clears_connection_on_empty_key(): void {

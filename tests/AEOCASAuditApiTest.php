@@ -370,6 +370,29 @@ final class AEOCASAuditApiTest extends TestCase {
         $this->assertCount( 1, $GLOBALS['aeocas_test_remote_get_calls'] );
     }
 
+    public function test_get_audit_records_review_milestone_when_completed(): void {
+        $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => wp_json_encode(
+                    array(
+                        'data' => array(
+                            array(
+                                'status' => 'completed',
+                                'score'  => 91,
+                            ),
+                        ),
+                    )
+                ),
+            );
+        };
+
+        AEOCAS_Audit_Api::get_audit( true );
+
+        $state = get_option( AEOCAS_Settings::REVIEW_PROMPT_OPTION, array() );
+        $this->assertSame( 1, $state['events']['audit_completed'] );
+    }
+
     public function test_get_audit_handles_auth_failure(): void {
         $GLOBALS['aeocas_test_remote_get'] = static function ( string $url, array $args ): array {
             return array(

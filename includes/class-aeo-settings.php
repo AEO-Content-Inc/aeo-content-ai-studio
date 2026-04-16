@@ -11,15 +11,20 @@ class AEOCAS_Settings {
 
 	const CONNECT_NOTICE_TRANSIENT = 'aeocas_connect_notice';
 	const STUDIO_CONNECT_ACTION    = 'aeocas_complete_studio_connect';
+	const REVIEW_PROMPT_OPTION     = 'aeocas_review_prompt_state';
+	const REVIEW_PROMPT_ACTION     = 'aeocas_review_prompt_action';
 	const SUPPORT_FORUM_URL        = 'https://wordpress.org/support/plugin/aeo-content-ai-studio/';
 	const DOCS_URL                 = 'https://www.aeocontent.ai/knowledge/';
+	const REVIEW_URL               = 'https://wordpress.org/support/plugin/aeo-content-ai-studio/reviews/#new-post';
 
 	public function __construct() {
 		add_action( 'admin_menu', array( $this, 'add_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
 		add_action( 'admin_post_' . self::STUDIO_CONNECT_ACTION, array( $this, 'handle_studio_connect' ) );
+		add_action( 'admin_post_' . self::REVIEW_PROMPT_ACTION, array( $this, 'handle_review_prompt_action' ) );
 		add_action( 'admin_post_aeocas_disconnect', array( $this, 'handle_disconnect' ) );
+		add_action( 'admin_notices', array( $this, 'render_review_prompt' ) );
 		add_action( 'wp_ajax_aeocas_google_connect', array( $this, 'ajax_google_connect' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( AEOCAS_PLUGIN_FILE ), array( $this, 'add_settings_link' ) );
 		add_filter( 'plugin_row_meta', array( $this, 'add_plugin_row_meta' ), 10, 2 );
@@ -321,6 +326,15 @@ SVG;
 	}
 
 	/**
+	 * Return the public WordPress.org review URL.
+	 *
+	 * @return string
+	 */
+	public static function get_review_url() {
+		return self::REVIEW_URL;
+	}
+
+	/**
 	 * Build an account URL for connected users who want to manage their account.
 	 *
 	 * @return string
@@ -436,6 +450,98 @@ SVG;
 		return add_query_arg( $args, admin_url( 'admin.php' ) );
 	}
 
+	/**
+	 * Return the normalized review prompt state.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private static function get_review_prompt_state() {
+		$state = get_option( self::REVIEW_PROMPT_OPTION, array() );
+		$state = is_array( $state ) ? $state : array();
+
+		$events = isset( $state['events'] ) && is_array( $state['events'] ) ? $state['events'] : array();
+		$events = array(
+			'connected'       => isset( $events['connected'] ) ? max( 0, (int) $events['connected'] ) : 0,
+			'audit_completed' => isset( $events['audit_completed'] ) ? max( 0, (int) $events['audit_completed'] ) : 0,
+			'publish_success' => isset( $events['publish_success'] ) ? max( 0, (int) $events['publish_success'] ) : 0,
+		);
+
+		return array(
+			'events'    => $events,
+			'dismissed' => ! empty( $state['dismissed'] ),
+			'reviewed'  => ! empty( $state['reviewed'] ),
+		);
+	}
+
+	/**
+	 * Persist review prompt state.
+	 *
+	 * @param array<string,mixed> $state Prompt state.
+	 * @return void
+	 */
+	private static function save_review_prompt_state( $state ) {
+		update_option( self::REVIEW_PROMPT_OPTION, $state, false );
+	}
+
+	/**
+	 * Record a milestone used to qualify the review prompt.
+	 *
+	 * @param string $event Milestone key.
+	 * @return void
+	 */
+	public static function record_review_milestone( $event ) {
+		$event = sanitize_key( (string) $event );
+		if ( ! in_array( $event, array( 'connected', 'audit_completed', 'publish_success' ), true ) ) {
+			return;
+		}
+
+		$state                     = self::get_review_prompt_state();
+		$state['events'][ $event ] = min( 99, (int) $state['events'][ $event ] + 1 );
+
+		self::save_review_prompt_state( $state );
+	}
+
+	/**
+	 * Determine whether the review prompt should render for this request.
+	 *
+	 * @return bool
+	 */
+	private static function should_show_review_prompt() {
+		if ( ! AEOCAS_Capabilities::can_manage_plugin() ) {
+			return false;
+		}
+
+		$state = self::get_review_prompt_state();
+		if ( ! empty( $state['dismissed'] ) || ! empty( $state['reviewed'] ) ) {
+			return false;
+		}
+
+		$has_connection = ! empty( $state['events']['connected'] );
+		$has_outcome    = ! empty( $state['events']['audit_completed'] ) || ! empty( $state['events']['publish_success'] );
+
+		return $has_connection && $has_outcome;
+	}
+
+	/**
+	 * Build the redirect target used after review prompt actions.
+	 *
+	 * @return string
+	 */
+	private static function get_review_prompt_redirect_url() {
+		$referer = '';
+		if ( function_exists( 'wp_get_referer' ) ) {
+			$referer = wp_get_referer();
+		} elseif ( isset( $_SERVER['HTTP_REFERER'] ) ) {
+			$referer = sanitize_text_field( wp_unslash( $_SERVER['HTTP_REFERER'] ) );
+		}
+
+		if ( is_string( $referer ) && '' !== $referer ) {
+			return $referer;
+		}
+
+		return self::get_plugin_admin_url( 'connect' );
+	}
+
 	public static function get_requested_studio_connect_token() {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only query inspection for rendering the confirmation form.
 		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
@@ -445,6 +551,72 @@ SVG;
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only query inspection for rendering the confirmation form.
 		return isset( $_GET['aeo_connect'] ) ? sanitize_text_field( wp_unslash( $_GET['aeo_connect'] ) ) : '';
+	}
+
+	/**
+	 * Render a lightweight review prompt after meaningful success milestones.
+	 *
+	 * @return void
+	 */
+	public function render_review_prompt() {
+		if ( ! self::should_show_review_prompt() ) {
+			return;
+		}
+
+		$review_url = self::get_review_url();
+		$not_now    = add_query_arg(
+			array(
+				'action'               => self::REVIEW_PROMPT_ACTION,
+				'aeocas_review_action' => 'dismiss',
+				'_wpnonce'             => wp_create_nonce( self::REVIEW_PROMPT_ACTION ),
+			),
+			admin_url( 'admin-post.php' )
+		);
+		$reviewed   = add_query_arg(
+			array(
+				'action'               => self::REVIEW_PROMPT_ACTION,
+				'aeocas_review_action' => 'reviewed',
+				'_wpnonce'             => wp_create_nonce( self::REVIEW_PROMPT_ACTION ),
+			),
+			admin_url( 'admin-post.php' )
+		);
+		?>
+		<div class="notice notice-info">
+			<p><strong><?php esc_html_e( 'AEO Content AI Studio is live and delivering results on this site.', 'aeo-content-ai-studio' ); ?></strong></p>
+			<p><?php esc_html_e( 'If the plugin has been useful for audits or publishing, please consider leaving a quick WordPress.org review.', 'aeo-content-ai-studio' ); ?></p>
+			<p>
+				<a class="button button-primary" href="<?php echo esc_url( $review_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Leave a Review', 'aeo-content-ai-studio' ); ?></a>
+				<a class="button button-secondary" href="<?php echo esc_url( $reviewed ); ?>"><?php esc_html_e( 'Already Reviewed', 'aeo-content-ai-studio' ); ?></a>
+				<a class="button-link" href="<?php echo esc_url( $not_now ); ?>"><?php esc_html_e( 'Not Now', 'aeo-content-ai-studio' ); ?></a>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Persist review prompt dismissal or completion state.
+	 *
+	 * @return void
+	 */
+	public function handle_review_prompt_action() {
+		if ( ! AEOCAS_Capabilities::can_manage_plugin() ) {
+			wp_die( esc_html__( 'Unauthorized.', 'aeo-content-ai-studio' ) );
+		}
+
+		check_admin_referer( self::REVIEW_PROMPT_ACTION );
+
+		$decision = isset( $_REQUEST['aeocas_review_action'] )
+			? sanitize_key( wp_unslash( $_REQUEST['aeocas_review_action'] ) )
+			: 'dismiss';
+
+		$state              = self::get_review_prompt_state();
+		$state['dismissed'] = true;
+		if ( 'reviewed' === $decision ) {
+			$state['reviewed'] = true;
+		}
+
+		self::save_review_prompt_state( $state );
+		wp_safe_redirect( self::get_review_prompt_redirect_url() );
 	}
 
 	public function handle_studio_connect() {
@@ -497,6 +669,7 @@ SVG;
 		update_option( 'aeocas_site_token', $site_token );
 		update_option( 'aeocas_plugin_token', $plugin_token, false );
 		update_option( 'aeocas_connection_verified', true );
+		self::record_review_milestone( 'connected' );
 
 		AEOCAS_Activity_Log::log( 'studio_connect', 'success', array( 'message' => 'Site connected from Studio.' ) );
 
@@ -588,6 +761,7 @@ SVG;
 
 		update_option( 'aeocas_site_token', $site_token );
 		update_option( 'aeocas_connection_verified', true );
+		self::record_review_milestone( 'connected' );
 
 		AEOCAS_Activity_Log::log( 'google_connect', 'success', array( 'message' => 'Site connected via Google sign-in.' ) );
 

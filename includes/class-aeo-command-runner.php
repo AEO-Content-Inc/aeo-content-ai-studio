@@ -83,6 +83,10 @@ class AEOCAS_Command_Runner {
 			$post_id
 		);
 
+		if ( ! is_wp_error( $result ) && class_exists( 'AEOCAS_Settings' ) ) {
+			AEOCAS_Settings::record_review_milestone( 'publish_success' );
+		}
+
 		return $result;
 	}
 }

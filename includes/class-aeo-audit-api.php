@@ -876,6 +876,10 @@ class AEOCAS_Audit_Api {
 		// Cache the result.
 		set_transient( $transient_key, $audit, self::CACHE_TTL );
 
+		if ( class_exists( 'AEOCAS_Settings' ) && isset( $audit['status'] ) && 'completed' === sanitize_key( (string) $audit['status'] ) ) {
+			AEOCAS_Settings::record_review_milestone( 'audit_completed' );
+		}
+
 		return $audit;
 	}
 
