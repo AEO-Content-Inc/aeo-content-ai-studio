@@ -2105,11 +2105,13 @@
             }
         } else if (data.checkoutEnabled && data.starterEligible) {
             kicker = starterPrice + ' Starter';
-            title = 'Unlock ' + starterArticles + ' articles for rewrites and new content';
+            title = 'Unlock ' + starterArticles + ' articles or upgrade to Pro';
             if (canManagePlugin) {
-                body = 'One-time payment via Stripe Checkout. Credits work for both page rewrites and new article creation in Studio.';
+                body = 'Billing is handled in Studio. Start a ' + starterPrice + ' trial or subscribe to Pro.';
                 note = '';
-                actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening checkout...' : ('Start for ' + starterPrice)) + '</button>';
+                actionHtml = ''
+                    + '<a class="button button-primary" href="' + esc(upgradeUrl) + '" target="_blank" rel="noopener">' + esc('Start ' + starterPrice + ' trial · ' + starterArticles + ' articles') + '</a>'
+                    + '<a class="button button-secondary" href="' + esc(upgradeUrl) + '" target="_blank" rel="noopener">Subscribe to Pro</a>';
             } else {
                 body = 'No article credits remain on this account.';
                 note = 'A site administrator must manage billing to unlock credits.';
@@ -2117,11 +2119,11 @@
         } else {
             cardClass += ' is-exhausted';
             kicker = planLabel || 'Starter Trial';
-            title = (planLabel && planLabel !== 'Starter Trial') ? planLabel + ' credits exhausted' : 'Starter trial unavailable';
-            body = canManagePlugin ? 'Upgrade in Studio to keep generating rewrites and new articles.' : 'No article credits remain on this account.';
-            note = canManagePlugin ? 'Billing is handled via Stripe Checkout.' : 'A site administrator must manage billing to unlock credits.';
+            title = (planLabel && planLabel !== 'Starter Trial') ? planLabel + ' credits exhausted' : 'Upgrade to Pro for more credits';
+            body = canManagePlugin ? 'Subscribe to Pro in Studio to keep generating rewrites and new articles.' : 'No article credits remain on this account.';
+            note = canManagePlugin ? 'Billing is handled in Studio.' : 'A site administrator must manage billing to unlock credits.';
             if (canManagePlugin && upgradeUrl) {
-                actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-secondary" target="_blank" rel="noopener">Upgrade in Studio</a>';
+                actionHtml = '<a href="' + esc(upgradeUrl) + '" class="button button-primary" target="_blank" rel="noopener">Subscribe to Pro</a>';
             }
         }
 
@@ -2173,9 +2175,6 @@
         phase: 'idle',
         message: '',
         data: null
-    };
-    var rewriteCheckoutState = {
-        loading: false
     };
     var rewritePreviewByUrlKey = {};
     var rewriteRequestStateByUrlKey = {};
@@ -2341,8 +2340,10 @@
             else body += '.';
         } else if (data.checkoutEnabled && data.starterEligible) {
             if (canManagePlugin) {
-                body = 'Unlock ' + starterArticles + ' article credits for rewrites or new content in Studio.';
-                actionHtml = '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening checkout...' : ('Start for ' + starterPrice)) + '</button>';
+                body = 'Start a ' + starterPrice + ' trial (' + starterArticles + ' articles) or subscribe to Pro in Studio.';
+                actionHtml = ''
+                    + '<a class="button button-primary" href="' + esc(upgradeUrl) + '" target="_blank" rel="noopener">' + esc('Start ' + starterPrice + ' trial') + '</a>'
+                    + '<a class="button button-secondary" href="' + esc(upgradeUrl) + '" target="_blank" rel="noopener" style="margin-left:8px;">Subscribe to Pro</a>';
             } else {
                 body = 'No AEO article credits remain on this account. Ask a site administrator to manage billing.';
             }
@@ -2464,36 +2465,6 @@
             });
     }
 
-    function startRewriteCheckout() {
-        if (rewriteCheckoutState.loading) return;
-
-        rewriteCheckoutState.loading = true;
-        if (currentAuditData) renderAudit(currentAuditData);
-
-        var data = new FormData();
-        data.append('action', 'aeocas_get_rewrite_checkout_url');
-        data.append('nonce', aeocasAudit.nonce);
-
-        fetch(aeocasAudit.ajaxUrl, { method: 'POST', body: data })
-            .then(function (r) { return r.json(); })
-            .then(function (res) {
-                if (res && res.success && res.data && res.data.url) {
-                    window.location.href = String(res.data.url);
-                    return;
-                }
-
-                if (checkAuthExpired(res)) return;
-                showError((res && res.data && res.data.message) ? res.data.message : 'Unable to open rewrite checkout.');
-            })
-            .catch(function (err) {
-                showError('Network error: ' + (err.message || 'Please try again.'));
-            })
-            .finally(function () {
-                rewriteCheckoutState.loading = false;
-                if (currentAuditData) renderAudit(currentAuditData);
-            });
-    }
-
     function getRewriteRequestPhase(url) {
         return rewriteRequestStateByUrlKey[normalizeUrlKey(url)] || '';
     }
@@ -2510,10 +2481,15 @@
         return rewriteAvailabilityState.data || null;
     }
 
-    function getRewriteUpgradeUrl() {
+    function getStudioBillingUrl() {
+        if (aeocasAudit && aeocasAudit.billingUrl) return aeocasAudit.billingUrl;
         var availability = getRewriteAvailabilityData();
         if (availability && availability.upgradeUrl) return availability.upgradeUrl;
         return (aeocasAudit && aeocasAudit.manageUrl) ? aeocasAudit.manageUrl : '';
+    }
+
+    function getRewriteUpgradeUrl() {
+        return getStudioBillingUrl();
     }
 
     function getRewriteLocalItem(url) {
@@ -2571,7 +2547,7 @@
                 return { kind: 'unavailable', label: 'Admin required', reason: 'A site administrator must manage billing for additional article credits.' };
             }
             if (availability.checkoutEnabled && availability.starterEligible) {
-                return { kind: 'starter', label: 'Rewrite' };
+                return { kind: 'starter', label: 'Start $1 trial', href: getStudioBillingUrl() };
             }
             return { kind: 'upgrade', label: 'Upgrade', href: getRewriteUpgradeUrl() };
         }
@@ -2591,7 +2567,7 @@
             return '<a class="button button-primary aeo-rewrite-row-action" href="' + esc(rewriteHref) + '" target="_blank" rel="noopener">Rewrite in Studio</a>';
         }
         if (state.kind === 'starter') {
-            return '<button type="button" class="button button-primary aeo-start-rewrite-checkout"' + (rewriteCheckoutState.loading ? ' disabled aria-disabled="true"' : '') + '>' + esc(rewriteCheckoutState.loading ? 'Opening checkout...' : state.label) + '</button>';
+            return '<a class="button button-primary" href="' + esc(state.href || getStudioBillingUrl()) + '" target="_blank" rel="noopener">' + esc(state.label) + '</a>';
         }
         if (state.kind === 'upgrade') {
             return '<a class="button button-secondary aeo-rewrite-upgrade-link" href="' + esc(state.href || getRewriteUpgradeUrl()) + '" target="_blank" rel="noopener">Upgrade</a>';
@@ -5587,13 +5563,6 @@
     });
 
     wrap.addEventListener('click', function (e) {
-        var checkoutBtn = e.target.closest && e.target.closest('.aeo-start-rewrite-checkout');
-        if (!checkoutBtn) return;
-        e.preventDefault();
-        startRewriteCheckout();
-    });
-
-    wrap.addEventListener('click', function (e) {
         var diagnoseAction = e.target.closest && e.target.closest('.aeo-workflow-step-action');
         if (!diagnoseAction) return;
         e.preventDefault();
@@ -5795,6 +5764,17 @@
     if (rewriteCheckoutReturnState === 'starter_success') {
         setTimeout(function () { loadRewriteAvailability(true); }, 2500);
     }
+
+    // Refresh balance when the user returns to this tab (e.g., after
+    // completing checkout in Studio in another tab). Billing is handled
+    // entirely on studio.aeocontent.ai now, so there is no redirect back
+    // into wp-admin — this is the only signal we have to refetch.
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+            loadRewriteAvailability(true);
+        }
+    });
+
     loadLocalContentIndex();
     return true;
     }

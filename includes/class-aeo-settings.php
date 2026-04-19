@@ -365,6 +365,38 @@ SVG;
 	}
 
 	/**
+	 * Build the Studio billing URL for the connected domain.
+	 *
+	 * Studio's /{domain}/billing page redirects unauthenticated visitors to
+	 * /login, so the URL is routed through /login?next=... to preserve the
+	 * destination across the auth redirect.
+	 *
+	 * @return string
+	 */
+	public static function get_billing_url() {
+		$domain = wp_parse_url( self::get_site_url(), PHP_URL_HOST );
+		$utm    = array(
+			'utm_source'   => 'wordpress-plugin',
+			'utm_medium'   => 'plugin',
+			'utm_campaign' => 'billing',
+		);
+
+		if ( ! is_string( $domain ) || '' === $domain ) {
+			return add_query_arg( $utm, trailingslashit( AEOCAS_STUDIO_URL ) . 'pricing' );
+		}
+
+		$target = add_query_arg(
+			$utm,
+			trailingslashit( AEOCAS_STUDIO_URL ) . rawurlencode( strtolower( $domain ) ) . '/billing'
+		);
+
+		return add_query_arg(
+			array( 'next' => $target ),
+			trailingslashit( AEOCAS_STUDIO_URL ) . 'login'
+		);
+	}
+
+	/**
 	 * Build the admin URL for the wp-plugin console in AEO admin.
 	 *
 	 * @return string
@@ -385,27 +417,30 @@ SVG;
 	/**
 	 * Build the popup URL for Google-based connect flow.
 	 *
-	 * @param bool $switch_account Force the Google chooser to ask for account selection.
+	 * Routes through Studio's `/login?intent=google` rather than `/wp-connect`
+	 * directly. The login page auto-triggers `supabase.auth.signInWithOAuth`
+	 * and, because `intent=google` is set, forwards `prompt=select_account`
+	 * so Google always shows the account chooser (with "Use another account"
+	 * at the bottom) instead of silently reusing the default signed-in
+	 * Google session. After OAuth completes, the login page redirects the
+	 * popup to `/wp-connect?...` which exchanges the session for a
+	 * `site_token` and posts it back to this window.
+	 *
 	 * @return string
 	 */
-	public static function get_google_connect_url( $switch_account = false ) {
+	public static function get_google_connect_url() {
 		// Ensure plugin_token exists before opening popup.
 		$plugin_token = self::get_or_create_plugin_token();
 
 		$args = array(
+			'intent'       => 'google',
 			'site_url'     => self::get_site_url(),
 			'home_url'     => get_option( 'aeocas_real_home_url', home_url() ),
 			'plugin_token' => $plugin_token,
 			'return_url'   => admin_url( 'admin.php?page=aeocas-audit-report&tab=connect' ),
 		);
 
-		if ( $switch_account ) {
-			// Google OAuth supports `prompt=select_account` to force the account chooser.
-			// The Studio bridge can forward this hint to the underlying Google auth flow.
-			$args['prompt'] = 'select_account';
-		}
-
-		return add_query_arg( $args, trailingslashit( AEOCAS_STUDIO_URL ) . 'wp-connect' );
+		return add_query_arg( $args, trailingslashit( AEOCAS_STUDIO_URL ) . 'login' );
 	}
 
 	private static function get_or_create_plugin_token() {
@@ -841,14 +876,12 @@ SVG;
 					'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
 					'nonce'         => wp_create_nonce( 'aeocas_google_connect' ),
 					'connectUrl'    => self::get_google_connect_url(),
-					'switchUrl'     => self::get_google_connect_url( true ),
 					'accountOrigin' => esc_url_raw( rtrim( AEOCAS_STUDIO_URL, '/' ) ),
 					'i18n'          => array(
-						'waiting'       => __( 'Waiting for Google sign-in...', 'aeo-content-ai-studio' ),
-						'waitingSwitch' => __( 'Opening Google account chooser...', 'aeo-content-ai-studio' ),
-						'connecting'    => __( 'Connecting your site...', 'aeo-content-ai-studio' ),
-						'success'       => __( 'Connected! Reloading...', 'aeo-content-ai-studio' ),
-						'error'         => __( 'Connection failed. Please try again.', 'aeo-content-ai-studio' ),
+						'waiting'    => __( 'Opening Google account chooser...', 'aeo-content-ai-studio' ),
+						'connecting' => __( 'Connecting your site...', 'aeo-content-ai-studio' ),
+						'success'    => __( 'Connected! Reloading...', 'aeo-content-ai-studio' ),
+						'error'      => __( 'Connection failed. Please try again.', 'aeo-content-ai-studio' ),
 					),
 				)
 			);
@@ -874,6 +907,7 @@ SVG;
 					'adminPluginUrl' => self::get_admin_plugin_url(),
 					'manageUrl'      => self::get_manage_url(),
 					'rewriteBaseUrl' => self::get_rewrite_base_url(),
+					'billingUrl'     => self::get_billing_url(),
 					'canManage'      => AEOCAS_Capabilities::can_manage_plugin(),
 				)
 			);

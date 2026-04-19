@@ -10,7 +10,6 @@
     var btn = document.getElementById('aeo-google-btn');
     if (!btn) return;
 
-    var switchLink = document.getElementById('aeo-google-switch-account');
     var popup = null;
     var pollTimer = null;
     var isConnecting = false;
@@ -19,13 +18,6 @@
     btn.addEventListener('click', function () {
         openConnectPopup(aeocasGoogle.connectUrl, aeocasGoogle.i18n.waiting);
     });
-
-    if (switchLink) {
-        switchLink.addEventListener('click', function (event) {
-            event.preventDefault();
-            openConnectPopup(aeocasGoogle.switchUrl || aeocasGoogle.connectUrl, aeocasGoogle.i18n.waitingSwitch || aeocasGoogle.i18n.waiting);
-        });
-    }
 
     function openConnectPopup(url, waitingText) {
         handledConnection = false;

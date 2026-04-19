@@ -648,23 +648,9 @@ final class AEOCASAuditApiTest extends TestCase {
         $this->assertSame( 403, $GLOBALS['aeocas_test_json_response']['status'] );
     }
 
-    public function test_get_rewrite_checkout_url_returns_platform_checkout_link(): void {
-        $GLOBALS['aeocas_test_remote_post_calls'] = array();
-        $GLOBALS['aeocas_test_remote_post'] = static function ( string $url, array $args ): array {
-            return array(
-                'response' => array( 'code' => 200 ),
-                'body'     => wp_json_encode( array(
-                    'url' => 'https://checkout.stripe.com/pay/cs_test_123',
-                ) ),
-            );
-        };
-
-        $checkout = AEOCAS_Audit_Api::get_rewrite_checkout_url();
-
-        $this->assertIsArray( $checkout );
-        $this->assertSame( 'https://checkout.stripe.com/pay/cs_test_123', $checkout['url'] );
-        $this->assertCount( 1, $GLOBALS['aeocas_test_remote_post_calls'] );
-    }
+    // Rewrite checkout is no longer handled in the plugin — billing is
+    // initiated entirely from Studio (see AEOCAS_Settings::get_billing_url()),
+    // so the former /api/v1/rewrites/checkout proxy tests have been removed.
 
     // --- Discovery tests ---
 
@@ -1007,23 +993,6 @@ final class AEOCASAuditApiTest extends TestCase {
 
         $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
         $this->assertFalse( $GLOBALS['aeocas_test_json_response']['success'] );
-    }
-
-    public function test_ajax_get_rewrite_checkout_url_returns_success(): void {
-        $GLOBALS['aeocas_test_json_response'] = null;
-        $GLOBALS['aeocas_test_remote_post_calls'] = array();
-        $GLOBALS['aeocas_test_remote_post'] = static function (): array {
-            return array(
-                'response' => array( 'code' => 200 ),
-                'body'     => wp_json_encode( array( 'url' => 'https://checkout.stripe.com/pay/cs_test_123' ) ),
-            );
-        };
-
-        try { AEOCAS_Audit_Api::ajax_get_rewrite_checkout_url(); } catch ( AEOCAS_Test_Json_Exit $e ) {}
-
-        $this->assertNotNull( $GLOBALS['aeocas_test_json_response'] );
-        $this->assertTrue( $GLOBALS['aeocas_test_json_response']['success'] );
-        $this->assertSame( 'https://checkout.stripe.com/pay/cs_test_123', $GLOBALS['aeocas_test_json_response']['data']['url'] );
     }
 
     public function test_ajax_audit_status_returns_success(): void {

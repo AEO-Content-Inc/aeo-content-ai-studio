@@ -1044,68 +1044,6 @@ class AEOCAS_Audit_Api {
 	}
 
 	/**
-	 * Create a starter checkout session for rewrite tokens.
-	 *
-	 * @return array|WP_Error
-	 */
-	public static function get_rewrite_checkout_url() {
-		$api_key = get_option( 'aeocas_site_token', '' );
-		if ( empty( $api_key ) ) {
-			return new WP_Error( 'aeocas_no_key', __( 'Site connection is not configured. Go to Settings to connect your site.', 'aeo-content-ai-studio' ) );
-		}
-
-		$slug = self::get_site_slug();
-		if ( empty( $slug ) ) {
-			return new WP_Error( 'aeocas_no_slug', __( 'Could not determine site slug.', 'aeo-content-ai-studio' ) );
-		}
-
-		$response = wp_remote_post(
-			trailingslashit( AEOCAS_PLATFORM_URL ) . 'api/v1/rewrites/checkout',
-			array(
-				'headers'     => array(
-					'Authorization' => 'Bearer ' . $api_key,
-					'Accept'        => 'application/json',
-					'Content-Type'  => 'application/json',
-				),
-				'timeout'     => 15,
-				'body'        => wp_json_encode(
-					array(
-						'site_slug'  => $slug,
-						'site_url'   => get_home_url(),
-						'return_url' => admin_url( 'admin.php?page=aeocas-audit-report&tab=rewrite' ),
-					)
-				),
-				'data_format' => 'body',
-			)
-		);
-
-		if ( is_wp_error( $response ) ) {
-			return new WP_Error( 'aeocas_api_error', $response->get_error_message() );
-		}
-
-		$status = wp_remote_retrieve_response_code( $response );
-		$body   = json_decode( wp_remote_retrieve_body( $response ), true );
-
-		if ( 401 === $status || 403 === $status ) {
-			return self::handle_auth_failure();
-		}
-
-		if ( 200 !== $status ) {
-			$message = isset( $body['error']['message'] ) ? $body['error']['message'] : ( isset( $body['message'] ) ? $body['message'] : __( 'Unable to create rewrite checkout session.', 'aeo-content-ai-studio' ) );
-			return new WP_Error( 'aeocas_checkout_error', $message );
-		}
-
-		$checkout_url = ( isset( $body['url'] ) && is_string( $body['url'] ) ) ? esc_url_raw( $body['url'] ) : '';
-		if ( empty( $checkout_url ) ) {
-			return new WP_Error( 'aeocas_checkout_missing_url', __( 'The platform did not return a checkout URL.', 'aeo-content-ai-studio' ) );
-		}
-
-		return array(
-			'url' => $checkout_url,
-		);
-	}
-
-	/**
 	 * Normalize a rewrite preview response into the plugin shape.
 	 *
 	 * @param mixed $payload Raw preview response.
@@ -1870,30 +1808,6 @@ class AEOCAS_Audit_Api {
 	}
 
 	/**
-	 * AJAX handler for creating a rewrite checkout session.
-	 */
-	public static function ajax_get_rewrite_checkout_url() {
-		if ( ! AEOCAS_Capabilities::can_manage_plugin() ) {
-			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'aeo-content-ai-studio' ) ), 403 );
-		}
-
-		check_ajax_referer( 'aeocas_audit_nonce', 'nonce' );
-
-		$checkout = self::get_rewrite_checkout_url();
-
-		if ( is_wp_error( $checkout ) ) {
-			wp_send_json_error(
-				array(
-					'message' => $checkout->get_error_message(),
-					'code'    => $checkout->get_error_code(),
-				)
-			);
-		}
-
-		wp_send_json_success( $checkout );
-	}
-
-	/**
 	 * AJAX handler for generating a rewrite preview.
 	 */
 	public static function ajax_preview_rewrite() {
@@ -2026,7 +1940,6 @@ class AEOCAS_Audit_Api {
 		add_action( 'wp_ajax_aeocas_get_discovery', array( __CLASS__, 'ajax_get_discovery' ) );
 		add_action( 'wp_ajax_aeocas_get_visibility', array( __CLASS__, 'ajax_get_visibility' ) );
 		add_action( 'wp_ajax_aeocas_get_rewrite_availability', array( __CLASS__, 'ajax_get_rewrite_availability' ) );
-		add_action( 'wp_ajax_aeocas_get_rewrite_checkout_url', array( __CLASS__, 'ajax_get_rewrite_checkout_url' ) );
 		add_action( 'wp_ajax_aeocas_preview_rewrite', array( __CLASS__, 'ajax_preview_rewrite' ) );
 		add_action( 'wp_ajax_aeocas_create_rewrite_draft', array( __CLASS__, 'ajax_create_rewrite_draft' ) );
 		add_action( 'wp_ajax_aeocas_apply_rewrite_draft', array( __CLASS__, 'ajax_apply_rewrite_draft' ) );

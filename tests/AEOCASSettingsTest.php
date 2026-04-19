@@ -74,12 +74,33 @@ final class AEOCASSettingsTest extends TestCase {
         $this->assertSame( 'wp-admin', $query['utm_campaign'] );
     }
 
-    public function test_get_google_connect_url_uses_studio_domain(): void {
+    public function test_get_billing_url_points_to_studio_billing_via_login_next(): void {
+        $url = AEOCAS_Settings::get_billing_url();
+        $parts = wp_parse_url( $url );
+        parse_str( $parts['query'], $query );
+
+        $this->assertSame( 'studio.aeocontent.ai', $parts['host'] );
+        $this->assertSame( '/login', $parts['path'] );
+        $this->assertArrayHasKey( 'next', $query );
+
+        $next_parts = wp_parse_url( $query['next'] );
+        parse_str( $next_parts['query'], $next_query );
+
+        $this->assertSame( 'studio.aeocontent.ai', $next_parts['host'] );
+        $this->assertSame( '/captured.example/billing', $next_parts['path'] );
+        $this->assertSame( 'wordpress-plugin', $next_query['utm_source'] );
+        $this->assertSame( 'billing', $next_query['utm_campaign'] );
+    }
+
+    public function test_get_google_connect_url_uses_studio_login_intent(): void {
         $url = AEOCAS_Settings::get_google_connect_url();
         $parts = wp_parse_url( $url );
 
+        parse_str( $parts['query'], $query );
+
         $this->assertSame( 'studio.aeocontent.ai', $parts['host'] );
-        $this->assertSame( '/wp-connect', $parts['path'] );
+        $this->assertSame( '/login', $parts['path'] );
+        $this->assertSame( 'google', $query['intent'] );
     }
 
     public function test_get_google_connect_url_includes_site_params(): void {
@@ -113,13 +134,19 @@ final class AEOCASSettingsTest extends TestCase {
         $this->assertNotEmpty( $GLOBALS['aeocas_test_options']['aeocas_plugin_token'] ?? '' );
     }
 
-    public function test_get_google_connect_url_can_force_google_account_chooser(): void {
-        $url = AEOCAS_Settings::get_google_connect_url( true );
+    public function test_get_google_connect_url_carries_site_context_for_login_redirect(): void {
+        $url = AEOCAS_Settings::get_google_connect_url();
         $parts = wp_parse_url( $url );
 
         parse_str( $parts['query'], $query );
 
-        $this->assertSame( 'select_account', $query['prompt'] );
+        // Studio's /login page needs these to rebuild the /wp-connect redirect
+        // target after Google OAuth completes.
+        $this->assertSame( 'https://captured.example', $query['site_url'] );
+        $this->assertSame( 'https://home-captured.example', $query['home_url'] );
+        $this->assertArrayHasKey( 'plugin_token', $query );
+        $this->assertNotEmpty( $query['plugin_token'] );
+        $this->assertStringContainsString( 'admin.php', $query['return_url'] );
     }
 
 	    public function test_get_requested_studio_connect_token_reads_sanitized_query_param(): void {

@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-04-18
+
+### Fixed
+- "Continue with Google" popup now goes through `studio.aeocontent.ai/login?intent=google` and reliably shows Google's account chooser. Previous versions routed to `/wp-connect` directly, which reused any existing Studio session and closed the popup within ~1 second before the user could pick an account. Requires the matching Studio release that forwards `prompt=select_account` to Supabase OAuth when `intent=google`.
+
+## [1.2.9] - 2026-04-18
+
+### Changed
+- "Continue with Google" now always opens Google's account chooser so the user can pick any signed-in account or add a new one. Google no longer silently auto-selects the default session.
+
+### Removed
+- Secondary "Use a different Google account" link — the primary button already shows the account chooser.
+
+## [1.2.8] - 2026-04-18
+
+### Changed
+- Billing is now handled entirely in Studio. The "Start $1 trial" and new "Subscribe to Pro" buttons open `studio.aeocontent.ai/{domain}/billing` in a new tab instead of creating a Stripe Checkout session from WordPress
+- Article balance refreshes automatically when the plugin tab becomes visible again, so returning from Studio after a purchase updates credits without a manual reload
+
+### Removed
+- In-plugin Stripe Checkout proxy (`aeocas_get_rewrite_checkout_url` AJAX action and the corresponding `/api/v1/rewrites/checkout` call)
+
 ## [1.2.7] - 2026-04-14
 
 ### Added

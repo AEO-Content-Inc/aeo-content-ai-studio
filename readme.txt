@@ -4,7 +4,7 @@ Tags: ai, content, publishing, audit, optimization
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.2.7
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -148,6 +148,18 @@ The plugin requires a valid site connection to the AEO Content platform. Without
 
 == Changelog ==
 
+= 1.3.0 =
+* Fixed: Continue with Google popup now reliably shows the Google account chooser instead of closing after 1 second when you already had a Studio session
+
+= 1.2.9 =
+* Continue with Google now always shows the Google account chooser so you can pick any signed-in account or add a new one
+* Removed the secondary "Use a different Google account" link
+
+= 1.2.8 =
+* Billing is handled entirely in Studio. Start $1 trial and Subscribe to Pro buttons open studio.aeocontent.ai billing in a new tab
+* Article balance refreshes automatically when you return to the plugin tab after a purchase
+* Removed the in-plugin Stripe Checkout proxy
+
 = 1.2.7 =
 * Added support visibility improvements in WordPress admin with direct Docs and Support Forum links
 * Added plugin list links for Settings, Support, Docs, and Support Forum discovery
@@ -198,6 +210,15 @@ The plugin stores the IP address of incoming API requests in the activity log fo
 Local logging remains available for secure platform-to-plugin diagnostics, but user-facing operational logs are no longer rendered inside the WordPress admin UI.
 
 == Upgrade Notice ==
+
+= 1.3.0 =
+Fixes the Google sign-in popup closing before you could pick an account. Requires the matching Studio release for the account chooser to appear.
+
+= 1.2.9 =
+Continue with Google now always shows the Google account chooser instead of auto-selecting the default signed-in account.
+
+= 1.2.8 =
+Billing moves to Studio: one click opens studio.aeocontent.ai/{domain}/billing for $1 trial or Pro subscription instead of running Stripe Checkout from WordPress.
 
 = 1.2.7 =
 Improves support visibility with direct Docs and Support Forum links in WordPress admin and adds troubleshooting FAQ updates on WordPress.org.
